@@ -1,0 +1,37 @@
+# Build outputs: publish Windows executables as GitHub Release assets, not Git blobs.
+*.exe
+*.dll
+*.pdb
+*.zip
+*.7z
+*.rar
+*.msi
+*.msix
+*.log
+
+# Go tooling
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary or personal/local data; never commit game dumps or user-specific caches.
+*.xbe
+*.iso
+*.xiso
+*.cci
+*.chd
+*.img
+*.bin
+!testdata/interop/*.bin
+local/
+cache/
+Custom/
+GitHub/

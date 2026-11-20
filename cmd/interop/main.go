@@ -1,0 +1,3 @@
+package main
+import("magicpatchdesk/core";"math/rand";"os")
+func main(){const dir="testdata/interop/";src:=make([]byte,300000);r:=rand.New(rand.NewSource(99));for i:=range src{src[i]=byte(r.Intn(34))};target:=append([]byte{},src...);for i:=10;i<len(target);i+=17{target[i]^=0xA2};target=append(target,[]byte("Extra appended source content")...);os.WriteFile(dir+"source.bin",src,0644);os.WriteFile(dir+"target.bin",target,0644);delta,_:=core.EncodeXdelta(src,target);os.WriteFile(dir+"go.xdelta",delta,0644);ipsSrc:=src[:5000];ipsTarget:=target[:5000];ips,_:=core.EncodeIPS(ipsSrc,ipsTarget);os.WriteFile(dir+"go.ips",ips,0644);encrypt,_:=core.EncryptIPS(ips,"interop-passphrase");os.WriteFile(dir+"go.eips",encrypt,0644)}
