@@ -273,7 +273,8 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	} else if app.inputErr != "" {
 		textAt(hdc, strLimit(app.inputErr, 95), 273, h-82, w-625, 17, app.fonts.Small, amber)
 	}
-	button(hdc, "Browse file", ir(w-344, h-119, 130, 43), "open", 0, false)
+	button(hdc, "Browse file", ir(w-466, h-119, 122, 43), "open", 0, false)
+	button(hdc, "PREVIEW", ir(w-333, h-119, 119, 43), "preview", 0, false)
 	button(hdc, "APPLY PATCH", ir(w-202, h-119, 175, 43), "apply", 0, true)
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
@@ -326,28 +327,76 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		return
 	}
 	textAt(hdc, fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS", len(p.Records)), x+23, groupY, width-43, 23, app.fonts.Micro, muted)
-	textAt(hdc, "Click a group to toggle all matching comments.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
+	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
 	rowY := groupY + 56
-	visible := int((bottom - rowY - 88) / 42)
+	visible := int((bottom - rowY - 88) / 38)
 	if visible < 1 {
 		visible = 1
 	}
-	if app.groupScroll > len(p.Groups)-visible {
-		app.groupScroll = len(p.Groups) - visible
+	type row struct {
+		group  int
+		record int
+	}
+	rows := make([]row, 0, len(p.Groups)+len(p.Records))
+	for gi, g := range p.Groups {
+		rows = append(rows, row{gi, -1})
+		if app.expandedGroup == gi {
+			for ri, r := range p.Records {
+				if strings.EqualFold(r.Group, g.Name) {
+					rows = append(rows, row{gi, ri})
+				}
+			}
+		}
+	}
+	if app.groupScroll > len(rows)-visible {
+		app.groupScroll = len(rows) - visible
 	}
 	if app.groupScroll < 0 {
 		app.groupScroll = 0
 	}
-	for i := 0; i < visible && i+app.groupScroll < len(p.Groups); i++ {
-		idx := i + app.groupScroll
-		g := p.Groups[idx]
-		y := rowY + int32(i)*42
-		panel(hdc, ir(x+18, y, width-36, 36), 0x24344B, 9)
-		mark(hdc, ir(x+28, y+8, 19, 19), g.Enabled)
-		textAt(hdc, strLimit(g.Name, 54), x+60, y+5, width-168, 27, app.fonts.Medium, white)
-		textAt(hdc, fmt.Sprintf("×%d", g.Count), x+width-81, y+6, 57, 24, app.fonts.Small, muted)
+	for i := 0; i < visible && i+app.groupScroll < len(rows); i++ {
+		r := rows[i+app.groupScroll]
+		y := rowY + int32(i)*38
+		if r.record >= 0 {
+			rec := p.Records[r.record]
+			panel(hdc, ir(x+34, y, width-52, 34), 0x1F2F45, 8)
+			mark(hdc, ir(x+47, y+8, 18, 18), rec.Enabled)
+			label := fmt.Sprintf("#%d  %s", r.record+1, rec.Kind)
+			if rec.Kind == core.Offset {
+				label += fmt.Sprintf("  ·  0x%X", rec.Offset)
+			}
+			if rec.Kind == core.SearchReplace {
+				label += fmt.Sprintf("  ·  %d bytes", len(rec.Find))
+			}
+			if rec.Kind == core.Append {
+				label += fmt.Sprintf("  ·  %d bytes", len(rec.Data))
+			}
+			textAt(hdc, strLimit(label, 67), x+78, y+5, width-126, 24, app.fonts.Small, muted)
+			if !app.busy {
+				addHit(ir(x+34, y, width-52, 34), "record", r.record)
+			}
+			continue
+		}
+		g := p.Groups[r.group]
+		panel(hdc, ir(x+18, y, width-36, 34), 0x24344B, 9)
+		mark(hdc, ir(x+47, y+8, 18, 18), g.Enabled)
+		if g.Mixed {
+			textAt(hdc, "–", x+50, y+6, 14, 21, app.fonts.Micro, white)
+		}
+		textAt(hdc, strLimit(g.Name, 50), x+78, y+5, width-185, 24, app.fonts.Medium, white)
+		textAt(hdc, fmt.Sprintf("×%d", g.Count), x+width-76, y+6, 54, 23, app.fonts.Small, muted)
+		if g.Count > 1 {
+			chevron := "+"
+			if app.expandedGroup == r.group {
+				chevron = "−"
+			}
+			textAt(hdc, chevron, x+26, y+5, 18, 22, app.fonts.Title, blue)
+			if !app.busy {
+				addHit(ir(x+18, y, 29, 34), "expand", r.group)
+			}
+		}
 		if !app.busy {
-			addHit(ir(x+18, y, width-36, 36), "group", idx)
+			addHit(ir(x+48, y, width-66, 34), "group", r.group)
 		}
 	}
 	foot := bottom - 72
@@ -411,13 +460,13 @@ func drawSettings(hdc uintptr, w, h int32) {
 	width := w - 298
 	panel(hdc, ir(x, 129, width, 154), surface, 17)
 	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 153, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Threads for copying large ISO images and indexing JMP files (1–8).", x+29, 194, width-60, 24, app.fonts.Regular, muted)
+	textAt(hdc, "Saved automatically · Parallel workers for ISO copying and patch indexing (1–8).", x+29, 194, width-60, 24, app.fonts.Regular, muted)
 	button(hdc, "−", ir(x+width-217, 208, 48, 48), "workers", -1, false)
 	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 210, 50, 45, app.fonts.Title, white)
 	button(hdc, "+", ir(x+width-95, 208, 48, 48), "workers", 1, false)
 	panel(hdc, ir(x, 302, width, 122), surface, 17)
 	textAt(hdc, "VERIFICATION SAFEGUARDS", x+28, 319, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Require a JMP's CRC32 to match the original XBE (recommended).", x+29, 357, width-185, 28, app.fonts.Regular, muted)
+	textAt(hdc, "CRC32 and Title ID protection. Override resets OFF each launch.", x+29, 357, width-185, 28, app.fonts.Regular, muted)
 	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 353, 152, 43), "override", 0, app.override)
 	panel(hdc, ir(x, 443, width, 169), surface, 17)
 	textAt(hdc, "OFFLINE PATCHES", x+28, 462, width-45, 29, app.fonts.Title, white)
@@ -434,7 +483,7 @@ func drawAbout(hdc uintptr, w, h int32) {
 	width := w - 299
 	panel(hdc, ir(x, 130, width, 408), surface, 20)
 	textAt(hdc, "NATIVE. PORTABLE. MADE FOR XBOX.", x+34, 155, width-65, 40, app.fonts.Title, white)
-	lines := []string{"• Native Win32 application compiled with Go — no browser window or runtime installer.", "• Live GitHub collection checking, fully cached offline; add JMPs manually.", "• Original XBE inspection, Title IDs, regions and CRC32 comparison.", "• Group identical JMP comment labels into one switch, including [-] defaults.", "• XISO and Xbox full-disc ISO reading, with safe output copy and sector relocation.", "• Parallel file copying with bounded worker counts.", "• No original files overwritten; failed patches never produce a completed output."}
+	lines := []string{"• Native Win32 application compiled with Go — no browser window or runtime installer.", "• Live GitHub collection checking, fully cached offline; add JMPs manually.", "• Original XBE inspection, Title IDs, regions and CRC32 comparison.", "• Group identical JMP comments, expand to toggle individual records or mixed groups.", "• XISO and Xbox full-disc ISO reading, with safe output copy and sector relocation.", "• Parallel file copying with bounded worker counts.", "• Dry-run patch preview, confirmation before writing; safe settings saved locally."}
 	for i, v := range lines {
 		textAt(hdc, v, x+35, 220+int32(i)*38, width-62, 33, app.fonts.Regular, muted)
 	}

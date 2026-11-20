@@ -42,6 +42,7 @@ type Group struct {
 	Name    string
 	Count   int
 	Enabled bool
+	Mixed   bool
 }
 
 var crcRx = regexp.MustCompile(`(?i)\{([0-9a-f]{8})\}`)
@@ -186,20 +187,48 @@ func ParseJMP(name string, data []byte) (*Patch, error) {
 	if len(p.Records) == 0 {
 		return nil, errors.New("no patch records found")
 	}
+	p.updateGroupStates()
 	return p, nil
 }
+
+// updateGroupStates reflects individually enabled records, including mixed groups.
+func (p *Patch) updateGroupStates() {
+	for i := range p.Groups {
+		enabled, disabled := 0, 0
+		for _, r := range p.Records {
+			if strings.EqualFold(r.Group, p.Groups[i].Name) {
+				if r.Enabled {
+					enabled++
+				} else {
+					disabled++
+				}
+			}
+		}
+		p.Groups[i].Enabled = enabled > 0 && disabled == 0
+		p.Groups[i].Mixed = enabled > 0 && disabled > 0
+	}
+}
+
 func (p *Patch) EnableGroup(name string, enable bool) {
 	for i := range p.Records {
 		if strings.EqualFold(p.Records[i].Group, name) {
 			p.Records[i].Enabled = enable
 		}
 	}
-	for i := range p.Groups {
-		if strings.EqualFold(p.Groups[i].Name, name) {
-			p.Groups[i].Enabled = enable
-		}
-	}
+	p.updateGroupStates()
 }
+
+// SetRecordEnabled allows an individual record to be changed without breaking
+// the existing single-toggle grouping behaviour.
+func (p *Patch) SetRecordEnabled(index int, enabled bool) error {
+	if index < 0 || index >= len(p.Records) {
+		return fmt.Errorf("invalid record index %d", index)
+	}
+	p.Records[index].Enabled = enabled
+	p.updateGroupStates()
+	return nil
+}
+
 func (p *Patch) ExpectedCRC() string {
 	if len(p.CRCs) == 0 {
 		return "No CRC32 required"
@@ -222,44 +251,10 @@ func (p *Patch) VerifyCRC(input []byte) error {
 	}
 	return fmt.Errorf("CRC32 mismatch: file %08X; patch expects %s", got, p.ExpectedCRC())
 }
+
+// Apply produces an independent patched copy. All selected records execute in
+// the sequence they appear in the JMP, including records in mixed groups.
 func (p *Patch) Apply(input []byte, overrideCRC bool) ([]byte, error) {
-	if !overrideCRC {
-		if titleId := TitleIDFromVersion(p.Headers["version"]); titleId != "" {
-			if info, err := InspectXBE(input); err == nil && !strings.EqualFold(info.TitleID, titleId) {
-				return nil, fmt.Errorf("Title ID mismatch: XBE is %s but patch expects %s", info.TitleID, titleId)
-			}
-		}
-	}
-	if !overrideCRC {
-		if err := p.VerifyCRC(input); err != nil {
-			return nil, err
-		}
-	}
-	out := append([]byte{}, input...)
-	for i, r := range p.Records {
-		if !r.Enabled {
-			continue
-		}
-		switch r.Kind {
-		case Offset:
-			if r.Offset < 0 || r.Offset+int64(len(r.Data)) > int64(len(out)) {
-				return nil, fmt.Errorf("record %d (%s): offset 0x%X outside XBE", i+1, r.Group, r.Offset)
-			}
-			copy(out[r.Offset:], r.Data)
-		case SearchReplace:
-			pos := bytes.Index(out, r.Find)
-			if pos < 0 {
-				return nil, fmt.Errorf("record %d (%s): search pattern not found", i+1, r.Group)
-			}
-			copy(out[pos:], r.Replace)
-		case Append:
-			if len(out)+len(r.Data) > 512<<20 {
-				return nil, fmt.Errorf("record %d: XBE exceeds 512 MiB safety cap", i+1)
-			}
-			out = append(out, r.Data...)
-		default:
-			return nil, fmt.Errorf("unknown record kind %s", r.Kind)
-		}
-	}
-	return out, nil
+	out, _, err := p.applyWithTrace(input, overrideCRC)
+	return out, err
 }

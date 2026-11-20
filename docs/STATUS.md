@@ -3,6 +3,7 @@
 2026-11-21 (NZ)
 
 Confirmed:
+- v0.2.0 test branch: patch preview and mixed-state record controls; saved safe preferences. `go test ./...`, `go test -race ./core`, `go vet ./...` pass; PE32+ Windows cross-build passes.
 - Go core unit tests (including race-enabled) PASS: JMP parsing, grouped labels and switches, CRC32, IPS/RLE, encrypted IPS, Xdelta/VCDIFF subset, XISO file relocation, full-disc growth refusal, PatchHub titles-folder metadata.
 - Windows x64 cross-compile PASS: native Win32 PE32+ GUI binary.
 - The Go and prior HTML engine's EIPS and VCDIFF uncompressed conversions passed cross-implementation round-trip checks during development.

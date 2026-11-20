@@ -40,6 +40,7 @@ Create a fast, visually approachable *native* Windows application that browses t
 - No GPU patch acceleration; worker count applies to indexing and ISO copying, not sequential JMP records.
 - No automated game-image regression corpus (copyright concerns); add synthetic XDVDFS and JMP tests as improvements are made.
 - No executable auto-updater, presets/undo journal, batch conversions or complete game-asset editor yet.
+- The `feature/dry-run-record-controls-settings` branch introduces memory-only preflight with a Windows confirmation dialog; expanded per-record toggles under grouped comments; safe UI settings persistence (never persist CRC override). These are a developer test build and still require Windows 10/11 GUI QA.
 
 ## Recommended next actions
 

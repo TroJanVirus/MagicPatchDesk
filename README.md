@@ -6,7 +6,7 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 
 1. Double-click `MagicPatchDesk-Windows-x64.exe`. The application displays its existing local library immediately while it checks GitHub for the current JMP count and downloads new JMP files into the user cache. It also refreshes a read-only game/title/cover index from Jay's Patch Hub (at most once a day).
 2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app can propose a matching patch using the embedded XBE's Title ID and CRC32, but **never applies patches automatically**.
-3. Inspect the JMP's commented record groups, toggle those you want, and click **APPLY PATCH**. Save to a new file. The input is left unchanged.
+3. Inspect the JMP's commented record groups. Click a group to toggle all its records or click **+** to expand it and toggle individual records. Click **PREVIEW** to dry-run the selected patch, inspecting exact hexadecimal offsets, changed-byte counts and the expected resulting XBE CRC32. No files are written during preview. **APPLY PATCH** also performs a dry run and requests confirmation before writing a separate output copy.
 4. In **Convert & Create**, choose an original XBE and modified XBE to create JMP, IPS, Xdelta, or encrypted IPS. Alternatively, select a JMP/IPS/Xdelta in **Patch Library** and choose an original XBE in **Convert & Create** to generate a converted patch. The conversion tab currently expects XBE files, not ISO-to-ISO comparisons.
 
 ## Offline use and manual patch packs
@@ -20,9 +20,10 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 ## Grouped JMP records and safety
 
 - Recognizes the six headers (`system`, `game-title`, `region`, `version`, `author`, `notes`), CRC32 hashes in curly braces in `version`, search/replace, hexadecimal offsets, and `APPEND:` bytes.
-- Multiple records with the **same comment label**, regardless of capitalisation, are shown as one selectable switch. For example, two `#Widescreen` records become **Widescreen ×2**. The `[-]` marker starts an individual record disabled; clicking a group applies the new state to every record in it.
+- Multiple records with the **same comment label**, regardless of capitalisation, are shown as one selectable switch. For example, two `#Widescreen` records become **Widescreen ×2**. The `[-]` marker starts an individual record disabled. Click the group to enable/disable all, or expand **+** to set each record independently. Partially enabled groups display a mixed-state marker.
 - CRC32 matches the **unpatched XBE**, not the container ISO. If provided, mismatched CRCs are refused. The XBE Title ID is checked when the JMP version contains a parseable Title ID. An optional override is available in Settings and should be used only if the user has verified compatibility.
-- A missing search pattern, invalid patch record, or out-of-bounds offset causes an error; failed patches are not silently ignored. Output is staged as a temporary file and moved into place only on success.
+- A missing search pattern, invalid patch record, or out-of-bounds offset causes an error; failed patches are not silently ignored. **Preview** validates a real patch in memory without touching the original. **Apply** displays a before/after CRC32 and record/byte summary before seeking user confirmation. Full-disc XISO sector-growth constraints are checked during preflight. Output is staged as a temporary file and moved into place only on success.
+- Worker count and catalogue category filter are now persisted in `%APPDATA%\MagicPatchDesk\settings.json`. The unsafe CRC32/Title-ID override is **deliberately never persisted**, returning to enforced verification each launch.
 
 ## ISO/XISO behaviour
 
@@ -47,7 +48,7 @@ Conversion requires the original file because plain IPS and VCDIFF cannot reliab
 - Built with the Go standard library and Windows system DLLs (Win32/GDI/GDI+). No .NET, Chrome, Node, Visual C++ Redistributable, driver, installation, or admin privilege is required.
 - **The EXE is currently unsigned.** Windows SmartScreen/antivirus may warn or quarantine it, especially on a new machine. There is no reliable way to guarantee zero warnings without trusted code signing and publisher reputation. Do not disable Windows security to make it run. Consider signing the release using an Authenticode certificate before public distribution.
 - The app only contacts GitHub and Jay's Patch Hub for public catalog/thumbnail updates. It does not upload game files or patch results.
-- The GUI executable has been cross-compiled to a valid PE32+ Windows x64 binary. Core Go tests, including a race-enabled run, passed on Linux. **GUI interactions and original Xbox hardware compatibility have NOT yet been verified on physical Windows 10/11 or an original Xbox**. Treat as a developer/test build until that QA is complete.
+- The GUI executable has been cross-compiled to a valid PE32+ Windows x64 binary. Core Go tests, including a race-enabled run, passed on Linux. Additional tests cover dry-run validation, per-record/mixed-group behaviour and preferences round-tripping. **GUI interactions and original Xbox hardware compatibility have NOT yet been verified on physical Windows 10/11 or an original Xbox**. Treat as a developer/test build until that QA is complete.
 
 ## Build from source (developers only)
 

@@ -1,4 +1,4 @@
-# Project state — native Windows first developer build
+# Project state — v0.2.0 test branch (post-v0.1.0 baseline)
 
 Last consolidated: 2026-11-21 (NZ). This document captures what is present in the source tree, not a promise of hardware compatibility.
 
@@ -11,10 +11,13 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 - Original XBE Title ID/CRC32 inspection and patch compatibility checks.
 - XDVDFS/XISO loading, default.xbe replacement, game-partition relocation for growth; full-disc growth refusal when beyond allocation.
 - Multiworker bounded-memory ISO copying and patch indexing, output staging to preserve originals.
+- **New in v0.2.0 test:** dry-run XBE/ISO preview before writes, with predicted CRC32 and per-record byte offsets, and confirmation before applying.
+- **New in v0.2.0 test:** expand repeated JMP comment groups and toggle individual records; mixed groups clearly indicated.
+- **New in v0.2.0 test:** worker count and catalogue filter persisted to a local JSON settings file. Verification override deliberately resets OFF on launch.
 
 ## Tested in this environment
 
-- `go test ./...` passed, including `core` unit tests (2026-11-21).
+- `go test ./...` and `go test -race ./core` passed, including new patch preview, mixed-group, and JSON preferences unit tests (2026-11-21).
 - `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags='-H windowsgui -s -w' ...` succeeded.
 - A fresh cross-compiled executable matched the prior distributed binary byte-for-byte by SHA-256.
 
@@ -31,3 +34,9 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 - Avoid GitHub Actions workflows unless explicitly requested, to minimise CI minutes.
 - Preserve patch authorship, backups and user data.
 - For contributor context, read `AGENTS.md`, `AI_HANDOFF.md`, and `README.md`.
+
+## Branch/release layout
+
+- Baseline source: `main` at `2ca03edcc227174b4e252ebe5657142f5666ae29`.
+- Initial portable release: `release/v0.1.0` runs a **single** GitHub Actions job that creates the GitHub Release `v0.1.0` with built EXE and SHA256SUMS. No recurring jobs.
+- Current test features: `feature/dry-run-record-controls-settings` proposed as v0.2.0 test, not merged into baseline until Windows GUI QA.
