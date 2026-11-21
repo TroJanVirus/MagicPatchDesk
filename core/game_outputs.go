@@ -293,6 +293,11 @@ func fillXDVTables(root *xdvNode) error {
 // BuildGameXISO constructs a trimmed game-partition XDVDFS image (not a
 // reconstructed Redump/full-disc ISO), then verifies every input file hash.
 func BuildGameXISO(folder,destination string) error {
+    sourceAbs,_:=filepath.Abs(folder)
+    destAbs,_:=filepath.Abs(destination)
+    if strings.EqualFold(sourceAbs,destAbs) || strings.HasPrefix(strings.ToLower(destAbs),strings.ToLower(sourceAbs)+string(os.PathSeparator)){
+        return errors.New("XISO output must be outside the extracted source folder")
+    }
     if err:=ensureNewOutput(destination);err!=nil{return err}
     root,err:=collectXDVTree(folder)
     if err!=nil{return err}
