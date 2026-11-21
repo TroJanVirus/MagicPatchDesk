@@ -593,7 +593,7 @@ func drawGameOutputs(hdc uintptr, w, h int32) {
         cy:=y(int32(330+(i/2)*59))
         cellHeight:=hh(49)
         active:=gameOutputMask&(uint32(1)<<uint(i))!=0
-        fillColor:=surface2
+        fillColor:=uint32(surface2)
         if active{fillColor=0x2E4E78}
         panel(hdc,ir(cx,cy,cell,cellHeight),fillColor,12)
         mark(hdc,ir(cx+13,cy+(cellHeight-18)/2,18,18),active)
