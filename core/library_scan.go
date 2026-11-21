@@ -86,10 +86,22 @@ func matchingLibraryPatches(game *LibraryGame,catalog Catalog) {
     for _,entry:=range catalog.Games {
         for _,patch:=range entry.Patches {
             if patch.Issue!=""{continue}
-            // Unidentified generic patches cannot be safely associated with
-            // games using only a similar filename or title.
-            if game.TitleID=="" || patch.TitleID=="" || !strings.EqualFold(game.TitleID,patch.TitleID){continue}
+            idMatches:=game.TitleID!=""&&patch.TitleID!=""&&strings.EqualFold(game.TitleID,patch.TitleID)
+            titleMatches:=game.Title!=""&&CoverMatchKey(game.Title)==CoverMatchKey(entry.Title)
+            // Filename or title matches are REVIEW hints only. They can never
+            // authorize an unattended patch, regardless of CRC or region.
+            if !idMatches && !titleMatches{continue}
             item:=LibraryPatch{File:patch.File,Name:patch.Name,Author:patch.Author,Status:"review"}
+            if !idMatches {
+                if patch.TitleID!="" {
+                    item.Status="incompatible"
+                    item.Reason="Game title resembles this patch, but Title IDs differ"
+                }else{
+                    item.Reason="Game title matches; patch lacks a verifiable Title ID"
+                }
+                game.Patches=append(game.Patches,item)
+                continue
+            }
             crcSet:=libraryCRC.FindAllString(strings.ToUpper(patch.CRC),-1)
             if len(crcSet)==0 {
                 item.Reason="Title ID matches; exact original CRC is not specified"
