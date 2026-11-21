@@ -42,7 +42,9 @@ func validGameMember(p string) (string, error) {
         if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
             return "", fmt.Errorf("unsafe trailing dot/space in %q", part)
         }
-        name := strings.ToUpper(strings.TrimSuffix(part, filepath.Ext(part)))
+        // Windows treats CON.txt.more like CON: inspect everything before the first dot.
+        // Trimming spaces catches Win32 aliases such as "CON .txt".
+        name := strings.ToUpper(strings.TrimRight(strings.SplitN(part, ".", 2)[0], " "))
         switch name {
         case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
             return "", fmt.Errorf("reserved filesystem filename %q", part)
@@ -74,6 +76,24 @@ func resolveGameMember(root, member string) (string,error) {
         if info.Mode()&os.ModeSymlink!=0{return "",fmt.Errorf("symlink target forbidden: %s",canonical)}
     }
     return current,nil
+}
+
+// ReadGameMember resolves a patch target case-insensitively, rejects symlinks,
+// and limits memory use before returning a file for a named patch operation.
+func ReadGameMember(root, member string) ([]byte,error) {
+    target,err:=resolveGameMember(root,member)
+    if err!=nil{return nil,err}
+    info,err:=os.Lstat(target)
+    if err!=nil{return nil,err}
+    if !info.Mode().IsRegular(){return nil,fmt.Errorf("game target is not a regular file: %s",member)}
+    if info.Size()>512<<20{return nil,fmt.Errorf("game target exceeds 512 MiB patch limit: %s",member)}
+    file,err:=os.Open(target)
+    if err!=nil{return nil,err}
+    defer file.Close()
+    b,err:=io.ReadAll(io.LimitReader(file,info.Size()+1))
+    if err!=nil{return nil,err}
+    if int64(len(b))!=info.Size(){return nil,fmt.Errorf("game target changed during read: %s",member)}
+    return b,nil
 }
 
 func ensureNewOutput(dest string) error {
@@ -114,9 +134,10 @@ func ExtractGameXISO(image, destination string) error {
         if e = os.MkdirAll(filepath.Dir(target), 0755); e != nil { return e }
         f, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
         if e != nil { return e }
-        _, e = io.Copy(f, io.NewSectionReader(src, im.Base+int64(member.StartSector)*sectorSize, int64(member.Size)))
-        if closeErr := f.Close(); e == nil { e = closeErr }
-        if e != nil { return fmt.Errorf("extract %s: %w", name, e) }
+        written, copyErr := io.Copy(f, io.NewSectionReader(src, im.Base+int64(member.StartSector)*sectorSize, int64(member.Size)))
+        if closeErr := f.Close(); copyErr == nil { copyErr = closeErr }
+        if copyErr != nil { return fmt.Errorf("extract %s: %w", name, copyErr) }
+        if written != int64(member.Size) { return fmt.Errorf("truncated XISO file %s: copied %d of %d bytes", name, written, member.Size) }
     }
     if err = ensureNewOutput(destination); err != nil { return err }
     return os.Rename(tmp, destination)
@@ -157,10 +178,12 @@ func CopyExtractedGame(source, dest string) error {
         if e != nil { return e }
         out, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
         if e != nil { in.Close(); return e }
-        _, e = io.Copy(out, in)
-        if closeErr := in.Close(); e == nil { e = closeErr }
-        if closeErr := out.Close(); e == nil { e = closeErr }
-        return e
+        copied, copyErr := io.Copy(out, in)
+        if closeErr := in.Close(); copyErr == nil { copyErr = closeErr }
+        if closeErr := out.Close(); copyErr == nil { copyErr = closeErr }
+        if copyErr != nil { return copyErr }
+        if copied != info.Size() { return fmt.Errorf("source file changed during copy: %s", clean) }
+        return nil
     })
     if err != nil { return err }
     if err = ensureNewOutput(dest); err != nil { return err }
@@ -326,10 +349,13 @@ func BuildGameXISO(folder,destination string) error {
         if n.folder {return nil}
         in,e:=os.Open(filepath.Join(folder,filepath.FromSlash(n.relative)))
         if e!=nil{return e}
-        defer in.Close()
-        count,e:=io.Copy(io.NewOffsetWriter(tmp,int64(n.sector)*sectorSize),in)
-        if e!=nil{return e}
-        if count!=int64(n.size) {return fmt.Errorf("source changed during packing: %s",n.relative)}
+        count,copyErr:=io.CopyN(io.NewOffsetWriter(tmp,int64(n.sector)*sectorSize),in,int64(n.size))
+        info,statErr:=in.Stat()
+        closeErr:=in.Close()
+        if copyErr!=nil{return fmt.Errorf("pack %s: %w",n.relative,copyErr)}
+        if statErr!=nil{return statErr}
+        if closeErr!=nil{return closeErr}
+        if count!=int64(n.size) || info.Size()!=int64(n.size) {return fmt.Errorf("source changed during packing: %s",n.relative)}
         return nil
     })
     if err!=nil{return err}
