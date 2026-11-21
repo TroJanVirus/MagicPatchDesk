@@ -10,6 +10,7 @@ import (
     "os"
     "path/filepath"
     "strings"
+    "unsafe"
 )
 
 // A separate image-output workspace deliberately shares the patch selected
@@ -69,6 +70,9 @@ func gameOutputAction(action string,index int) {
         if index>=0 && index<=4 {gameOutputMask ^= uint32(1)<<uint(index)}
     case "game-export":
         startGameOutput()
+    case "game-credits":
+        url:="https://github.com/TroJanVirus/MagicPatchDesk/blob/main/CREDITS.md"
+        sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(url))),0,0,SW_SHOW)
     }
 }
 
