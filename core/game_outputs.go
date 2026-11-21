@@ -255,6 +255,8 @@ func prepareXDVTables(root *xdvNode) error {
         if total > 262144 { return errors.New("XDVDFS directory table exceeds pointer limit") }
     }
     root.table = make([]byte,total)
+    // XDVDFS directory entry padding is 0xFF, not an implicit zero.
+    for i:=range root.table {root.table[i]=0xFF}
     root.size = uint32(total)
     return nil
 }
@@ -321,6 +323,8 @@ func fillXDVTables(root *xdvNode) error {
             right,e:=emit(middle+1,end)
             if e!=nil{return nil,e}
             entry:=root.table[positions[n]:]
+            // Clear the 14-byte header while preserving 0xFF name padding.
+            for i:=0;i<14;i++{entry[i]=0}
             if left!=nil {
                 pos:=positions[left]/4
                 if pos==0||pos>65535{return nil,errors.New("XDVDFS left pointer overflow")}
@@ -367,7 +371,11 @@ func BuildGameXISO(folder,destination string) error {
     defer os.Remove(tempName)
     closePending:=true
     defer func(){if closePending {tmp.Close()}}()
-    if err=tmp.Truncate(int64(next)*sectorSize);err!=nil{return err}
+    // Physical XDVDFS images are padded to a 64 KiB boundary; directory
+    // and file LBAs remain relative to the same game-partition origin.
+    imageBytes:=int64(next)*sectorSize
+    paddedBytes:=(imageBytes+0xFFFF)&^int64(0xFFFF)
+    if err=tmp.Truncate(paddedBytes);err!=nil{return err}
     vol:=make([]byte,2048)
     copy(vol,volumeMagic)
     copy(vol[0x7ec:],volumeMagic)
