@@ -408,11 +408,11 @@ func managerConfirm(environment string){
     if _,e=core.ConfidenceIssueBody(report);e!=nil{notify("Invalid hardware report: "+e.Error());return}
     hardwareDetails:=""
     if environment=="hardware"{
-        hardwareDetails="\\nRevision: "+core.ConfidenceRevisionLabel(revision)+
-            "\\nRAM upgrade: "+core.ConfidenceUpgradeLabel(ram)+
-            "\\nCPU upgrade: "+core.ConfidenceUpgradeLabel(cpu)+"\\n"
+        hardwareDetails="\nRevision: "+core.ConfidenceRevisionLabel(revision)+
+            "\nRAM upgrade: "+core.ConfidenceUpgradeLabel(ram)+
+            "\nCPU upgrade: "+core.ConfidenceUpgradeLabel(cpu)+"\n"
     }
-    msg:=fmt.Sprintf("Publish a PUBLIC field-test report to GitHub Issues?\\n\\nPatch: %s\\nTitle ID: %s\\nOriginal XBE CRC: %s\\nTest environment: %s\\nResult: %s%s\\nOnly patch SHA256, source identity and the displayed hardware choices are shared. No game bytes or local path. A maintainer must review it before it appears in the public confidence log.",choicePatch.Name,report.TitleID,report.SourceCRC32,environment,result,hardwareDetails)
+    msg:=fmt.Sprintf("Publish a PUBLIC field-test report to GitHub Issues?\n\nPatch: %s\nTitle ID: %s\nOriginal XBE CRC: %s\nTest environment: %s\nResult: %s%s\nOnly patch SHA256, source identity and the displayed hardware choices are shared. No game bytes or local path. A maintainer must review it before it appears in the public confidence log.",choicePatch.Name,report.TitleID,report.SourceCRC32,environment,result,hardwareDetails)
     if maintenanceDialog("Confirm compatibility report",msg,0x24|0x100)!=6{return}
     manager.log.Add("info","Confidence submission","Submitting user-confirmed "+environment+" report for review")
     go func(){
