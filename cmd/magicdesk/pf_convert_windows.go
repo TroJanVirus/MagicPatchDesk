@@ -158,6 +158,7 @@ func runPFConversion(name string, raw []byte) {
 		}
 	}
 	password, rle := app.password, app.ipsRLE
+	originalPath, selectedPatchPath := app.aFile, app.convertPatchFile
 	app.mu.Lock()
 	if app.busy {
 		app.mu.Unlock()
@@ -220,6 +221,7 @@ func runPFConversion(name string, raw []byte) {
 			app.status = "Converted PF saved: " + dest
 		}
 		app.mu.Unlock()
+		if e != nil {recordFailure("pf.convert",e,originalPath,selectedPatchPath,dest)}
 		redraw()
 	}()
 }

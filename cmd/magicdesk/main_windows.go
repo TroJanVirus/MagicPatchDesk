@@ -235,6 +235,8 @@ type appState struct {
 	w, h          int32
 	fonts         fonts
 	lastErr       string
+	lastDiagnostic core.DiagnosticReport
+	hasDiagnostic bool
 	hoverAction string
 	hoverIndex int
 	hoverFade uint8
@@ -384,6 +386,7 @@ func redraw() {
 	}
 }
 func notify(s string) {
+	reportNotifyError(s)
 	app.mu.Lock()
 	app.status = s
 	app.mu.Unlock()
@@ -817,7 +820,7 @@ func startPreview() {
 	}
 	app.mu.Unlock()
     if handled,e:=maybeStartPF(true,direct,source,app.workers);handled {
-        if e!=nil{notify(e.Error())};return
+        if e!=nil{recordFailure("pf.preview.preflight",e,source,direct,"");notify(e.Error())};return
     }
     if handled, e := maybeStartPack(true, direct, source, app.workers, password); handled {
         if e != nil { notify(e.Error()) }
@@ -845,6 +848,7 @@ func startPreview() {
 			app.status = "Dry-run preview complete. No files modified."
 		}
 		app.mu.Unlock()
+		if err != nil {recordFailure("patch.preview",err,source,direct,"")}
 		redraw()
 	}()
 }
@@ -871,7 +875,7 @@ func startPatch() {
 		return
 	}
     if handled,e:=maybeStartPF(false,direct,source,workers);handled {
-        if e!=nil{notify(e.Error())};return
+        if e!=nil{recordFailure("pf.apply.preflight",e,source,direct,"");notify(e.Error())};return
     }
     if handled, e := maybeStartPack(false, direct, source, workers, password); handled {
         if e != nil { notify(e.Error()) }
@@ -948,6 +952,7 @@ func startPatch() {
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if err != nil {recordFailure("patch.apply",err,source,direct,ext)}
 		redraw()
 	}()
 }
@@ -1022,6 +1027,8 @@ func handle(action string, index int) {
 				notify("Imported local patch: " + filepath.Base(p))
 			}
 		}
+	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-github":
+		diagnosticsAction(action)
 	case "folder":
 		path := filepath.Join(app.root, "Custom")
 		os.MkdirAll(path, 0755)

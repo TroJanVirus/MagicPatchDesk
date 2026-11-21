@@ -234,6 +234,7 @@ func runConversion() {
 			app.status = "Converted patch saved: " + output
 		}
 		app.mu.Unlock()
+		if jobErr != nil {recordFailure("patch.convert",jobErr,sourcePath,inputName,output)}
 		redraw()
 	}()
 }

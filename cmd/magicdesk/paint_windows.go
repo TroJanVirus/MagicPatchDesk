@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.7", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.8", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -515,6 +515,23 @@ func drawSettings(hdc uintptr, w, h int32) {
 	button(hdc, "Open patch folder", ir(x+27, 561, 195, 40), "folder", 0, false)
 	button(hdc, "Import JMP / PF", ir(x+235, 561, 188, 40), "import", 0, false)
 	button(hdc, "Rescan", ir(x+438, 561, 112, 40), "refresh", 0, false)
+	// Diagnostic reports stay local until explicitly submitted.
+	panel(hdc, ir(x, 629, width, 121), surface, 17)
+	textAt(hdc, "PROBLEM REPORTS", x+28, 637, width-58, 27, app.fonts.Title, white)
+	app.mu.Lock()
+	lastReport, hasReport := app.lastDiagnostic, app.hasDiagnostic
+	app.mu.Unlock()
+	state := "No problems recorded this session. Reports stay on this computer."
+	if hasReport { state = "Latest: " + lastReport.ErrorCode + "  ·  ID " + lastReport.ID }
+	textAt(hdc, strLimit(state,105), x+29, 664, width-65, 20, app.fonts.Small, muted)
+	btnWidth := (width-83)/4
+	if btnWidth<112 {btnWidth=112}
+	for i, action := range []struct{label,id string}{
+		{"View report","diagnostics-view"},
+		{"Copy summary","diagnostics-copy"},
+		{"Reports folder","diagnostics-folder"},
+		{"Report issue","diagnostics-github"},
+	} { button(hdc,action.label,ir(x+28+int32(i)*(btnWidth+9),691,btnWidth,40),action.id,0,i==3) }
 	_ = h
 }
 func drawAbout(hdc uintptr, w, h int32) {
