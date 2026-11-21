@@ -29,7 +29,7 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 - Handles original Xbox XDVDFS filesystems in common **game-partition XISO** and **full-disc ISO** layouts. Finds `default.xbe` in the image, applies the patch to that XBE in memory, and writes an independent ISO image with the updated XDVDFS directory entry.
 - For an XBE that grows due to an `APPEND:` record, relocates it to the end of a game-partition-only XISO and updates the directory pointer. For a full-disc/redump style image, refuses growth past allocated sectors rather than writing an unsafe image. Extract/repack the game partition as XISO first in that case.
 - Copies large disc images using 1–8 independent I/O workers; also uses workers to index local JMPs. The copy is bounded-memory and gives progress updates. Actual performance varies by disk and controller; multi-worker I/O is not guaranteed to be faster on every drive.
-- **Unsupported:** compressed `.cci`/`.chd` or archive formats; Xbox 360 executable patching; arbitrary non-XDVDFS/ISO9660 images; rebuilding the disc layout after arbitrary file growth. Disc images are not re-signed, and modified full-disc images should not be treated as pristine verified disc dumps.
+- **CCI is supported:** Cerbios compressed `.cci` images, including split sets, can be decoded, patched and generated through the Game Outputs workflow. **Not supported:** `.chd` or arbitrary archives, Xbox 360 executables, non-XDVDFS filesystems, and unrestricted full-disc rebuilding after file growth. Disc images are not re-signed; modified full-disc images are not pristine verified dumps.
 
 ## Patch conversion
 
