@@ -44,3 +44,6 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 ## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
 
 Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.
+
+## 2026-11-21: v0.4.0-test source-aware converter and cover recovery
+Patch-to-patch conversion checks patch semantics; JMP offset-only → IPS/EIPS, IPS/EIPS → IPS/EIPS, and IPS/EIPS → JMP without final-size field work without original (verification caveat). Source-dependent JMP records, BPS and Xdelta need the original; supplied originals enable apply-and-verify comparisons. Covers now use validated image downloads, retry-on-error, apex/www redirects and collision-safe normalized title matching. Source Go tests, race checks, vet, Windows cross-build passed locally. Real desktop/hardware testing unverified.

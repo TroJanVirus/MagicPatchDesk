@@ -55,3 +55,10 @@ Never claim a Windows GUI run or Xbox boot passed based only on Linux unit tests
 ## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
 
 Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.
+
+## v0.4.0-test — source-aware conversion & PatchHub cover fixes
+- `core/directconvert.go` chooses source-required vs source-optional paths using the actual JMP/IPS records; direct offset-only JMP → IPS/EIPS and IPS/EIPS → IPS/EIPS work without original XBE.
+- BPS and Xdelta require the original; do not claim xdelta3 universally validates a source checksum. Source-supplied conversions compare original patch result and converted patch result byte-for-byte.
+- `core/patchhub.go` validates real image payloads, filters noart fallback and supports apex/www trusted redirects; `cmd/magicdesk/art_windows.go` retries cover requests and ignores old invalid caches.
+- `core/catalog.go` maps punctuation-normalized unique titles without guessing ambiguous ones. App code in `cmd/magicdesk/conversion_windows.go` presents required/recommended/optional source hints and explicit prompts.
+- Run `go test ./...`, `go test -race ./core`, `go vet ./...`, and cross-compile with Go 1.23. Windows UI and console testing remain outstanding.

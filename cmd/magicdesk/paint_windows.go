@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.3", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.4", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -413,7 +413,7 @@ func drawConvert(hdc uintptr, w, h int32) {
 	panel(hdc, ir(x, 125, width, 620), surface, 19)
 	textAt(hdc, "PATCH CONVERTER", x+28, 145, width-40, 29, app.fonts.Title, white)
 
-	textAt(hdc, "01   Stock / original XBE  ·  required for reliable conversion", x+31, 181, width-55, 20, app.fonts.Medium, muted)
+	textAt(hdc, "01   Stock / original XBE  ·  optional for direct offset patches", x+31, 181, width-55, 20, app.fonts.Medium, muted)
 	panel(hdc, ir(x+28, 208, width-226, 43), surface2, 12)
 	label := "Choose your original XBE"
 	if app.aFile != "" { label = filepath.Base(app.aFile) }
@@ -463,7 +463,9 @@ func drawConvert(hdc uintptr, w, h int32) {
 	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
 	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
 	button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
-	textAt(hdc, "All conversions are local. The original XBE and input patch are never overwritten.", x+30, 707, width-53, 25, app.fonts.Small, muted)
+	hint := app.conversionHint
+	if hint == "" { hint = "Choose a source patch to determine whether the original XBE is required." }
+	textAt(hdc, hint, x+30, 707, width-53, 25, app.fonts.Small, muted)
 	_ = h
 }
 

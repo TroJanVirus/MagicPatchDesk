@@ -69,3 +69,9 @@ Feedback and bug reports should include game title, XBE Title ID/CRC32, region, 
 ## Patch-to-patch conversion (v0.3 test)
 
 In **Convert & Create**, choose your **stock XBE**, then select either **Choose patch** (JMP, IPS, EIPS, Xdelta or BPS) or a modified XBE. Choose a target patch format (JMP, IPS, Xdelta, encrypted IPS or BPS) and select **Convert / Create Patch**. The original XBE is required: differential patch formats cannot be safely transformed without reconstructing the modified bytes. IPS RLE encoding can be turned on or off independently of EIPS password encryption. BPS1 verifies source, output and patch CRC32. The Xdelta decoder remains limited to uncompressed default-table VCDIFF.
+
+## Source-aware patch conversion (v0.4 developer preview)
+
+Choose **Convert & Create** and select an input patch (JMP / IPS / encrypted IPS / BPS / supported Xdelta). The app inspects the **actual records** and tells you whether the original XBE is **required**, **recommended**, or **not needed**. For example, offset-only JMP → IPS and plain IPS ↔ encrypted IPS work without a source. JMP search/replace or APPEND, BPS, Xdelta, and source-dependent final-size handling require the original. When a source is supplied, the conversion verifies the original and re-applies the generated output byte-for-byte before saving. Source-free JMP → IPS loses CRC32 and Title ID metadata: the app warns before exporting.
+
+PatchHub artwork now validates downloaded image bytes, retries failed downloads, allows the site's apex/www HTTPS redirects, and matches uniquely normalized game names. Invalid old cached HTML is ignored and re-fetched.
