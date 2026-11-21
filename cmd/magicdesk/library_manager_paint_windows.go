@@ -11,7 +11,7 @@ import (
 
 func drawManager(hdc uintptr,w,h int32){
     drawPageHeader(hdc,"Game library manager","Scan original games, review patch matches and create verified independent copies.",w)
-    if h<590 {
+    if h<640 {
         textAt(hdc,"Increase window height to use the library manager.",265,145,w-298,30,app.fonts.Medium,amber)
         return
     }
@@ -47,7 +47,7 @@ func drawManager(hdc uintptr,w,h int32){
     tabWidth:=(width-44)/5
     tabs:=[]string{"GAMES","IMAGE FILES","HEX OVERLAPS","VERIFY LOG","FIELD REPORTS"}
     for i,name:=range tabs {
-        bx:=x+int32(5+i)*(0) + 4 + int32(i)*(tabWidth+8)
+        bx:=x+4+int32(i)*(tabWidth+8)
         panelColor:=uint32(surface2)
         if mode==i{panelColor=0x35547E}
         panel(hdc,ir(bx,185,tabWidth,42),panelColor,9)
@@ -215,10 +215,11 @@ func drawManagerConfidence(hdc uintptr,x,width,h int32,jobs []core.BatchJob,sele
         if choice>=0&&choice<len(g.Patches){selectedLabel+=" · "+g.Patches[choice].Name}
     }
     textAt(hdc,strLimit(selectedLabel,125),x+11,292,width-19,29,app.fonts.Medium,white)
-    button(hdc,"Refresh reports",ir(x+12,328,160,33),"manager-confidence-refresh",0,false)
-    button(hdc,"Result: "+result,ir(x+185,328,164,33),"manager-confidence-result",0,false)
-    button(hdc,"Confirm in xemu",ir(x+362,328,170,33),"manager-confidence-xemu",0,false)
-    button(hdc,"Confirm real Xbox",ir(x+544,328,188,33),"manager-confidence-hardware",0,true)
+    buttonWidth:=(width-52)/4
+    button(hdc,"Refresh",ir(x+12,328,buttonWidth,33),"manager-confidence-refresh",0,false)
+    button(hdc,"Result: "+result,ir(x+20+buttonWidth,328,buttonWidth,33),"manager-confidence-result",0,false)
+    button(hdc,"Confirm xemu",ir(x+28+2*buttonWidth,328,buttonWidth,33),"manager-confidence-xemu",0,false)
+    button(hdc,"Confirm real Xbox",ir(x+36+3*buttonWidth,328,buttonWidth,33),"manager-confidence-hardware",0,true)
     panel(hdc,ir(x,370,width,h-460),surface,13)
     visible:=int((h-464)/58)
     if visible<1{visible=1}
