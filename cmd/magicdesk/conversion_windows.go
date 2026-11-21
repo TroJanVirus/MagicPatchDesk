@@ -44,6 +44,7 @@ func readConversionPatch(path string) (string, []byte, error) {
 func refreshConversionHint() {
 	app.conversionBlocked = true
 	if app.bFile != "" {
+        if app.format == core.AllPatchFormats {app.conversionHint="All Formats Pack requires a JMP or PF script; choose a source patch";return}
 		if app.aFile == "" {
 			app.conversionHint = "This patch conversion requires the source file for the context to create it · Choose stock/original XBE"
 		} else {
@@ -82,6 +83,7 @@ func refreshConversionHint() {
 		return
 	}
 
+	if refreshPFConversionHint(name,b) {return}
 	if refreshPackHint(name, b) {
 		return
 	}
@@ -126,6 +128,10 @@ func runConversion() {
 		notify(app.conversionHint)
 		return
 	}
+	if !app.packMode {
+        name,raw,e:=selectedConversionInput()
+        if e==nil && strings.EqualFold(filepath.Ext(name),".pf") {runPFConversion(name,raw);return}
+    }
 	if app.packMode {
 		runPackConversion()
 		return

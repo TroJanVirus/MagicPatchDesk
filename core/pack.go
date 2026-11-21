@@ -29,15 +29,23 @@ type PackEntry struct {
 	SourceSHA256   string `json:"source_sha256,omitempty"`
 	ResultSHA256   string `json:"result_sha256,omitempty"`
 }
+type PackOmission struct {
+	Target string `json:"target"`
+	Format string `json:"format"`
+	Reason string `json:"reason"`
+}
 type PackManifest struct {
-	Schema       string      `json:"schema"`
-	Title        string      `json:"title"`
-	Author       string      `json:"author,omitempty"`
-	Version      string      `json:"game_version,omitempty"`
-	TitleID      string      `json:"title_id,omitempty"`
-	ExpectedCRCs []string    `json:"expected_crc32,omitempty"`
-	Origin       string      `json:"origin"`
-	Entries      []PackEntry `json:"entries"`
+	OriginalJMP       string         `json:"original_jmp,omitempty"`
+	OriginalJMPSHA256 string         `json:"original_jmp_sha256,omitempty"`
+	Omitted           []PackOmission `json:"omitted_formats,omitempty"`
+	Schema            string         `json:"schema"`
+	Title             string         `json:"title"`
+	Author            string         `json:"author,omitempty"`
+	Version           string         `json:"game_version,omitempty"`
+	TitleID           string         `json:"title_id,omitempty"`
+	ExpectedCRCs      []string       `json:"expected_crc32,omitempty"`
+	Origin            string         `json:"origin"`
+	Entries           []PackEntry    `json:"entries"`
 }
 type PackTargetPlan struct {
 	Target            string
@@ -288,7 +296,7 @@ func ReadPatchPack(data []byte) (PackManifest, map[string][]byte, error) {
 	if err != nil {
 		return manifest, nil, err
 	}
-	if len(zr.File) > 101 {
+	if len(zr.File) > 405 {
 		return manifest, nil, errors.New("patch pack has too many files")
 	}
 	content := map[string][]byte{}
@@ -298,7 +306,7 @@ func ReadPatchPack(data []byte) (PackManifest, map[string][]byte, error) {
 			return manifest, nil, fmt.Errorf("pack member %q is too large", f.Name)
 		}
 		size += f.UncompressedSize64
-		if size > 256<<20 {
+		if size > 512<<20 {
 			return manifest, nil, errors.New("patch pack decompression limit exceeded")
 		}
 		if f.Name == "" || strings.HasPrefix(f.Name, "/") || strings.Contains(f.Name, "\\") || path.Clean(f.Name) != f.Name || strings.HasPrefix(f.Name, "../") {
@@ -328,22 +336,42 @@ func ReadPatchPack(data []byte) (PackManifest, map[string][]byte, error) {
 	if err = json.Unmarshal(b, &manifest); err != nil {
 		return manifest, nil, err
 	}
-	if manifest.Schema != "magicpatchdesk-pack-v1" || len(manifest.Entries) == 0 || len(manifest.Entries) > 100 {
+	if (manifest.Schema != "magicpatchdesk-pack-v1" && manifest.Schema != "magicpatchdesk-pack-v2") || len(manifest.Entries) == 0 || len(manifest.Entries) > 400 {
 		return manifest, nil, errors.New("unsupported/invalid patch pack manifest")
 	}
-	if len(content) != len(manifest.Entries)+1 {
+	expectedMembers := len(manifest.Entries) + 1
+	if manifest.Schema == "magicpatchdesk-pack-v2" && manifest.OriginalJMP != "" {
+		if manifest.OriginalJMP != "source/original.jmp" {
+			return manifest, nil, errors.New("invalid source JMP path")
+		}
+		if jmp, ok := content[manifest.OriginalJMP]; !ok {
+			return manifest, nil, errors.New("missing original JMP")
+		} else if manifest.OriginalJMPSHA256 == "" || shaString(jmp) != manifest.OriginalJMPSHA256 {
+			return manifest, nil, errors.New("original JMP checksum mismatch")
+		}
+		expectedMembers++
+	}
+	if len(content) != expectedMembers {
 		return manifest, nil, errors.New("unlisted or missing pack member")
 	}
 	targets := map[string]bool{}
+	formats := map[string]map[string]bool{}
 	for _, e := range manifest.Entries {
 		normalized, ee := NormaliseTarget(e.Target)
 		if ee != nil || normalized != e.Target {
 			return manifest, nil, fmt.Errorf("unsafe target %q", e.Target)
 		}
-		if targets[e.Target] {
+		if targets[e.Target] && manifest.Schema == "magicpatchdesk-pack-v1" {
 			return manifest, nil, fmt.Errorf("duplicate target %s", e.Target)
 		}
 		targets[e.Target] = true
+		if formats[e.Target] == nil {
+			formats[e.Target] = make(map[string]bool)
+		}
+		if formats[e.Target][e.Format] {
+			return manifest, nil, fmt.Errorf("duplicate format %s for %s", e.Format, e.Target)
+		}
+		formats[e.Target][e.Format] = true
 		if e.File != "patches/"+e.Target+"."+e.Format {
 			return manifest, nil, fmt.Errorf("unexpected patch path %q", e.File)
 		}
@@ -369,7 +397,25 @@ func ApplyPatchPack(data []byte, sourceFiles map[string][]byte, password string)
 		return nil, err
 	}
 	results := map[string][]byte{}
-	for _, e := range manifest.Entries {
+	selected := manifest.Entries
+	if manifest.Schema == "magicpatchdesk-pack-v2" {
+		// Strongest source/target checks win; do not fall back on a failing BPS patch.
+		byTarget := map[string]PackEntry{}
+		rank := map[string]int{"bps": 0, "xdelta": 1, "ips": 2, "eips": 3}
+		for _, entry := range manifest.Entries {
+			old, ok := byTarget[entry.Target]
+			if !ok || rank[entry.Format] < rank[old.Format] {
+				byTarget[entry.Target] = entry
+			}
+		}
+		selected = make([]PackEntry, 0, len(byTarget))
+		for _, e := range manifest.Entries {
+			if e == byTarget[e.Target] {
+				selected = append(selected, e)
+			}
+		}
+	}
+	for _, e := range selected {
 		source, found := sourceFiles[e.Target]
 		if !found || source == nil {
 			return nil, fmt.Errorf("missing source %s", e.Target)

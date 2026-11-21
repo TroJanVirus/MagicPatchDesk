@@ -1,4 +1,4 @@
-# Project state — v0.2.0 test branch (post-v0.1.0 baseline)
+# Project state — native Windows first developer build
 
 Last consolidated: 2026-11-21 (NZ). This document captures what is present in the source tree, not a promise of hardware compatibility.
 
@@ -11,13 +11,10 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 - Original XBE Title ID/CRC32 inspection and patch compatibility checks.
 - XDVDFS/XISO loading, default.xbe replacement, game-partition relocation for growth; full-disc growth refusal when beyond allocation.
 - Multiworker bounded-memory ISO copying and patch indexing, output staging to preserve originals.
-- **New in v0.2.0 test:** dry-run XBE/ISO preview before writes, with predicted CRC32 and per-record byte offsets, and confirmation before applying.
-- **New in v0.2.0 test:** expand repeated JMP comment groups and toggle individual records; mixed groups clearly indicated.
-- **New in v0.2.0 test:** worker count and catalogue filter persisted to a local JSON settings file. Verification override deliberately resets OFF on launch.
 
 ## Tested in this environment
 
-- `go test ./...` and `go test -race ./core` passed, including new patch preview, mixed-group, and JSON preferences unit tests (2026-11-21).
+- `go test ./...` passed, including `core` unit tests (2026-11-21).
 - `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags='-H windowsgui -s -w' ...` succeeded.
 - A fresh cross-compiled executable matched the prior distributed binary byte-for-byte by SHA-256.
 
@@ -35,25 +32,14 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 - Preserve patch authorship, backups and user data.
 - For contributor context, read `AGENTS.md`, `AI_HANDOFF.md`, and `README.md`.
 
-## Branch/release layout
+## 2026-11-21 — v0.5 record filename routing and strict source prerequisites
 
-- Baseline source: `main` at `2ca03edcc227174b4e252ebe5657142f5666ae29`.
-- Initial portable release: `release/v0.1.0` runs a **single** GitHub Actions job that creates the GitHub Release `v0.1.0` with built EXE and SHA256SUMS. No recurring jobs.
-- Current test features: `feature/dry-run-record-controls-settings` proposed as v0.2.0 test, not merged into baseline until Windows GUI QA.
-
-## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
-
-Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.
-
-## 2026-11-21: v0.4.0-test source-aware converter and cover recovery
-Patch-to-patch conversion checks patch semantics; JMP offset-only → IPS/EIPS, IPS/EIPS → IPS/EIPS, and IPS/EIPS → JMP without final-size field work without original (verification caveat). Source-dependent JMP records, BPS and Xdelta need the original; supplied originals enable apply-and-verify comparisons. Covers now use validated image downloads, retry-on-error, apex/www redirects and collision-safe normalized title matching. Source Go tests, race checks, vet, Windows cross-build passed locally. Real desktop/hardware testing unverified.
-
-
-## 2026-11-21 — v0.5 file-aware JMP handling
-
-Added special-file comment detection and routing, explicit locate/skip/cancel dialogs, loose sidecar output copies, multi-member XISO patching, and a disabled Convert button when source data is required. Synthetic target-routing, path traversal, multi-target conversion, and full-disc growth refusal tests pass; GUI and real Xbox verification outstanding.
-
+Implemented in a test branch: filename.ext detection in JMP comment labels, safe per-file selection, multi-file native dialogs (locate / skip / cancel), explicit XISO member resolution and multiple XDVDFS member replacement, source preservation, and a disabled conversion button for input/output combinations requiring originals. Synthetic ISO multi-member and full-disc refusal tests pass. Manual Windows UI and commercial Xbox/XISO boot testing remain outstanding.
 
 ## 2026-11-21 v0.6: patch packs and UI hover
 
 Multi-file JMP -> per-target IPS/EIPS/BPS/Xdelta packed into `.mpdpack` (ZIP manifest, per-target verification, no game contents). JMP remains one file. Filename detection now covers `notes=` plus comment, with safe ambiguity resolution. Pack loading/applying handles loose/ISO targets via explicit original file selection. Hover, cursor, pressed states and button animation are implemented in native GDI. Automated Go tests, race checks, vet and Windows x64 compilation pass. Real Windows GUI and Xbox hardware QA are pending.
+
+## 2026-11-21 — v0.7 Rocky5 PF and all-variants pack
+
+See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is distinct from JMP, and includes CP/HR/OF/SM/SR/MV/RN/RM. Its full-folder application stages a separate tree; ISO file operation changes are refused. New pack schema magicpatchdesk-pack-v2 includes original JMP plus all representable IPS/BPS/Xdelta/EIPS alternatives per named target and source/result checksums; v1 remains supported. Test go test ./..., race, vet and cross-build before releases.

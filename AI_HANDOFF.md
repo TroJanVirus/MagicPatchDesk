@@ -40,7 +40,6 @@ Create a fast, visually approachable *native* Windows application that browses t
 - No GPU patch acceleration; worker count applies to indexing and ISO copying, not sequential JMP records.
 - No automated game-image regression corpus (copyright concerns); add synthetic XDVDFS and JMP tests as improvements are made.
 - No executable auto-updater, presets/undo journal, batch conversions or complete game-asset editor yet.
-- The `feature/dry-run-record-controls-settings` branch introduces memory-only preflight with a Windows confirmation dialog; expanded per-record toggles under grouped comments; safe UI settings persistence (never persist CRC override). These are a developer test build and still require Windows 10/11 GUI QA.
 
 ## Recommended next actions
 
@@ -52,22 +51,11 @@ Create a fast, visually approachable *native* Windows application that browses t
 
 Never claim a Windows GUI run or Xbox boot passed based only on Linux unit tests or Windows cross-compilation.
 
-## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
+## v0.5 developer handoff — 2026-11-21
 
-Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.
+New `core/targets.go` parses filename-with-extension record comments into target names, enforces path safety and offers `Patch.ApplyToTarget`/`PreviewTarget` for named files. Single-file `Apply`/`Preview` must reject enabled named targets via `CheckSingleFileOnly`.
 
-## v0.4.0-test — source-aware conversion & PatchHub cover fixes
-- `core/directconvert.go` chooses source-required vs source-optional paths using the actual JMP/IPS records; direct offset-only JMP → IPS/EIPS and IPS/EIPS → IPS/EIPS work without original XBE.
-- BPS and Xdelta require the original; do not claim xdelta3 universally validates a source checksum. Source-supplied conversions compare original patch result and converted patch result byte-for-byte.
-- `core/patchhub.go` validates real image payloads, filters noart fallback and supports apex/www trusted redirects; `cmd/magicdesk/art_windows.go` retries cover requests and ignores old invalid caches.
-- `core/catalog.go` maps punctuation-normalized unique titles without guessing ambiguous ones. App code in `cmd/magicdesk/conversion_windows.go` presents required/recommended/optional source hints and explicit prompts.
-- Run `go test ./...`, `go test -race ./core`, `go vet ./...`, and cross-compile with Go 1.23. Windows UI and console testing remain outstanding.
-
-
-## 2026-11-21: v0.5 named-file records and conversion interlocks
-
-Use `core/targets.go` for filename.ext comment detection, path safety, per-file ApplyToTarget and PreviewTarget. Single-file p.Apply and p.Preview reject enabled named-file records. For Windows, `cmd/magicdesk/targeted_windows.go` intercepts multi-target JMPs, prompts to locate/skip/cancel each target, checks XBE CRC32/Title ID against the original default.xbe, previews per-file patches and writes separate output copies only. `core/xiso_multi.go` can update multiple uniquely resolved existing XDVDFS files, with growth relocation limited to game-partition XISOs. See `docs/RELEASE_NOTES_v0.5.0-test.md`; do not overclaim Windows GUI/hardware QA. GUI disabled Convert button enforces PlanPatchConversion source requirements. No automatic CI workflows.
-
+`cmd/magicdesk/targeted_windows.go` intercepts multi-target JMP operations before the regular XBE preview/apply flow, prompts Yes=locate/use ISO member, No=skip target, Cancel=abort, then builds separate output copies after per-file preflight. `core/xiso_multi.go` updates multiple existing XDVDFS directory entries in an output image, allowing grow/relocate only in a game-partition XISO. The UI blocks source-required conversion, warns about conversion limitations, and does not allow a multi-target JMP to be collapsed into one IPS. Test synthetic fixtures first; still needs physical Windows testing, xemu and hardware game validation. Avoid distributing copyrighted game files.
 
 ## 2026-11-21 v0.6: multi-target patch packs / filename notes / reactive Win32 UI
 
@@ -77,3 +65,7 @@ Use `core/targets.go` for filename.ext comment detection, path safety, per-file 
 - `cmd/magicdesk/pack_apply_windows.go`: explicit full-pack application via existing XDVDFS patching / separate external copy pipeline; refuses missing targets.
 - `cmd/magicdesk/main_windows.go` and `paint_windows.go`: custom eased mouse hover, clicked-depth states, real hand cursor and responsive game/chip/sidebar highlights. Do not conflate Win32 GDI UI with CSS; no browser used.
 - Build and run core tests on Linux; manual Windows 10/11 and xemu/hardware validation outstanding.
+
+## 2026-11-21 — v0.7 Rocky5 PF and all-variants pack
+
+See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is distinct from JMP, and includes CP/HR/OF/SM/SR/MV/RN/RM. Its full-folder application stages a separate tree; ISO file operation changes are refused. New pack schema magicpatchdesk-pack-v2 includes original JMP plus all representable IPS/BPS/Xdelta/EIPS alternatives per named target and source/result checksums; v1 remains supported. Test go test ./..., race, vet and cross-build before releases.

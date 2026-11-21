@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"magicpatchdesk/core"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -29,12 +30,17 @@ func refreshPackHint(name string, patch []byte) bool {
 		app.conversionHint = "Ambiguous filename: " + err.Error()
 		return true
 	}
-	if len(special) == 0 || app.format == 0 {
+	if (len(special) == 0 && app.format != core.AllPatchFormats) || app.format == 0 {
 		app.packMode = false
 		return false
 	}
 	app.packMode = true
-	plan, err := core.PlanJMPPack(name, patch, app.format)
+	var plan core.PatchPackPlan
+	if app.format == core.AllPatchFormats {
+		plan, err = core.PlanJMPAllFormatsPack(name, patch)
+	} else {
+		plan, err = core.PlanJMPPack(name, patch, app.format)
+	}
 	if err != nil {
 		app.conversionBlocked = true
 		app.conversionHint = "Cannot create pack: " + err.Error()
@@ -44,7 +50,7 @@ func refreshPackHint(name string, patch []byte) bool {
 	sources := currentPackPaths(plan)
 	missing := []string{}
 	for _, t := range plan.Targets {
-		if t.RequiresSource && sources[t.Target] == "" {
+		if t.RequiresSource && sources[t.Target] == "" && !packFromISO(t.Target) {
 			missing = append(missing, t.Target)
 		}
 	}
@@ -71,8 +77,18 @@ func currentPackPaths(plan core.PatchPackPlan) map[string]string {
 			continue
 		}
 		if app.aFile != "" {
+			if strings.EqualFold(filepath.Ext(app.aFile), ".iso") {
+				continue
+			}
 			if t.Target == "default.xbe" || strings.EqualFold(filepath.Base(app.aFile), filepath.Base(filepath.FromSlash(t.Target))) {
 				paths[t.Target] = app.aFile
+			} else {
+				// If the user supplied the game's default.xbe, nearby game
+				// files can be found relative to its containing directory.
+				candidate := filepath.Join(filepath.Dir(app.aFile), filepath.FromSlash(t.Target))
+				if info, e := os.Stat(candidate); e == nil && !info.IsDir() {
+					paths[t.Target] = candidate
+				}
 			}
 		}
 	}
@@ -83,7 +99,7 @@ func currentPackPaths(plan core.PatchPackPlan) map[string]string {
 // also be supplied to get exact round-trip / CRC validation for each file.
 func choosePackSources() {
 	if !app.packMode {
-		notify("Choose a multi-file JMP and IPS, BPS, Xdelta or EIPS output first.")
+		notify("Choose a JMP with an output patch format or All Formats Pack.")
 		return
 	}
 	if app.packSources == nil {
@@ -91,7 +107,7 @@ func choosePackSources() {
 	}
 	for _, t := range app.packPlan.Targets {
 		existing := currentPackPaths(app.packPlan)[t.Target]
-		if existing != "" {
+		if existing != "" || packFromISO(t.Target) {
 			continue
 		}
 		hint := "Locate original " + t.Target
@@ -125,14 +141,19 @@ func runPackConversion() {
 		notify("Cannot read JMP: " + err.Error())
 		return
 	}
-	plan, err := core.PlanJMPPack(name, patch, app.format)
+	var plan core.PatchPackPlan
+	if app.format == core.AllPatchFormats {
+		plan, err = core.PlanJMPAllFormatsPack(name, patch)
+	} else {
+		plan, err = core.PlanJMPPack(name, patch, app.format)
+	}
 	if err != nil {
 		notify(err.Error())
 		return
 	}
 	paths := currentPackPaths(plan)
 	for _, t := range plan.Targets {
-		if t.RequiresSource && paths[t.Target] == "" {
+		if t.RequiresSource && paths[t.Target] == "" && !packFromISO(t.Target) {
 			notify("Conversion needs original file: " + t.Target)
 			return
 		}
@@ -163,6 +184,7 @@ func runPackConversion() {
 		return
 	}
 	fmtN, password, rle := app.format, app.password, app.ipsRLE
+	sourceISO := app.aFile
 	app.mu.Lock()
 	app.busy = true
 	app.status = "Building multi-file patch pack…"
@@ -180,9 +202,33 @@ func runPackConversion() {
 			}
 			originalFiles[t] = b
 		}
+		if jobErr == nil && strings.EqualFold(filepath.Ext(sourceISO), ".iso") {
+			var im *core.Image
+			im, jobErr = core.OpenXISO(sourceISO)
+			if jobErr == nil {
+				for _, t := range plan.Targets {
+					if originalFiles[t.Target] != nil {
+						continue
+					}
+					var f core.ImageFile
+					f, jobErr = im.ResolveTarget(t.Target)
+					if jobErr != nil {
+						break
+					}
+					originalFiles[t.Target], jobErr = im.ReadFile(f)
+					if jobErr != nil {
+						break
+					}
+				}
+			}
+		}
 		if jobErr == nil {
 			var packed []byte
-			packed, _, jobErr = core.BuildJMPPatchPack(name, patch, originalFiles, fmtN, password, rle)
+			if fmtN == core.AllPatchFormats {
+				packed, _, jobErr = core.BuildJMPAllFormatsPack(name, patch, originalFiles, password, rle)
+			} else {
+				packed, _, jobErr = core.BuildJMPPatchPack(name, patch, originalFiles, fmtN, password, rle)
+			}
 			if jobErr == nil {
 				jobErr = atomicWrite(output, packed)
 			}
@@ -197,4 +243,18 @@ func runPackConversion() {
 		app.mu.Unlock()
 		redraw()
 	}()
+}
+
+// Resolve game files from the chosen XISO's XDVDFS table, not by feeding
+// a multi-GB ISO to a patch generator as if it were default.xbe.
+func packFromISO(target string) bool {
+	if app.aFile == "" || !strings.EqualFold(filepath.Ext(app.aFile), ".iso") {
+		return false
+	}
+	im, e := core.OpenXISO(app.aFile)
+	if e != nil {
+		return false
+	}
+	_, e = im.ResolveTarget(target)
+	return e == nil
 }

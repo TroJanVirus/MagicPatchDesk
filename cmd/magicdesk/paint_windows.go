@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.6", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.7", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -243,7 +243,7 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	if app.directFile != "" {
 		textAt(hdc, "CUSTOM PATCH FILE", rightX+30, listTop+29, rightW-50, 34, app.fonts.Title, white)
 		textAt(hdc, strLimit(filepath.Base(app.directFile), 72), rightX+30, listTop+77, rightW-60, 28, app.fonts.Medium, mint)
-		textAt(hdc, "Supports JMP, IPS, BPS, Xdelta, encrypted IPS and .mpdpack.", rightX+30, listTop+125, rightW-60, 27, app.fonts.Small, muted)
+		textAt(hdc, "Supports JMP, XBMC4Gamers PF, IPS, BPS, Xdelta, EIPS and .mpdpack.", rightX+30, listTop+125, rightW-60, 27, app.fonts.Small, muted)
 		textAt(hdc, "Choose an original XBE / ISO below, then Apply Patch.", rightX+30, listTop+160, rightW-60, 27, app.fonts.Regular, white)
 		if strings.EqualFold(filepath.Ext(app.directFile), ".eips") || strings.EqualFold(filepath.Ext(app.directFile), ".mpdpack") {
 			textAt(hdc, "ENCRYPTED IPS PASSPHRASE", rightX+30, listTop+215, rightW-60, 25, app.fonts.Micro, muted)
@@ -456,7 +456,7 @@ func drawConvert(hdc uintptr, w, h int32) {
 	button(hdc, "Choose modified", ir(x+width-190, 363, 160, 40), "b", 0, false)
 
 	textAt(hdc, "OUTPUT PATCH FORMAT", x+30, 416, width-50, 20, app.fonts.Micro, muted)
-	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted", "BPS  ·  CRC32-verified"}
+	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted", "BPS  ·  CRC32-verified", "ALL FORMATS  ·  PACK"}
 	cell := (width-85)/2
 	for i, s := range labels {
 		bx := x + 28 + int32(i%2)*(cell+13)
@@ -511,9 +511,9 @@ func drawSettings(hdc uintptr, w, h int32) {
 	panel(hdc, ir(x, 443, width, 169), surface, 17)
 	textAt(hdc, "OFFLINE PATCHES", x+28, 462, width-45, 29, app.fonts.Title, white)
 	textAt(hdc, strLimit(app.root, 100), x+29, 499, width-57, 26, app.fonts.Small, muted)
-	textAt(hdc, "Copy JMP files into Custom; they remain available without internet.", x+29, 527, width-55, 23, app.fonts.Regular, muted)
+	textAt(hdc, "Copy JMP or PF patches into Custom; they remain available offline.", x+29, 527, width-55, 23, app.fonts.Regular, muted)
 	button(hdc, "Open patch folder", ir(x+27, 561, 195, 40), "folder", 0, false)
-	button(hdc, "Import single JMP", ir(x+235, 561, 188, 40), "import", 0, false)
+	button(hdc, "Import JMP / PF", ir(x+235, 561, 188, 40), "import", 0, false)
 	button(hdc, "Rescan", ir(x+438, 561, 112, 40), "refresh", 0, false)
 	_ = h
 }

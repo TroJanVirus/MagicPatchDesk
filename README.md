@@ -6,7 +6,7 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 
 1. Double-click `MagicPatchDesk-Windows-x64.exe`. The application displays its existing local library immediately while it checks GitHub for the current JMP count and downloads new JMP files into the user cache. It also refreshes a read-only game/title/cover index from Jay's Patch Hub (at most once a day).
 2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app can propose a matching patch using the embedded XBE's Title ID and CRC32, but **never applies patches automatically**.
-3. Inspect the JMP's commented record groups. Click a group to toggle all its records or click **+** to expand it and toggle individual records. Click **PREVIEW** to dry-run the selected patch, inspecting exact hexadecimal offsets, changed-byte counts and the expected resulting XBE CRC32. No files are written during preview. **APPLY PATCH** also performs a dry run and requests confirmation before writing a separate output copy.
+3. Inspect the JMP's commented record groups, toggle those you want, and click **APPLY PATCH**. Save to a new file. The input is left unchanged.
 4. In **Convert & Create**, choose an original XBE and modified XBE to create JMP, IPS, Xdelta, or encrypted IPS. Alternatively, select a JMP/IPS/Xdelta in **Patch Library** and choose an original XBE in **Convert & Create** to generate a converted patch. The conversion tab currently expects XBE files, not ISO-to-ISO comparisons.
 
 ## Offline use and manual patch packs
@@ -20,10 +20,9 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 ## Grouped JMP records and safety
 
 - Recognizes the six headers (`system`, `game-title`, `region`, `version`, `author`, `notes`), CRC32 hashes in curly braces in `version`, search/replace, hexadecimal offsets, and `APPEND:` bytes.
-- Multiple records with the **same comment label**, regardless of capitalisation, are shown as one selectable switch. For example, two `#Widescreen` records become **Widescreen ×2**. The `[-]` marker starts an individual record disabled. Click the group to enable/disable all, or expand **+** to set each record independently. Partially enabled groups display a mixed-state marker.
+- Multiple records with the **same comment label**, regardless of capitalisation, are shown as one selectable switch. For example, two `#Widescreen` records become **Widescreen ×2**. The `[-]` marker starts an individual record disabled; clicking a group applies the new state to every record in it.
 - CRC32 matches the **unpatched XBE**, not the container ISO. If provided, mismatched CRCs are refused. The XBE Title ID is checked when the JMP version contains a parseable Title ID. An optional override is available in Settings and should be used only if the user has verified compatibility.
-- A missing search pattern, invalid patch record, or out-of-bounds offset causes an error; failed patches are not silently ignored. **Preview** validates a real patch in memory without touching the original. **Apply** displays a before/after CRC32 and record/byte summary before seeking user confirmation. Full-disc XISO sector-growth constraints are checked during preflight. Output is staged as a temporary file and moved into place only on success.
-- Worker count and catalogue category filter are now persisted in `%APPDATA%\MagicPatchDesk\settings.json`. The unsafe CRC32/Title-ID override is **deliberately never persisted**, returning to enforced verification each launch.
+- A missing search pattern, invalid patch record, or out-of-bounds offset causes an error; failed patches are not silently ignored. Output is staged as a temporary file and moved into place only on success.
 
 ## ISO/XISO behaviour
 
@@ -48,7 +47,7 @@ Conversion requires the original file because plain IPS and VCDIFF cannot reliab
 - Built with the Go standard library and Windows system DLLs (Win32/GDI/GDI+). No .NET, Chrome, Node, Visual C++ Redistributable, driver, installation, or admin privilege is required.
 - **The EXE is currently unsigned.** Windows SmartScreen/antivirus may warn or quarantine it, especially on a new machine. There is no reliable way to guarantee zero warnings without trusted code signing and publisher reputation. Do not disable Windows security to make it run. Consider signing the release using an Authenticode certificate before public distribution.
 - The app only contacts GitHub and Jay's Patch Hub for public catalog/thumbnail updates. It does not upload game files or patch results.
-- The GUI executable has been cross-compiled to a valid PE32+ Windows x64 binary. Core Go tests, including a race-enabled run, passed on Linux. Additional tests cover dry-run validation, per-record/mixed-group behaviour and preferences round-tripping. **GUI interactions and original Xbox hardware compatibility have NOT yet been verified on physical Windows 10/11 or an original Xbox**. Treat as a developer/test build until that QA is complete.
+- The GUI executable has been cross-compiled to a valid PE32+ Windows x64 binary. Core Go tests, including a race-enabled run, passed on Linux. **GUI interactions and original Xbox hardware compatibility have NOT yet been verified on physical Windows 10/11 or an original Xbox**. Treat as a developer/test build until that QA is complete.
 
 ## Build from source (developers only)
 
@@ -66,21 +65,11 @@ Source is under `core` and `cmd/magicdesk`, plus interoperability fixtures in `t
 
 Feedback and bug reports should include game title, XBE Title ID/CRC32, region, specific JMP filename, and whether the target was loose `.xbe`, XISO or full-disc ISO. Do not distribute copyrighted game images as bug reports.
 
-## Patch-to-patch conversion (v0.3 test)
+## Named-file JMP records (v0.5 test)
 
-In **Convert & Create**, choose your **stock XBE**, then select either **Choose patch** (JMP, IPS, EIPS, Xdelta or BPS) or a modified XBE. Choose a target patch format (JMP, IPS, Xdelta, encrypted IPS or BPS) and select **Convert / Create Patch**. The original XBE is required: differential patch formats cannot be safely transformed without reconstructing the modified bytes. IPS RLE encoding can be turned on or off independently of EIPS password encryption. BPS1 verifies source, output and patch CRC32. The Xdelta decoder remains limited to uncompressed default-table VCDIFF.
+For a JMP that must patch something other than `default.xbe`, include the relative filename in the record's `#` comment, for example `#720p setting (settings.cfg)` or `#Data table [file=Media/settings.cfg]`. The app detects the filename, offers to locate/use the corresponding file, skip those records, or cancel. In an ISO, a named file must already exist and be uniquely resolvable; in loose-file mode, external assets are saved as new copies under `<output_stem>_patched_files` alongside the output XBE/ISO. Never overwrite original external assets. Full-disc ISO growth beyond allocated sectors is refused. The source XBE CRC32 / Title ID applies to default.xbe only, not to named assets. Multi-file JMPs cannot directly become one IPS/BPS/Xdelta patch; split into one file's records first.
 
-## Source-aware patch conversion (v0.4 developer preview)
-
-Choose **Convert & Create** and select an input patch (JMP / IPS / encrypted IPS / BPS / supported Xdelta). The app inspects the **actual records** and tells you whether the original XBE is **required**, **recommended**, or **not needed**. For example, offset-only JMP → IPS and plain IPS ↔ encrypted IPS work without a source. JMP search/replace or APPEND, BPS, Xdelta, and source-dependent final-size handling require the original. When a source is supplied, the conversion verifies the original and re-applies the generated output byte-for-byte before saving. Source-free JMP → IPS loses CRC32 and Title ID metadata: the app warns before exporting.
-
-PatchHub artwork now validates downloaded image bytes, retries failed downloads, allows the site's apex/www HTTPS redirects, and matches uniquely normalized game names. Invalid old cached HTML is ignored and re-fetched.
-
-
-## Multi-file JMP target routing (v0.5 test)
-
-When a JMP comment includes a filename with an extension, such as `#Video option (settings.cfg)` or `#Table [file=Media/settings.cfg]`, that record targets the named file, not `default.xbe`. The native UI prompts Yes=locate or use an existing ISO member, No=skip records for that file, Cancel=abort. Original XBE/ISO and sidecar files are never overwritten; modified external assets are saved in a separate `<output_stem>_patched_files/` tree. Multi-file XISOs can update multiple existing entries, relocating expanding files only in a game-partition XISO, not full-disc images. Ambiguous or unsafe target paths are rejected. Multi-file JMPs must be split into per-file patches before converting to a single-file format. The Convert button is disabled until required original bytes are selected. See `docs/RELEASE_NOTES_v0.5.0-test.md`.
-
+Conversion uses a **disabled Convert button and an explicit reason** when the original is needed but absent. Offset-only JMP → IPS is source-free; find-and-replace/APPEND → IPS requires original; BPS and Xdelta are source-dependent. See `docs/RELEASE_NOTES_v0.5.0-test.md` for limitations.
 
 ## v0.6 — Patch packs and responsive controls
 
@@ -89,3 +78,9 @@ A multi-file JMP remains **one `.jmp` file**, but exporting as IPS, BPS, Xdelta 
 File-target heuristics now inspect **all record comments and `notes=`**. For a note like `Patch driving.xbe`, records lacking a named target inherit `driving.xbe`; per-record filename comments override that. If notes name several files, unnamed records must be clarified to prevent wrong-file writes. URL domains are ignored, and unsafe paths are rejected.
 
 The Convert page asks for the original **of each target** only when necessary, with a Locate target originals button. A multi-file offset-only JMP can become an IPS pack without originals; BPS/Xdelta members or search/APPEND need originals. The Convert action remains disabled until every required original is identified. Input JMPs in JMP output mode remain one JMP. The native UI now has hover/click feedback and changes the cursor over interactive controls.
+
+## v0.7 developer preview: all-formats packs and XBMC4Gamers `.pf`
+
+Select **All Formats Pack** on Convert & Create when converting a JMP. The new v2 `.mpdpack` includes IPS, BPS, Xdelta and (when a password is entered) encrypted IPS for every named target, plus one copy of the original JMP and a manifest. You must supply each original target: the application can read those files directly from a selected XISO. [Pack format](docs/PATCH_PACK_V2.md).
+
+Rocky5 / XBMC4Gamers `.pf` files are a full game-folder operation format, not just a binary delta. Local PFs can be imported and applied through the native Windows app. For a loose extracted game, the tool previews its operations and creates an **independent copy of the game folder** before running any bytes/file changes; ISO application is available only for PF scripts whose operations modify existing file bytes. PF-to-JMP conversion is supported for context-free or source-backed byte edits, and refuses unsupported file deletion/copy/move operations. [PF reference](docs/PF_FORMAT.md).
