@@ -93,3 +93,16 @@ Failed patch, preview, conversion, Rocky5 PF and patch-pack operations now creat
 ## v0.9 diagnostic grouping
 
 The Problem Reports section in Settings groups recurring local failures by error category, affected operation, and valid Title ID into stable `MPD-...` IDs. Each report remains separately retained. **Find matches** searches the project GitHub issue titles for an existing group; **Report issue** offers to search first or compose an explicitly reviewed new issue. No reports are automatically uploaded, and the design uses no recurring GitHub Actions. See `docs/DIAGNOSTIC_GROUPING.md`.
+
+
+## Developer diagnostics dashboard (v0.10)
+
+Open the new **Diagnostics** workspace to combine locally recorded patch
+failures with public GitHub diagnostic issues. Click **Refresh GitHub** explicitly
+for a read-only snapshot; the app makes no background issue requests. Sort
+cases by report count, recency or open reports; browse their linked root cause
+issue, fix PR and related failure groups. Copy triage markers or open a
+prefilled **unsent** tracking issue in your browser. The original local reports
+remain private. `docs/DEVELOPER_DASHBOARD.md` documents the workflow, security
+limits, and issue-body markers. GitHub report issue counts are not unique
+reporter counts, and neither closed issues nor closed PRs imply a verified fix.

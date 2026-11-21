@@ -237,6 +237,15 @@ type appState struct {
 	lastErr       string
 	diagnosticGroups  []core.DiagnosticGroup
 	diagnosticSelected int
+	dashboardIssues []core.DashboardIssue
+	dashboardCases []core.DeveloperCase
+	dashboardBusy bool
+	dashboardStatus string
+	dashboardFetchedAt time.Time
+	dashboardIncomplete bool
+	dashboardSort core.DeveloperSort
+	dashboardSelected int
+	dashboardScroll int
 	hoverAction string
 	hoverIndex int
 	hoverFade uint8
@@ -966,6 +975,7 @@ func handle(action string, index int) {
 		app.tab = index
 		if index == 1 { refreshConversionHint() }
 		app.gameScroll = 0
+		if index == 3 { refreshDeveloperDashboardLocal() }
 	case "game":
 		app.packSources = nil
 		app.directFile = ""
@@ -1028,6 +1038,8 @@ func handle(action string, index int) {
 				notify("Imported local patch: " + filepath.Base(p))
 			}
 		}
+	case "dev-refresh", "dev-sort", "dev-select", "dev-prev", "dev-next", "dev-github", "dev-view", "dev-copy", "dev-root", "dev-report", "dev-fixpr", "dev-copygroups", "dev-copyroot", "dev-create":
+		developerAction(action,index)
 	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
 		diagnosticsAction(action)
 	case "folder":
@@ -1186,6 +1198,15 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		return 0
 	case WM_MOUSEWHEEL:
 		delta := hi(wp)
+		if app.tab == 3 {
+			app.mu.Lock()
+			app.dashboardSelected -= int(delta / 120) * 2
+			if app.dashboardSelected < 0 { app.dashboardSelected = 0 }
+			if app.dashboardSelected >= len(app.dashboardCases) && len(app.dashboardCases) > 0 { app.dashboardSelected = len(app.dashboardCases)-1 }
+			app.mu.Unlock()
+			redraw()
+			return 0
+		}
 		if delta != 0 {
 			var p point
 			sysCall(user32.NewProc("GetCursorPos"), uintptr(unsafe.Pointer(&p)))

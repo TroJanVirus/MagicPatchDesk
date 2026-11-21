@@ -13,7 +13,7 @@ import (
 	"unsafe"
 )
 
-const diagnosticAppVersion = "v0.9.0-test.1"
+const diagnosticAppVersion = "v0.10.0-test.1"
 
 var (
 	openClipboard        = user32.NewProc("OpenClipboard")
@@ -74,6 +74,7 @@ func recordDiagnostic(operation string, cause error, source, patch, output strin
 			return
 		}
 		refreshDiagnosticGroups()
+		refreshDeveloperDashboardLocal()
 		redraw()
 	}()
 }
