@@ -271,6 +271,7 @@ func startGameOutput(){
     app.progress=0
     app.status="Verifying original game and preparing requested output formats..."
     app.mu.Unlock()
+    manager.log.Add("info","Game Outputs","Preflight: verifying source and preserving the original")
     redraw()
     go func(){
         var err error
