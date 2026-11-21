@@ -27,12 +27,17 @@ Read `README.md`, `AI_HANDOFF.md`, and `docs/PROJECT_STATE.md` before making cha
 
 For bug reports, record the game title, Title ID, original XBE CRC32, JMP filename, selected groups, and whether the input was `.xbe`, game-partition XISO, or full-disc ISO. Document any unverified hardware, Windows GUI, or game-boot claims explicitly in `docs/PROJECT_STATE.md`.
 
+## Multi-file JMP routing (v0.5)
 
-## Multi-file JMP rules
-
-A comment naming `settings.cfg` targets that file. Prompt the user to locate/use, skip, or cancel; never silently apply that record to the default XBE. Reject ambiguous/unsafe paths and preserve the original. In an XISO resolve by unique relative path or basename. Multiple file targets must not be collapsed into one IPS, BPS or Xdelta patch without separating the records.
-
+- `core/targets.go`: a comment such as `#Video (settings.cfg)` is an explicit record target. Normalise relative paths; reject traversal, reserved device names, multiple different candidates and unsafe characters. Never silently apply a named-file record to `default.xbe`.
+- `core/xiso_multi.go`: patch existing XDVDFS members by exact relative path or an unambiguous basename only. Full-disc image sector growth is unsafe; refuse it. Preserve original ISO, use staged output.
+- `cmd/magicdesk/targeted_windows.go`: for multi-file JMPs, ask the user to locate the named sidecar, skip the named records, or cancel. Preserve originals and store generated external sidecars separately from the selected output. Do not skip without a user decision.
+- Converting a multi-file JMP into a single-file format is invalid unless the user explicitly separates the individual target records. Preserve the strict source-file requirements for BPS/Xdelta and search/append JMP conversions.
 
 ## v0.6 file-target packs and GUI feedback
 
 Read `docs/PATCH_PACK_FORMAT.md`. A JMP is always one file, even if its records target multiple distinct files. For non-JMP exports containing named targets, create a `.mpdpack` with one standard patch per target and a manifest; never force different files into one IPS/BPS/Xdelta stream. Inspect `notes=` and each record comment for filename.ext references. Per-record wins, one global note target is inherited by otherwise unnamed records, ambiguous notes fail closed. Do not package game binaries or silently skip file targets. Preserve source requirements, SHA256 integrity, and optional JMP CRC32 constraints. Native GDI controls now respond to mouse hover/down/up: do not break pressed-state click dispatch or 16 ms animation timer. Test with `go test ./...`, `go test -race ./core`, `go vet ./...` and cross-build Windows x64.
+
+## 2026-11-21 — v0.7 Rocky5 PF and all-variants pack
+
+See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is distinct from JMP, and includes CP/HR/OF/SM/SR/MV/RN/RM. Its full-folder application stages a separate tree; ISO file operation changes are refused. New pack schema magicpatchdesk-pack-v2 includes original JMP plus all representable IPS/BPS/Xdelta/EIPS alternatives per named target and source/result checksums; v1 remains supported. Test go test ./..., race, vet and cross-build before releases.

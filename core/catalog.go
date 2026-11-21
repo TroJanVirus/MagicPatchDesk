@@ -99,7 +99,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 			if err != nil {
 				return nil
 			}
-			if !entry.IsDir() && strings.EqualFold(filepath.Ext(path), ".jmp") {
+			if !entry.IsDir() && (strings.EqualFold(filepath.Ext(path), ".jmp") || strings.EqualFold(filepath.Ext(path), ".pf")) {
 				paths = append(paths, path)
 			}
 			return nil
@@ -122,7 +122,14 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 					results <- result{err: e}
 					continue
 				}
-				p, parseErr := ParseJMP(filepath.Base(path), b)
+				var p *Patch
+				var pf *PF
+				var parseErr error
+				if strings.EqualFold(filepath.Ext(path), ".pf") {
+					pf, parseErr = ParsePF(filepath.Base(path), b)
+				} else {
+					p, parseErr = ParseJMP(filepath.Base(path), b)
+				}
 				name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 				title := strings.Split(name, " {")[0]
 				parts := strings.Split(filepath.ToSlash(path), "/")
@@ -162,7 +169,28 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 					break
 				}
 
-				if parseErr == nil {
+				if parseErr == nil && pf != nil {
+					if v := pf.Header["title"]; v != "" {
+						cp.Game = v
+					}
+					cp.Type = pf.Header["type"]
+					if cp.Type == "" {
+						cp.Type = "XBMC4Gamers PF"
+					}
+					cp.Author = pf.Header["author"]
+					if cp.Author == "" {
+						cp.Author = "Unknown"
+					}
+					cp.Region = pf.Header["region"]
+					cp.TitleID = strings.ToUpper(pf.Header["titleid"])
+					if cp.TitleID == "MULTI" {
+						cp.TitleID = ""
+					}
+					cp.Notes = pf.Header["info"]
+					cp.Groups = 0
+					cp.Records = len(pf.Operations)
+					cp.CRC = "PF TitleID check"
+				} else if parseErr == nil {
 					if v := p.Headers["game-title"]; v != "" && !strings.Contains(filepath.ToSlash(path), "/titles/") {
 						cp.Game = v
 					}
@@ -508,14 +536,20 @@ func SyncGithub(ctx context.Context, root string, onStatus func(string)) (SyncRe
 	return res, nil
 }
 func ImportJMP(root, source string) (string, error) {
-	if !strings.EqualFold(filepath.Ext(source), ".jmp") {
-		return "", errors.New("choose a .jmp file")
+	ext := strings.ToLower(filepath.Ext(source))
+	if ext != ".jmp" && ext != ".pf" {
+		return "", errors.New("choose a .jmp or .pf patch file")
 	}
 	b, err := os.ReadFile(source)
 	if err != nil {
 		return "", err
 	}
-	if _, err := ParseJMP(filepath.Base(source), b); err != nil {
+	if ext == ".jmp" {
+		_, err = ParseJMP(filepath.Base(source), b)
+	} else {
+		_, err = ParsePF(filepath.Base(source), b)
+	}
+	if err != nil {
 		return "", err
 	}
 	dir := filepath.Join(root, "Custom")
@@ -560,7 +594,7 @@ func ImportFolder(root, folder string) (int, error) {
 		}
 		ext := strings.ToLower(filepath.Ext(path))
 		switch ext {
-		case ".jmp", ".jpg", ".jpeg", ".png", ".bmp", ".txt", ".earl":
+		case ".jmp", ".pf", ".jpg", ".jpeg", ".png", ".bmp", ".txt", ".earl":
 		default:
 			return nil
 		}
@@ -589,7 +623,7 @@ func ImportFolder(root, folder string) (int, error) {
 		if e != nil {
 			return e
 		}
-		if ext == ".jmp" {
+		if ext == ".jmp" || ext == ".pf" {
 			count++
 		}
 		return nil

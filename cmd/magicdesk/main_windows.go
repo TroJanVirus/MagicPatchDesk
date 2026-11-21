@@ -636,6 +636,16 @@ func selectPatch(idx int) {
 		notify(err.Error())
 		return
 	}
+	if strings.EqualFold(filepath.Ext(path), ".pf") {
+        if _, err := core.ParsePF(filepath.Base(path),b);err!=nil{notify(err.Error());return}
+        app.mu.Lock()
+        app.directFile=path
+        app.parsed=nil
+        app.mu.Unlock()
+        notify("XBMC4Gamers PF selected: "+filepath.Base(path)+" · Choose game's default.xbe or ISO")
+        redraw()
+        return
+    }
 	p, err := core.ParseJMP(filepath.Base(path), b)
 	if err != nil {
 		notify(err.Error())
@@ -806,6 +816,9 @@ func startPreview() {
 		return
 	}
 	app.mu.Unlock()
+    if handled,e:=maybeStartPF(true,direct,source,app.workers);handled {
+        if e!=nil{notify(e.Error())};return
+    }
     if handled, e := maybeStartPack(true, direct, source, app.workers, password); handled {
         if e != nil { notify(e.Error()) }
         return
@@ -857,6 +870,9 @@ func startPatch() {
 		notify("Choose an original XBE or Xbox ISO first.")
 		return
 	}
+    if handled,e:=maybeStartPF(false,direct,source,workers);handled {
+        if e!=nil{notify(e.Error())};return
+    }
     if handled, e := maybeStartPack(false, direct, source, workers, password); handled {
         if e != nil { notify(e.Error()) }
         return
@@ -973,7 +989,7 @@ func handle(action string, index int) {
 			app.parsed.SetRecordEnabled(index, !app.parsed.Records[index].Enabled)
 		}
 	case "direct":
-		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp;*.mpdpack\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
+		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp;*.pf;*.mpdpack\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
 			app.directFile = path
 			app.packSources = nil
 			refreshConversionHint()
@@ -998,12 +1014,12 @@ func handle(action string, index int) {
 		app.searchFocus = true
 		app.passFocus = false
 	case "import":
-		if p := pickFile(false, "Magic patches\x00*.jmp\x00All files\x00*.*\x00", "Import JMP file", ""); p != "" {
+		if p := pickFile(false, "Magic patches\x00*.jmp;*.pf\x00All files\x00*.*\x00", "Import JMP or XBMC4Gamers PF", ""); p != "" {
 			if _, err := core.ImportJMP(app.root, p); err != nil {
 				notify("Import error: " + err.Error())
 			} else {
 				go reloadCatalog()
-				notify("Imported local JMP: " + filepath.Base(p))
+				notify("Imported local patch: " + filepath.Base(p))
 			}
 		}
 	case "folder":
@@ -1026,13 +1042,15 @@ func handle(action string, index int) {
 	case "packsources":
 		choosePackSources()
 	case "a":
-		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose stock/original XBE", ""); p != "" {
+		if p := pickFile(false, "XBE or XISO\x00*.xbe;*.iso\x00", "Choose stock/original XBE or XISO", ""); p != "" {
 			app.aFile = p
 			refreshConversionHint()
 		}
 	case "cpatch":
-		if p := pickFile(false, "Patch files\x00*.jmp;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
+		if p := pickFile(false, "Patch files\x00*.jmp;*.pf;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
 			app.convertPatchFile = p
+            if strings.EqualFold(filepath.Ext(p),".jmp") {app.format=core.AllPatchFormats}
+            if strings.EqualFold(filepath.Ext(p),".pf") {app.format=0}
 			app.packSources = nil
 			app.bFile = "" // A source patch and a modified XBE are alternative inputs.
 			refreshConversionHint()
@@ -1231,7 +1249,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 						notify("Folder import error: " + e.Error())
 					} else {
 						reloadCatalog()
-						notify(fmt.Sprintf("Imported %d JMP files from %s", n, filepath.Base(path)))
+						notify(fmt.Sprintf("Imported %d JMP / PF files from %s", n, filepath.Base(path)))
 					}
 				}()
 			} else if ext == ".mpdpack" {
@@ -1239,13 +1257,13 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				app.tab = 0
 				app.packSources = nil
 				app.status = "Loaded patch pack: " + filepath.Base(path)
-			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps") {
+			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps" || ext == ".pf") {
 				app.convertPatchFile = path
 				app.packSources = nil
 				app.bFile = ""
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
-			} else if ext == ".jmp" {
+			} else if ext == ".jmp" || ext == ".pf" {
 				if _, err := core.ImportJMP(app.root, path); err != nil {
 					notify(err.Error())
 				} else {

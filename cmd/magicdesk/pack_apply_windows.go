@@ -35,7 +35,10 @@ func maybeStartPack(previewOnly bool, direct, source string, workers int, passwo
 		}
 	}
 	choices := []targetChoice{}
+    already:=map[string]bool{}
 	for _, entry := range manifest.Entries {
+        if already[entry.Target] {continue}
+        already[entry.Target]=true
 		if entry.Target == "default.xbe" {
 			choices = append(choices, targetChoice{name: entry.Target, inISO: im != nil, diskFile: source})
 			continue
