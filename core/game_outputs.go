@@ -122,10 +122,10 @@ func CopyExtractedGame(source, dest string) error {
         if !info.Mode().IsRegular() { return fmt.Errorf("non-regular game file: %s", clean) }
         in, e := os.Open(name)
         if e != nil { return e }
-        defer in.Close()
         out, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-        if e != nil { return e }
+        if e != nil { in.Close(); return e }
         _, e = io.Copy(out, in)
+        if closeErr := in.Close(); e == nil { e = closeErr }
         if closeErr := out.Close(); e == nil { e = closeErr }
         return e
     })
