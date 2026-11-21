@@ -236,7 +236,9 @@ func startGameOutput(){
         var err error
         workSource:=source
         if strings.EqualFold(filepath.Ext(direct),".pf"){
-            if mask&core.GameOutputISO!=0 {
+            if mask&core.GameOutputXBE!=0 {
+                err=errors.New("PF may modify additional files: XBE-only output would be incomplete; choose folder, XISO or CCI")
+            } else if mask&core.GameOutputISO!=0 {
                 err=errors.New("full-disc ISO cannot preserve PF file operations; choose XISO, CCI or folder")
             } else {
                 var cleanup func()
