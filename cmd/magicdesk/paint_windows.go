@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.5", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.6", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -100,6 +100,8 @@ func drawSidebar(hdc uintptr, w, h int32) {
 		if app.tab == i {
 			panel(hdc, ir(13, y, 206, 47), 0x283F65, 12)
 			fill(hdc, ir(13, y+8, 4, 31), blue)
+		} else if app.hoverAction == "tab" && app.hoverIndex == i {
+			panel(hdc, ir(13, y, 206, 47), 0x223756, 12)
 		}
 		txt(hdc, item.symbol, ir(25, y, 27, 47), app.fonts.Title, map[bool]uint32{true: blue, false: muted}[app.tab == i], DT_SINGLELINE|DT_VCENTER|DT_CENTER)
 		textAt(hdc, item.label, 61, y+8, 145, 30, app.fonts.Medium, map[bool]uint32{true: white, false: muted}[app.tab == i])
@@ -196,6 +198,8 @@ func drawLibrary(hdc uintptr, w, h int32) {
 		color := uint32(0x23314A)
 		if idx == app.filter {
 			color = 0x345684
+		} else if app.hoverAction == "filter" && app.hoverIndex == idx {
+			color = 0x34506F
 		}
 		panel(hdc, ir(chipX, listTop+123, chip.width, 25), color, 10)
 		txt(hdc, chip.name, ir(chipX, listTop+123, chip.width, 25), app.fonts.Micro, white, DT_SINGLELINE|DT_VCENTER|DT_CENTER)
@@ -221,6 +225,8 @@ func drawLibrary(hdc uintptr, w, h int32) {
 		selected := i == app.selectedGame
 		if selected {
 			panel(hdc, ir(listX+10, y, listW-20, 61), 0x2B4468, 12)
+		} else if app.hoverAction == "game" && app.hoverIndex == i {
+			panel(hdc, ir(listX+10, y, listW-20, 61), 0x264666, 12)
 		} else if row%2 == 0 {
 			panel(hdc, ir(listX+10, y, listW-20, 61), 0x1D2B40, 11)
 		}
@@ -237,9 +243,9 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	if app.directFile != "" {
 		textAt(hdc, "CUSTOM PATCH FILE", rightX+30, listTop+29, rightW-50, 34, app.fonts.Title, white)
 		textAt(hdc, strLimit(filepath.Base(app.directFile), 72), rightX+30, listTop+77, rightW-60, 28, app.fonts.Medium, mint)
-		textAt(hdc, "Supports JMP, IPS, encrypted IPS and Xdelta/VCDIFF.", rightX+30, listTop+125, rightW-60, 27, app.fonts.Small, muted)
+		textAt(hdc, "Supports JMP, IPS, BPS, Xdelta, encrypted IPS and .mpdpack.", rightX+30, listTop+125, rightW-60, 27, app.fonts.Small, muted)
 		textAt(hdc, "Choose an original XBE / ISO below, then Apply Patch.", rightX+30, listTop+160, rightW-60, 27, app.fonts.Regular, white)
-		if strings.EqualFold(filepath.Ext(app.directFile), ".eips") {
+		if strings.EqualFold(filepath.Ext(app.directFile), ".eips") || strings.EqualFold(filepath.Ext(app.directFile), ".mpdpack") {
 			textAt(hdc, "ENCRYPTED IPS PASSPHRASE", rightX+30, listTop+215, rightW-60, 25, app.fonts.Micro, muted)
 			panel(hdc, ir(rightX+30, listTop+248, rightW-60, 50), surface2, 10)
 			placeholder := "Click to enter the password"
@@ -297,6 +303,8 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		color := uint32(0x26364D)
 		if chosen {
 			color = 0x30527D
+		} else if app.hoverAction == "patch" && app.hoverIndex == idx {
+			color = 0x2D496B
 		}
 		panel(hdc, ir(x+16, y, width-32, rowH-5), color, 11)
 		tag(hdc, strLimit(p.Type, 17), x+26, y+14, 0x3B5271)
@@ -359,10 +367,12 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		y := rowY + int32(i)*38
 		if r.record >= 0 {
 			rec := p.Records[r.record]
-			panel(hdc, ir(x+34, y, width-52, 34), 0x1F2F45, 8)
+			color := uint32(0x1F2F45)
+			if app.hoverAction == "record" && app.hoverIndex == r.record { color = 0x2B4260 }
+			panel(hdc, ir(x+34, y, width-52, 34), color, 8)
 			mark(hdc, ir(x+47, y+8, 18, 18), rec.Enabled)
 			label := fmt.Sprintf("#%d  %s", r.record+1, rec.Kind)
-            if target, targetErr := core.TargetFromComment(rec.Comment); targetErr == nil && target != "default.xbe" {
+            if target, targetErr := p.RecordTarget(rec); targetErr == nil && target != "default.xbe" {
                 label += " → " + target
             }
 			if rec.Kind == core.Offset {
@@ -381,7 +391,9 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			continue
 		}
 		g := p.Groups[r.group]
-		panel(hdc, ir(x+18, y, width-36, 34), 0x24344B, 9)
+		groupColor := uint32(0x24344B)
+		if app.hoverAction == "group" && app.hoverIndex == r.group {groupColor = 0x325071}
+		panel(hdc, ir(x+18, y, width-36, 34), groupColor, 9)
 		mark(hdc, ir(x+47, y+8, 18, 18), g.Enabled)
 		if g.Mixed {
 			textAt(hdc, "–", x+50, y+6, 14, 21, app.fonts.Micro, white)
@@ -465,11 +477,16 @@ func drawConvert(hdc uintptr, w, h int32) {
 	mark(hdc, ir(x+32, 631, 18, 18), app.ipsRLE)
 	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
 	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
+	if app.packMode {
+		button(hdc, "LOCATE TARGET ORIGINALS", ir(x+28, 658, 230, 44), "packsources", 0, false)
+	}
     if app.conversionBlocked {
         panel(hdc, ir(x+width-277, 658, 244, 44), 0x3A4150, 12)
         textAt(hdc, "CONVERSION BLOCKED", x+width-259, 665, 230, 29, app.fonts.Medium, 0xABB3BF)
     } else {
-        button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
+        label := "CONVERT / CREATE PATCH"
+		if app.packMode { label = "CREATE PATCH PACK" }
+		button(hdc, label, ir(x+width-277, 658, 244, 44), "convert", 0, true)
     }
 	hint := app.conversionHint
 	if hint == "" { hint = "Choose a source patch to determine whether the original XBE is required." }

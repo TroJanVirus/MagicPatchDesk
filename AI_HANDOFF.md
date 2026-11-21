@@ -67,3 +67,13 @@ Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, option
 ## 2026-11-21: v0.5 named-file records and conversion interlocks
 
 Use `core/targets.go` for filename.ext comment detection, path safety, per-file ApplyToTarget and PreviewTarget. Single-file p.Apply and p.Preview reject enabled named-file records. For Windows, `cmd/magicdesk/targeted_windows.go` intercepts multi-target JMPs, prompts to locate/skip/cancel each target, checks XBE CRC32/Title ID against the original default.xbe, previews per-file patches and writes separate output copies only. `core/xiso_multi.go` can update multiple uniquely resolved existing XDVDFS files, with growth relocation limited to game-partition XISOs. See `docs/RELEASE_NOTES_v0.5.0-test.md`; do not overclaim Windows GUI/hardware QA. GUI disabled Convert button enforces PlanPatchConversion source requirements. No automatic CI workflows.
+
+
+## 2026-11-21 v0.6: multi-target patch packs / filename notes / reactive Win32 UI
+
+- `core/targets.go`: `FileTargetsInText`, `Patch.RecordTarget`. Every comment and `notes=` is scanned for filename.extension references. Ambiguous notes require explicit per-record target. URL links ignored; unsafe paths fail.
+- `core/pack.go`: `PlanJMPPack`, `BuildJMPPatchPack`, `ReadPatchPack`, `ApplyPatchPack`. `.mpdpack` is ZIP + manifest + per-target IPS/BPS/Xdelta/EIPS; optional source SHA256/result hash; default-XBE JMP CRC32 retained in manifest. No original game data in archive. Full specification: `docs/PATCH_PACK_FORMAT.md`.
+- `cmd/magicdesk/pack_windows.go`: source-aware per-target pack conversion, per-target file selection; disabled Convert until required originals available.
+- `cmd/magicdesk/pack_apply_windows.go`: explicit full-pack application via existing XDVDFS patching / separate external copy pipeline; refuses missing targets.
+- `cmd/magicdesk/main_windows.go` and `paint_windows.go`: custom eased mouse hover, clicked-depth states, real hand cursor and responsive game/chip/sidebar highlights. Do not conflate Win32 GDI UI with CSS; no browser used.
+- Build and run core tests on Linux; manual Windows 10/11 and xemu/hardware validation outstanding.

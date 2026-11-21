@@ -37,23 +37,19 @@ func NormaliseTarget(s string) (string, error) {
 	return strings.ToLower(path.Clean(s)), nil
 }
 
-// TargetFromComment returns default.xbe when no target is indicated. An
-// unambiguous filename with an extension in a record comment is considered a
-// file target. URLs and obvious web domains are ignored to avoid accidental
-// special handling of attribution comments.
-func TargetFromComment(comment string) (string, error) {
-	// Fail closed rather than strip an unsafe path prefix and accidentally
-	// interpret its offset as a write to default.xbe.
-	if strings.Contains(comment, "../") || strings.Contains(comment, `..\`) {
-		return "", fmt.Errorf("unsafe parent path in JMP comment %q", comment)
+// FileTargetsInText finds file-like tokens in JMP comments or the patch notes.
+// Website names and URLs are ignored. Every returned path is safe, relative,
+// unique and normalized. Detection is a heuristic, not automatic permission to
+// modify a file: the GUI must show the target and ask before patching.
+func FileTargetsInText(text string) ([]string, error) {
+	if strings.Contains(text, "../") || strings.Contains(text, `..\`) {
+		return nil, fmt.Errorf("unsafe parent path in text %q", text)
 	}
 	seen := map[string]bool{}
-	for _, span := range commentFileToken.FindAllStringIndex(comment, -1) {
+	for _, span := range commentFileToken.FindAllStringIndex(text, -1) {
 		start, end := span[0], span[1]
-		token := comment[start:end]
-		preceding := comment[:start]
-		// Attribution URLs are not patch targets. Only the URL word is
-		// ignored; a separate settings.cfg later in the same comment counts.
+		token := text[start:end]
+		preceding := text[:start]
 		word := preceding
 		if k := strings.LastIndexAny(word, " \t\r\n,;([{\"'"); k >= 0 {
 			word = word[k+1:]
@@ -62,13 +58,13 @@ func TargetFromComment(comment string) (string, error) {
 			continue
 		}
 		isEdge := func(c byte) bool { return strings.ContainsRune(" \t\n\r[](){}\"',;:=!?.", rune(c)) }
-		if start > 0 && !isEdge(comment[start-1]) {
-			if comment[start-1] == '/' || comment[start-1] == '\\' || comment[start-1] == ':' {
-				return "", fmt.Errorf("unsafe or ambiguous path in JMP comment %q", comment)
+		if start > 0 && !isEdge(text[start-1]) {
+			if text[start-1] == '/' || text[start-1] == '\\' || text[start-1] == ':' {
+				return nil, fmt.Errorf("unsafe or ambiguous filename in text %q", text)
 			}
 			continue
 		}
-		if end < len(comment) && !isEdge(comment[end]) {
+		if end < len(text) && !isEdge(text[end]) {
 			continue
 		}
 		ext := strings.ToLower(token[strings.LastIndexByte(token, '.')+1:])
@@ -77,23 +73,56 @@ func TargetFromComment(comment string) (string, error) {
 		}
 		norm, err := NormaliseTarget(token)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		seen[norm] = true
 	}
-	if len(seen) == 0 {
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func TargetFromComment(comment string) (string, error) {
+	files, err := FileTargetsInText(comment)
+	if err != nil {
+		return "", err
+	}
+	if len(files) == 0 {
 		return "default.xbe", nil
 	}
-	if len(seen) > 1 {
-		names := make([]string, 0, len(seen))
-		for k := range seen {
-			names = append(names, k)
-		}
-		sort.Strings(names)
-		return "", fmt.Errorf("JMP comment mentions multiple target files %s; specify one filename per record", strings.Join(names, ", "))
+	if len(files) > 1 {
+		return "", fmt.Errorf("JMP comment mentions multiple target files %s; specify one filename per record", strings.Join(files, ", "))
 	}
-	for k := range seen {
-		return k, nil
+	return files[0], nil
+}
+
+// RecordTarget resolves a record-specific comment first. A single filename in
+// notes applies to records without a filename of their own; notes naming more
+// than one file require per-record comments to disambiguate. This prevents a
+// note like "driving.xbe" from being silently ignored.
+func (p *Patch) RecordTarget(r Record) (string, error) {
+	named, err := FileTargetsInText(r.Comment)
+	if err != nil {
+		return "", err
+	}
+	if len(named) > 1 {
+		return "", fmt.Errorf("record comment mentions multiple files: %s", strings.Join(named, ", "))
+	}
+	if len(named) == 1 {
+		return named[0], nil
+	}
+	notes, err := FileTargetsInText(p.Headers["notes"])
+	if err != nil {
+		return "", err
+	}
+	if len(notes) > 1 {
+		return "", fmt.Errorf("patch notes mention multiple files (%s): specify the filename in each record's comment", strings.Join(notes, ", "))
+	}
+	if len(notes) == 1 {
+		return notes[0], nil
 	}
 	return "default.xbe", nil
 }
@@ -106,7 +135,7 @@ func (p *Patch) TargetFiles() ([]string, error) {
 		if !r.Enabled {
 			continue
 		}
-		target, err := TargetFromComment(r.Comment)
+		target, err := p.RecordTarget(r)
 		if err != nil {
 			return nil, fmt.Errorf("JMP line %d: %w", r.Line, err)
 		}
@@ -150,7 +179,7 @@ func (p *Patch) ScopedPatch(target string) (*Patch, error) {
 		if !r.Enabled {
 			continue
 		}
-		named, e := TargetFromComment(r.Comment)
+		named, e := p.RecordTarget(r)
 		if e != nil {
 			return nil, fmt.Errorf("JMP line %d: %w", r.Line, e)
 		}
