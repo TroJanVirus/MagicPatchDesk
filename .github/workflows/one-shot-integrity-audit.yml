@@ -1,0 +1,53 @@
+name: One-shot image integrity hardening validation
+on:
+  push:
+    branches: [fix/v0.13.0-image-integrity]
+    paths:
+      - '.github/workflows/one-shot-integrity-audit.yml'
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Ensure self-update protocol survives changes
+        run: bash scripts/verify_release_contract.sh
+      - name: Complete Go regression suite (including integrity tests)
+        run: go test -count=1 ./...
+      - name: Race detector
+        run: go test -race -count=1 ./core
+      - name: Vet
+        run: go vet ./...
+      - name: Windows x64 GUI cross-build
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags='-H windowsgui -s -w' -o /tmp/MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
+  windows:
+    needs: [linux]
+    runs-on: windows-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Native Windows Go regression suite
+        run: go test -count=1 ./...
+      - name: Compile native Windows executable and run healthcheck
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags='-H windowsgui -s -w' -o MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
+          if ($LASTEXITCODE -ne 0) { throw 'Windows compile failed' }
+          $exe = Join-Path (Get-Location) 'MagicPatchDesk-Windows-x64.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--mpd-healthcheck-v1' -PassThru -Wait -ErrorAction Stop
+          if ($p.ExitCode -ne 0) { throw "Healthcheck failed: $($p.ExitCode)" }
