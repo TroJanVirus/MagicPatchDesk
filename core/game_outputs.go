@@ -51,6 +51,31 @@ func validGameMember(p string) (string, error) {
     return strings.Join(parts, "/"), nil
 }
 
+// resolveGameMember preserves the source filename spelling, while matching
+// patch targets case-insensitively as XDVDFS does. It rejects ambiguous names.
+func resolveGameMember(root, member string) (string,error) {
+    canonical,err:=validGameMember(member)
+    if err!=nil{return "",err}
+    current:=root
+    for _,part:=range strings.Split(canonical,"/") {
+        entries,e:=os.ReadDir(current)
+        if e!=nil{return "",e}
+        found:=""
+        for _,entry:=range entries {
+            if strings.EqualFold(entry.Name(),part) {
+                if found!="" {return "",fmt.Errorf("ambiguous case-insensitive target: %s",canonical)}
+                found=entry.Name()
+            }
+        }
+        if found==""{return "",fmt.Errorf("game member not found: %s",canonical)}
+        current=filepath.Join(current,found)
+        info,e:=os.Lstat(current)
+        if e!=nil{return "",e}
+        if info.Mode()&os.ModeSymlink!=0{return "",fmt.Errorf("symlink target forbidden: %s",canonical)}
+    }
+    return current,nil
+}
+
 func ensureNewOutput(dest string) error {
     _, err := os.Lstat(dest)
     if err == nil { return fmt.Errorf("output already exists: %s", filepath.Base(dest)) }
@@ -99,6 +124,14 @@ func ExtractGameXISO(image, destination string) error {
 
 // CopyExtractedGame is symlink-safe and never modifies the source directory.
 func CopyExtractedGame(source, dest string) error {
+    info,err:=os.Lstat(source)
+    if err!=nil{return err}
+    if !info.IsDir(){return errors.New("source must be a real game directory, not a symlink")}
+    a,_:=filepath.Abs(source)
+    b,_:=filepath.Abs(dest)
+    if strings.EqualFold(a,b) || strings.HasPrefix(strings.ToLower(b),strings.ToLower(a)+string(os.PathSeparator)){
+        return errors.New("output cannot be inside source folder")
+    }
     if err := ensureNewOutput(dest); err != nil { return err }
     tmp, err := os.MkdirTemp(filepath.Dir(dest), ".mpd-folder-*")
     if err != nil { return err }
@@ -145,6 +178,9 @@ type xdvNode struct {
 }
 
 func collectXDVTree(source string) (*xdvNode, error) {
+    info,err:=os.Lstat(source)
+    if err!=nil{return nil,err}
+    if !info.IsDir(){return nil,errors.New("source must be an actual game directory")}
     root := &xdvNode{folder:true}
     paths := map[string]*xdvNode{".":root}
     duplicates := map[string]bool{}
@@ -402,7 +438,8 @@ func ExportGameOutputs(source, destination string, mask uint32, replacements map
     for name,data:=range replacements {
         clean,e:=validGameMember(name)
         if e!=nil{return e}
-        target:=filepath.Join(root,filepath.FromSlash(clean))
+        target,e:=resolveGameMember(root,clean)
+        if e!=nil{return e}
         st,e:=os.Lstat(target)
         if e!=nil{return fmt.Errorf("patch target not in source: %s: %w",clean,e)}
         if !st.Mode().IsRegular(){return fmt.Errorf("patch target is not regular: %s",clean)}
@@ -413,7 +450,8 @@ func ExportGameOutputs(source, destination string, mask uint32, replacements map
     }
     name:=filepath.Base(destination)
     if mask&GameOutputXBE!=0 {
-        xbePath:=filepath.Join(root,"default.xbe")
+        xbePath,e:=resolveGameMember(root,"default.xbe")
+        if e!=nil{return fmt.Errorf("default.xbe missing: %w",e)}
         xbe, e:=os.Open(xbePath)
         if e!=nil{return fmt.Errorf("default.xbe missing: %w",e)}
         out,e:=os.OpenFile(filepath.Join(stage,name+".xbe"),os.O_CREATE|os.O_EXCL|os.O_WRONLY,0644)
