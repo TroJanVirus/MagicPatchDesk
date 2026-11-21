@@ -82,6 +82,9 @@ func refreshConversionHint() {
 		return
 	}
 
+	if refreshPackHint(name, b) {
+		return
+	}
 	plan, err := core.PlanPatchConversion(name, b, app.format, app.password)
 	if err != nil {
 		app.conversionHint = "Cannot convert this patch: " + err.Error()
@@ -121,6 +124,10 @@ func runConversion() {
 	refreshConversionHint()
 	if app.conversionBlocked {
 		notify(app.conversionHint)
+		return
+	}
+	if app.packMode {
+		runPackConversion()
 		return
 	}
 	if app.bFile == "" && app.convertPatchFile == "" && app.directFile == "" && app.parsed == nil {

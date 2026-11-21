@@ -24,6 +24,12 @@ const (
 	WM_SIZE             = 0x0005
 	WM_CLOSE            = 0x0010
 	WM_LBUTTONUP        = 0x0202
+	WM_LBUTTONDOWN      = 0x0201
+	WM_MOUSEMOVE        = 0x0200
+	WM_MOUSELEAVE       = 0x02A3
+	WM_TIMER            = 0x0113
+	TME_LEAVE           = 0x00000002
+	IDC_HAND            = 32649
 	WM_MOUSEWHEEL       = 0x020A
 	WM_CHAR             = 0x0102
 	WM_KEYDOWN          = 0x0100
@@ -49,6 +55,11 @@ const (
 )
 
 type point struct{ X, Y int32 }
+type trackMouseEvent struct {
+	Size, Flags uint32
+	HWND        uintptr
+	HoverTime   uint32
+}
 type rect struct{ L, T, R, B int32 }
 type paintStruct struct {
 	HDC       uintptr
@@ -126,6 +137,12 @@ var (
 	dispatchMsg            = user32.NewProc("DispatchMessageW")
 	postQuit               = user32.NewProc("PostQuitMessage")
 	postMsg                = user32.NewProc("PostMessageW")
+	trackMouse             = user32.NewProc("TrackMouseEvent")
+	setTimer               = user32.NewProc("SetTimer")
+	killTimer              = user32.NewProc("KillTimer")
+	setCursor              = user32.NewProc("SetCursor")
+	setCapture             = user32.NewProc("SetCapture")
+	releaseCapture         = user32.NewProc("ReleaseCapture")
 	invalidateRect         = user32.NewProc("InvalidateRect")
 	beginPaint             = user32.NewProc("BeginPaint")
 	endPaint               = user32.NewProc("EndPaint")
@@ -206,6 +223,9 @@ type appState struct {
 	convertPatchFile string
 	conversionHint string
 	conversionBlocked bool
+	packMode bool
+	packPlan core.PatchPackPlan
+	packSources map[string]string
 	ipsRLE bool
 	directFile string
 	format        int
@@ -215,6 +235,13 @@ type appState struct {
 	w, h          int32
 	fonts         fonts
 	lastErr       string
+	hoverAction string
+	hoverIndex int
+	hoverFade uint8
+	pressedAction string
+	pressedIndex int
+	mouseDown bool
+	mouseTracked bool
 }
 
 var app appState
@@ -254,16 +281,84 @@ func txt(hdc uintptr, s string, r rect, size uintptr, color uint32, flags uint32
 func textAt(hdc uintptr, s string, x, y, w, h int32, f uintptr, color uint32) {
 	txt(hdc, s, ir(x, y, w, h), f, color, DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
 }
-func button(hdc uintptr, label string, r rect, action string, idx int, main bool) {
-	if main {
-		panel(hdc, r, 0x447FF5, 14)
-	} else {
-		panel(hdc, r, 0x283247, 12)
+
+// Native GDI hover and press feedback: the background eases between states,
+// a soft shadow appears on hover, and pressed buttons move one pixel.
+func blendHex(from, to uint32, strength uint8) uint32 {
+	t := uint32(strength)
+	result := uint32(0)
+	for shift := uint(0); shift <= 16; shift += 8 {
+		a, b := (from>>shift)&0xFF, (to>>shift)&0xFF
+		result |= ((a*(255-t) + b*t) / 255) << shift
 	}
-	c := uint32(0xEDF3FF)
-	txt(hdc, label, r, app.fonts.Medium, c, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
+	return result
+}
+func button(hdc uintptr, label string, r rect, action string, idx int, main bool) {
+	hovered := app.hoverAction == action && app.hoverIndex == idx
+	pressed := hovered && app.mouseDown && app.pressedAction == action && app.pressedIndex == idx
+	strength := uint8(0)
+	if hovered {
+		strength = app.hoverFade
+	}
+	color := uint32(0x283247)
+	light := uint32(0x405A84)
+	if main {
+		color = 0x447FF5
+		light = 0x72A7FF
+	}
+	color = blendHex(color, light, strength)
+	if pressed {
+		color = blendHex(color, 0x10233E, 120)
+	}
+	if strength > 30 {
+		panel(hdc, ir(r.L-1, r.T+2, r.R-r.L+2, r.B-r.T+2), blendHex(0x111A29, 0x244776, strength/3), 14)
+	}
+	dy := int32(0)
+	if pressed {
+		dy = 2
+	}
+	rr := ir(r.L, r.T+dy, r.R-r.L, r.B-r.T-dy)
+	panel(hdc, rr, color, 14)
+	if strength > 20 && !pressed {
+		fill(hdc, ir(rr.L+12, rr.B-3, rr.R-rr.L-24, 2), blendHex(color, 0xFFFFFF, strength/3))
+	}
+	txt(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, 0xEDF3FF, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
 	addHit(r, action, idx)
 }
+
+func mouseHit(x, y int32) (hit, bool) {
+	for i := len(app.hits) - 1; i >= 0; i-- {
+		if inside(app.hits[i].R, x, y) {
+			return app.hits[i], true
+		}
+	}
+	return hit{}, false
+}
+func hoverAt(hwnd uintptr, x, y int32) {
+	h, found := mouseHit(x, y)
+	action := ""
+	index := 0
+	if found {
+		action = h.Action
+		index = h.Index
+	}
+	if app.hoverAction != action || app.hoverIndex != index {
+		app.hoverAction, app.hoverIndex = action, index
+		sysCall(setTimer, hwnd, 1, 16, 0)
+		redraw()
+	}
+	if !app.mouseTracked {
+		ev := trackMouseEvent{Size: uint32(unsafe.Sizeof(trackMouseEvent{})), Flags: TME_LEAVE, HWND: hwnd}
+		sysCall(trackMouse, uintptr(unsafe.Pointer(&ev)))
+		app.mouseTracked = true
+	}
+	cursor := uintptr(IDC_ARROW)
+	if found {
+		cursor = IDC_HAND
+	}
+	sysCall(setCursor, sysCall(loadCursor, 0, cursor))
+}
+
 func tag(hdc uintptr, label string, x, y int32, bg uint32) {
 	wd := int32(12 + len([]rune(label))*7)
 	if wd > 170 {
@@ -711,6 +806,10 @@ func startPreview() {
 		return
 	}
 	app.mu.Unlock()
+    if handled, e := maybeStartPack(true, direct, source, app.workers, password); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
     if handled, e := maybeStartTargeted(true, selected, direct, source, app.workers, override); handled {
         if e != nil { notify(e.Error()) }
         return
@@ -758,6 +857,10 @@ func startPatch() {
 		notify("Choose an original XBE or Xbox ISO first.")
 		return
 	}
+    if handled, e := maybeStartPack(false, direct, source, workers, password); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
     if handled, e := maybeStartTargeted(false, selected, direct, source, workers, override); handled {
         if e != nil { notify(e.Error()) }
         return
@@ -842,6 +945,7 @@ func handle(action string, index int) {
 		if index == 1 { refreshConversionHint() }
 		app.gameScroll = 0
 	case "game":
+		app.packSources = nil
 		app.directFile = ""
 		app.selectedGame = index
 		app.selectedPatch = -1
@@ -850,6 +954,7 @@ func handle(action string, index int) {
 		app.groupScroll = 0
 		app.expandedGroup = -1
 	case "patch":
+		app.packSources = nil
 		app.directFile = ""
 		selectPatch(index)
 	case "group":
@@ -868,8 +973,9 @@ func handle(action string, index int) {
 			app.parsed.SetRecordEnabled(index, !app.parsed.Records[index].Enabled)
 		}
 	case "direct":
-		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
+		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp;*.mpdpack\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
 			app.directFile = path
+			app.packSources = nil
 			refreshConversionHint()
 			app.status = "Custom patch loaded: " + filepath.Base(path)
 			redraw()
@@ -917,6 +1023,8 @@ func handle(action string, index int) {
 		savePreferences()
 	case "override":
 		app.override = !app.override
+	case "packsources":
+		choosePackSources()
 	case "a":
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose stock/original XBE", ""); p != "" {
 			app.aFile = p
@@ -925,6 +1033,7 @@ func handle(action string, index int) {
 	case "cpatch":
 		if p := pickFile(false, "Patch files\x00*.jmp;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
 			app.convertPatchFile = p
+			app.packSources = nil
 			app.bFile = "" // A source patch and a modified XBE are alternative inputs.
 			refreshConversionHint()
 		}
@@ -988,16 +1097,64 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		}
 		sysCall(endPaint, hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
+	case WM_MOUSEMOVE:
+		hoverAt(hwnd, lo(lp), hi(lp))
+		return 0
+	case WM_MOUSELEAVE:
+		app.mouseTracked = false
+		app.hoverAction = ""
+		app.hoverIndex = 0
+		sysCall(setTimer, hwnd, 1, 16, 0)
+		redraw()
+		return 0
+	case WM_TIMER:
+		if wp == 1 {
+			target := int(app.hoverFade)
+			desired := 0
+			if app.hoverAction != "" {
+				desired = 255
+			}
+			if target < desired {
+				target += 46
+				if target > desired {
+					target = desired
+				}
+			} else if target > desired {
+				target -= 46
+				if target < desired {
+					target = desired
+				}
+			}
+			app.hoverFade = uint8(target)
+			redraw()
+			if target == desired {
+				sysCall(killTimer, hwnd, 1)
+			}
+			return 0
+		}
+	case WM_LBUTTONDOWN:
+		x, y := lo(lp), hi(lp)
+		h, ok := mouseHit(x, y)
+		app.mouseDown = ok
+		if ok {
+			app.pressedAction, app.pressedIndex = h.Action, h.Index
+			sysCall(setCapture, hwnd)
+		}
+		redraw()
+		return 0
 	case WM_LBUTTONUP:
 		x, y := lo(lp), hi(lp)
+		pressedAction, pressedIndex := app.pressedAction, app.pressedIndex
+		wasDown := app.mouseDown
+		app.mouseDown = false
+		app.pressedAction = ""
+		sysCall(releaseCapture)
 		app.searchFocus = false
 		app.passFocus = false
-		for i := len(app.hits) - 1; i >= 0; i-- {
-			h := app.hits[i]
-			if inside(h.R, x, y) {
-				handle(h.Action, h.Index)
-				return 0
-			}
+		h, ok := mouseHit(x, y)
+		if ok && wasDown && h.Action == pressedAction && h.Index == pressedIndex {
+			handle(h.Action, h.Index)
+			return 0
 		}
 		redraw()
 		return 0
@@ -1077,8 +1234,14 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 						notify(fmt.Sprintf("Imported %d JMP files from %s", n, filepath.Base(path)))
 					}
 				}()
+			} else if ext == ".mpdpack" {
+				app.directFile = path
+				app.tab = 0
+				app.packSources = nil
+				app.status = "Loaded patch pack: " + filepath.Base(path)
 			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps") {
 				app.convertPatchFile = path
+				app.packSources = nil
 				app.bFile = ""
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)

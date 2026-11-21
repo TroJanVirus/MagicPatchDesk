@@ -52,3 +52,8 @@ Patch-to-patch conversion checks patch semantics; JMP offset-only → IPS/EIPS, 
 ## 2026-11-21 — v0.5 file-aware JMP handling
 
 Added special-file comment detection and routing, explicit locate/skip/cancel dialogs, loose sidecar output copies, multi-member XISO patching, and a disabled Convert button when source data is required. Synthetic target-routing, path traversal, multi-target conversion, and full-disc growth refusal tests pass; GUI and real Xbox verification outstanding.
+
+
+## 2026-11-21 v0.6: patch packs and UI hover
+
+Multi-file JMP -> per-target IPS/EIPS/BPS/Xdelta packed into `.mpdpack` (ZIP manifest, per-target verification, no game contents). JMP remains one file. Filename detection now covers `notes=` plus comment, with safe ambiguity resolution. Pack loading/applying handles loose/ISO targets via explicit original file selection. Hover, cursor, pressed states and button animation are implemented in native GDI. Automated Go tests, race checks, vet and Windows x64 compilation pass. Real Windows GUI and Xbox hardware QA are pending.

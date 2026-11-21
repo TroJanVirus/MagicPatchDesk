@@ -80,3 +80,12 @@ PatchHub artwork now validates downloaded image bytes, retries failed downloads,
 ## Multi-file JMP target routing (v0.5 test)
 
 When a JMP comment includes a filename with an extension, such as `#Video option (settings.cfg)` or `#Table [file=Media/settings.cfg]`, that record targets the named file, not `default.xbe`. The native UI prompts Yes=locate or use an existing ISO member, No=skip records for that file, Cancel=abort. Original XBE/ISO and sidecar files are never overwritten; modified external assets are saved in a separate `<output_stem>_patched_files/` tree. Multi-file XISOs can update multiple existing entries, relocating expanding files only in a game-partition XISO, not full-disc images. Ambiguous or unsafe target paths are rejected. Multi-file JMPs must be split into per-file patches before converting to a single-file format. The Convert button is disabled until required original bytes are selected. See `docs/RELEASE_NOTES_v0.5.0-test.md`.
+
+
+## v0.6 — Patch packs and responsive controls
+
+A multi-file JMP remains **one `.jmp` file**, but exporting as IPS, BPS, Xdelta or encrypted IPS creates a ZIP-compatible **`.mpdpack`** with one patch for each target file and `manifest.json`. The archive can be opened in Magic Patch Desk or extracted by ordinary ZIP tools. Game content is never included. Details in [`docs/PATCH_PACK_FORMAT.md`](docs/PATCH_PACK_FORMAT.md).
+
+File-target heuristics now inspect **all record comments and `notes=`**. For a note like `Patch driving.xbe`, records lacking a named target inherit `driving.xbe`; per-record filename comments override that. If notes name several files, unnamed records must be clarified to prevent wrong-file writes. URL domains are ignored, and unsafe paths are rejected.
+
+The Convert page asks for the original **of each target** only when necessary, with a Locate target originals button. A multi-file offset-only JMP can become an IPS pack without originals; BPS/Xdelta members or search/APPEND need originals. The Convert action remains disabled until every required original is identified. Input JMPs in JMP output mode remain one JMP. The native UI now has hover/click feedback and changes the cursor over interactive controls.

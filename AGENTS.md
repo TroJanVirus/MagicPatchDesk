@@ -31,3 +31,8 @@ For bug reports, record the game title, Title ID, original XBE CRC32, JMP filena
 ## Multi-file JMP rules
 
 A comment naming `settings.cfg` targets that file. Prompt the user to locate/use, skip, or cancel; never silently apply that record to the default XBE. Reject ambiguous/unsafe paths and preserve the original. In an XISO resolve by unique relative path or basename. Multiple file targets must not be collapsed into one IPS, BPS or Xdelta patch without separating the records.
+
+
+## v0.6 file-target packs and GUI feedback
+
+Read `docs/PATCH_PACK_FORMAT.md`. A JMP is always one file, even if its records target multiple distinct files. For non-JMP exports containing named targets, create a `.mpdpack` with one standard patch per target and a manifest; never force different files into one IPS/BPS/Xdelta stream. Inspect `notes=` and each record comment for filename.ext references. Per-record wins, one global note target is inherited by otherwise unnamed records, ambiguous notes fail closed. Do not package game binaries or silently skip file targets. Preserve source requirements, SHA256 integrity, and optional JMP CRC32 constraints. Native GDI controls now respond to mouse hover/down/up: do not break pressed-state click dispatch or 16 ms animation timer. Test with `go test ./...`, `go test -race ./core`, `go vet ./...` and cross-build Windows x64.
