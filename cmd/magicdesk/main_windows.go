@@ -999,6 +999,8 @@ func handle(action string, index int) {
 	switch action {
 	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
 		maintenanceAction(action)
+	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-export", "game-credits":
+		gameOutputAction(action,index)
 	case "tab":
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
