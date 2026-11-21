@@ -38,15 +38,19 @@ func smokePaintAndExit() {
         panic(fmt.Sprintf("Game Outputs lacks clickable controls (export=%t format=%t source=%t)",exportVisible,formatVisible,sourceVisible))
     }
     app.tab=8
-    redraw()
-    sysCall(updateWindow,app.hwnd)
-    var scanAvailable,modeAvailable bool
-    for _,hit:=range app.hits{
-        if hit.Action=="manager-scan"{scanAvailable=true}
-        if hit.Action=="manager-mode"{modeAvailable=true}
+    for mode:=0;mode<5;mode++{
+        manager.mu.Lock();manager.mode=mode;manager.mu.Unlock()
+        redraw()
+        sysCall(updateWindow,app.hwnd)
+        var scanAvailable,modeAvailable bool
+        for _,hit:=range app.hits{
+            if hit.Action=="manager-scan"{scanAvailable=true}
+            if hit.Action=="manager-mode"{modeAvailable=true}
+        }
+        if !scanAvailable||!modeAvailable{
+            panic(fmt.Sprintf("Game manager mode %d missing native controls (scan=%t tabs=%t)",mode,scanAvailable,modeAvailable))
+        }
     }
-    if !scanAvailable||!modeAvailable{
-        panic(fmt.Sprintf("Game manager navigation failed (scan=%t tabs=%t)",scanAvailable,modeAvailable))
-    }
+    manager.mu.Lock();manager.mode=0;manager.mu.Unlock()
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
 }
