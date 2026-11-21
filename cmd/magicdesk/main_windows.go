@@ -235,6 +235,9 @@ type appState struct {
 	w, h          int32
 	fonts         fonts
 	lastErr       string
+	recentFiles []core.RecentFile
+	recentSelected int
+	recentOffset int
 	diagnosticGroups  []core.DiagnosticGroup
 	diagnosticSelected int
 	dashboardIssues []core.DashboardIssue
@@ -409,6 +412,7 @@ func initApp() {
 	app.selectedGame = -1
 	app.selectedPatch = -1
 	app.root, _ = core.GetLibraryDir()
+	refreshRecentFiles()
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
@@ -628,6 +632,7 @@ func openInput(path string) {
 		}
 		app.mu.Unlock()
 		if err == nil {
+			rememberRecent("input",path)
 			autoSelectXBE(info)
 		}
 		redraw()
@@ -962,6 +967,7 @@ func startPatch() {
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if err == nil {rememberRecent("output",dest)}
 		if err != nil {recordFailure("patch.apply",err,source,direct,ext)}
 		redraw()
 	}()
@@ -973,6 +979,7 @@ func handle(action string, index int) {
 	switch action {
 	case "tab":
 		app.tab = index
+		if index == 5 { refreshRecentFiles() }
 		if index == 1 { refreshConversionHint() }
 		app.gameScroll = 0
 		if index == 3 { refreshDeveloperDashboardLocal() }
@@ -1007,6 +1014,7 @@ func handle(action string, index int) {
 	case "direct":
 		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp;*.pf;*.mpdpack\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
 			app.directFile = path
+			rememberRecent("patch",path)
 			app.packSources = nil
 			refreshConversionHint()
 			app.status = "Custom patch loaded: " + filepath.Base(path)
@@ -1042,6 +1050,8 @@ func handle(action string, index int) {
 		developerAction(action,index)
 	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
 		diagnosticsAction(action)
+	case "recent-select", "recent-prev", "recent-next", "recent-open", "recent-folder", "recent-copy", "recent-remove", "recent-clear":
+		recentAction(action,index)
 	case "folder":
 		path := filepath.Join(app.root, "Custom")
 		os.MkdirAll(path, 0755)
@@ -1064,11 +1074,13 @@ func handle(action string, index int) {
 	case "a":
 		if p := pickFile(false, "XBE or XISO\x00*.xbe;*.iso\x00", "Choose stock/original XBE or XISO", ""); p != "" {
 			app.aFile = p
+			rememberRecent("convert_original",p)
 			refreshConversionHint()
 		}
 	case "cpatch":
 		if p := pickFile(false, "Patch files\x00*.jmp;*.pf;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
 			app.convertPatchFile = p
+			rememberRecent("convert_patch",p)
             if strings.EqualFold(filepath.Ext(p),".jmp") {app.format=core.AllPatchFormats}
             if strings.EqualFold(filepath.Ext(p),".pf") {app.format=0}
 			app.packSources = nil
@@ -1078,6 +1090,7 @@ func handle(action string, index int) {
 	case "b":
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose modified XBE", ""); p != "" {
 			app.bFile = p
+			rememberRecent("convert_modified",p)
 			app.convertPatchFile = ""
 			refreshConversionHint()
 		}
@@ -1257,6 +1270,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		}
 		return 0
 	case WM_KEYDOWN:
+		if handleQuickShortcut(wp) {return 0}
 		if wp == 27 {
 			app.searchFocus = false
 			app.passFocus = false
@@ -1282,12 +1296,14 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 					}
 				}()
 			} else if ext == ".mpdpack" {
+				rememberRecent("patch",path)
 				app.directFile = path
 				app.tab = 0
 				app.packSources = nil
 				app.status = "Loaded patch pack: " + filepath.Base(path)
 			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps" || ext == ".pf") {
 				app.convertPatchFile = path
+				rememberRecent("convert_patch",path)
 				app.packSources = nil
 				app.bFile = ""
 				refreshConversionHint()

@@ -221,6 +221,7 @@ func runPFConversion(name string, raw []byte) {
 			app.status = "Converted PF saved: " + dest
 		}
 		app.mu.Unlock()
+		if e == nil {rememberRecent("output",dest)}
 		if e != nil {recordFailure("pf.convert",e,originalPath,selectedPatchPath,dest)}
 		redraw()
 	}()

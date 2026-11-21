@@ -118,6 +118,7 @@ func maybeStartPack(previewOnly bool, direct, source string, workers int, passwo
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if err == nil && !previewOnly {rememberRecent("output",dest)}
 		if err != nil {recordFailure("pack.apply",err,source,direct,dest)}
 		redraw()
 	}()

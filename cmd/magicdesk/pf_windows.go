@@ -133,6 +133,7 @@ func maybeStartPF(previewOnly bool, direct, source string, workers int) (bool, e
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if e == nil && !previewOnly {rememberRecent("output",dest)}
 		if e != nil {recordFailure("pf.apply",e,source,direct,dest)}
 		redraw()
 	}()

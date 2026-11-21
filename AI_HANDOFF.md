@@ -91,3 +91,7 @@ adds the fifth workspace tab (**Diagnostics**) and prepares manual browser
 workflows rather than making privileged changes. No cached auth or automatic
 issue posting. Run Go tests, race/vet and Windows build; Windows GUI smoke test
 is outstanding. Full user workflow: docs/DEVELOPER_DASHBOARD.md.
+
+## 2026-11-21 v0.11 — native Recent Files QoL
+
+Added local MRU history (`core/recent.go`, `core/recent_test.go`) with max 18 uniquely addressed files, atomic JSON persistence, optional clearing. The native sidebar Recent workspace in `cmd/magicdesk/recent_windows.go` reloads original/patch/conversion inputs, opens output folders, allows forgetting/clearing without deleting files, and handles Ctrl+O/P/F/R, Ctrl+1–6, F5 and Esc. Existing validation requirements and source/patch selection remain unchanged; paths are stored only on the local machine, never in diagnostic reports. Build with `go test ./...`, `go test -race ./core`, `go vet ./...`, Windows cross-build. Physical Windows UI verification pending.

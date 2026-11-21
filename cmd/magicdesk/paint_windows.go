@@ -72,6 +72,8 @@ func paint(hdc uintptr) {
 		drawDeveloperDashboard(hdc, w, h)
 	case 4:
 		drawAbout(hdc, w, h)
+	case 5:
+		drawRecent(hdc, w, h)
 	}
 	app.mu.Lock()
 	status := app.status
@@ -84,7 +86,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.10", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.11", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -96,7 +98,7 @@ func drawSidebar(hdc uintptr, w, h int32) {
 	nav := []struct {
 		label  string
 		symbol string
-	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}}
+	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}}
 	for i, item := range nav {
 		y := int32(145 + i*57)
 		if app.tab == i {
@@ -109,6 +111,7 @@ func drawSidebar(hdc uintptr, w, h int32) {
 		textAt(hdc, item.label, 61, y+8, 145, 30, app.fonts.Medium, map[bool]uint32{true: white, false: muted}[app.tab == i])
 		addHit(ir(10, y, 211, 49), "tab", i)
 	}
+	if h < 690 {return} // avoid overlapping sidebar entries on compact windows
 	panel(hdc, ir(17, h-202, 198, 122), 0x1E2A3E, 14)
 	textAt(hdc, "PATCH COLLECTION", 31, h-192, 167, 21, app.fonts.Micro, muted)
 	app.mu.Lock()
