@@ -1,21 +1,48 @@
-# QA status
+# Current QA and release status — MagicPatchDesk
 
-2026-11-21 (NZ)
+**Last confirmed:** 2026-11-22 NZ. This is the **current QA status**, not the 2026-11-21 first-build snapshot that previously occupied this file. For the self-contained development handoff and exact next-conversation prompt, see [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md); for user product requirements, see [DECISIONS.md](DECISIONS.md).
 
-Confirmed:
-- v0.2.0 test branch: patch preview and mixed-state record controls; saved safe preferences. `go test ./...`, `go test -race ./core`, `go vet ./...` pass; PE32+ Windows cross-build passes.
-- Go core unit tests (including race-enabled) PASS: JMP parsing, grouped labels and switches, CRC32, IPS/RLE, encrypted IPS, Xdelta/VCDIFF subset, XISO file relocation, full-disc growth refusal, PatchHub titles-folder metadata.
-- Windows x64 cross-compile PASS: native Win32 PE32+ GUI binary.
-- The Go and prior HTML engine's EIPS and VCDIFF uncompressed conversions passed cross-implementation round-trip checks during development.
-- GitHub currently exposes 803 .JMP files in the public patch repository tree (snapshot at development time). The app obtains the real current count itself on each launch.
+## Latest verified distribution
 
-Unverified:
-- Executable GUI on actual Windows 10/11 (no Windows runtime available in build environment).
-- Real Xbox ISO and XBE patches across the complete GitHub corpus; there are synthetic fixture tests but not game-hardware tests.
-- Windows SmartScreen reputation/code signing; current executable unsigned.
-- Web-based PatchHub metadata scrape on a real Windows user's network (fails safely to cached index if unavailable).
+| Area | Evidence / confidence |
+|---|---|
+| Released Windows preview | **v0.14.0-test.2** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.2 |
+| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `1de2630882342e57bfb9958c3cb8bdfc46fb74d93732ade159e695d0d48d427f` |
+| Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
+| Latest source-feature PR | #13 merged: https://github.com/TroJanVirus/MagicPatchDesk/pull/13 |
+| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44923406249 |
+| Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
+| Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
 
-Unsupported in first build:
-- xdelta3 secondary-compressed/custom-table patch streams.
-- Repacking a full-disc image after a patch expands an XBE beyond its allocated sectors.
-- Compressed ISO formats, Xbox 360 XEX, automatic online patch attribution if an author omitted headers.
+## Passed automated verification (not console testing)
+
+- Linux: `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, updater-contract checks and Windows x64 cross-build.
+- Native Windows runner: complete Go tests, release EXE SHA-256 verification, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1`, including all five Game Manager tabs and hit-tested Xbox revision/RAM/CPU selection buttons in a 1024×720 window.
+- Core synthetic tests include source identity and no-overwrite, CCI split/error handling, game output verification, JMP conflicts and source-relative byte hex windows, curated confidence cache sync and old/new hardware report schemas.
+- Automated results **do not** guarantee a visually appealing GUI, correct dialogs under a real Windows desktop session, boots on actual Xbox hardware, or compatibility with each retail release/JMP.
+
+## Manual QA still outstanding — do not claim completed
+
+1. **Real Windows 10/11 interactive test** of game folder picker, drag/drop, patch controls, wheel/scroll handling, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
+2. **Full library batch test** across legitimate extracted games, XISO/ISO and CCI sources: strict Auto matching, manual queue, Skip, mixed output formats, insufficient disk space, existing destination, interrupted operation, no original modification, proper recovery.
+3. **Full-sized image compatibility**, including CCI split files, physical sector/file limits, multi-target named assets, PF and packs, and XBE-only output validation. Not all combinations are supported; fail closed rather than dropping operations.
+4. **Actual xemu and physical Original Xbox game boots**. Distinguish emulator versus stock or upgraded Xbox RAM/CPU/revisions; user reports are not official compatibility guarantees.
+5. **Field-report round trip:** real Windows GitHub Issues submission with explicit consent, maintainer review of privacy/identity/deduplication, commit to `confidence/reports.v1.json` with revision bump, and live app "new confidence reports" download. Currently no curated reports.
+6. **Publisher reputation and signing** remain unresolved; the released EXE is unsigned.
+
+## Known constraints / review-first cases
+
+- **Exact match** auto batch only when Title ID and original XBE CRC agree with a single, verified single-file JMP. Ambiguous games, multi-target behavior and CCI requiring additional XBE identity inspection stay in manual review.
+- Full-disc ISO expansion beyond safely allocated sectors is refused; an XBE alone does not provide assets needed to create a complete game image. Supported Xdelta/VCDIFF scope is limited; there is no guarantee of arbitrary compressed streams.
+- JMP overlap comparison is a warning, not a proof patches compose semantically. Conflicting writes must be explicitly approved.
+- The current library manager is not a fully resumable transactional job engine; long-interruption recovery needs real QA. Always preserve previous game/output files.
+- Self-reported hardware details can be explicitly unknown. Older reports without revision/RAM/CPU details say **Not recorded**. xemu reports do not carry physical console choices.
+
+## Active tracking and run policy
+
+- **Open issue #9:** https://github.com/TroJanVirus/MagicPatchDesk/issues/9. Its **original** description predates implemented v0.13/v0.14 features. Later comments describe remaining field QA; do not implement its obsolete "missing feature" list twice or mark its whole checklist verified without evidence.
+- Public compatibility submissions first enter GitHub Issues and **must not** silently populate `confidence/reports.v1.json`; curated review is manual / explicitly agent-directed. Exact patch SHA256, original XBE CRC32 and Title ID are mandatory.
+- GitHub Actions: only a **manual** verification workflow `.github/workflows/one-shot-verify.yml` remains; no push-triggered release publisher persists after use. Save minutes.
+- Before a future release, reconfirm current `core.AppVersion`, latest Release tags and real CI evidence. Any new release needs both `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` with unchanged updater protocol and private-data paths.
+
+**Old chronological status:** earlier dated implementation notes remain in `AI_HANDOFF.md` and `docs/PROJECT_STATE.md`. They are useful archaeology, **not current QA claims**.
