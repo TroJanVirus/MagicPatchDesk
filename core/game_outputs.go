@@ -184,7 +184,7 @@ func collectXDVTree(source string) (*xdvNode, error) {
     root := &xdvNode{folder:true}
     paths := map[string]*xdvNode{".":root}
     duplicates := map[string]bool{}
-    err := filepath.WalkDir(source, func(full string, entry os.DirEntry, walkErr error) error {
+    err = filepath.WalkDir(source, func(full string, entry os.DirEntry, walkErr error) error {
         if walkErr != nil { return walkErr }
         rel, e := filepath.Rel(source, full)
         if e != nil { return e }
