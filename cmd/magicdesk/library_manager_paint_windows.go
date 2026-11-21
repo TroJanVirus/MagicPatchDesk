@@ -153,27 +153,34 @@ func drawManagerImage(hdc uintptr,x,width,h int32,entries []core.ImageBrowserEnt
     if imagePath==""{textAt(hdc,"Browse an ISO/XISO without extracting or patching it. Choose a file to make one verified copy.",x+21,373,width-50,64,app.fonts.Regular,muted)}
 }
 func drawManagerOverlap(hdc uintptr,x,width,h int32,r core.OverlapReport,status string,scroll int){
-    textAt(hdc,"Compare eligible JMPs against the SAME original XBE; differing writes are warnings, not automatically merged.",x+10,266,width-25,33,app.fonts.Small,muted)
-    textAt(hdc,strLimit(status,140),x+10,307,width-22,26,app.fonts.Regular,amber)
+    textAt(hdc,"Compare selected JMPs against the SAME original XBE. Conflicting bytes require approval.",x+10,265,width-20,26,app.fonts.Small,muted)
+    textAt(hdc,strLimit(status,120),x+10,302,width-236,28,app.fonts.Regular,amber)
+    button(hdc,"EXPORT COMBINED JMP",ir(x+width-218,299,205,34),"manager-merge",0,true)
     panel(hdc,ir(x,344,width,h-434),surface,13)
-    headers:=[]struct{label string;pos int32}{{"OFFSET",15},{"ORIGINAL",115},{"PATCH A",310},{"PATCH B",510}}
-    for _,head:=range headers{textAt(hdc,head.label,x+head.pos,348,180,20,app.fonts.Micro,muted)}
-    visible:=int((h-482)/43)
+    textAt(hdc,"OFFSET",x+16,350,88,21,app.fonts.Micro,muted)
+    textAt(hdc,"ORIGINAL HEX",x+109,350,187,21,app.fonts.Micro,muted)
+    textAt(hdc,"PATCH A HEX",x+306,350,188,21,app.fonts.Micro,muted)
+    textAt(hdc,"PATCH B HEX",x+505,350,width-515,21,app.fonts.Micro,muted)
+    visible:=int((h-477)/56)
     if visible<1{visible=1}
     for i:=scroll;i<len(r.Overlaps)&&i<scroll+visible;i++{
         c:=r.Overlaps[i]
-        ry:=int32(376+(i-scroll)*43)
+        ry:=int32(376+(i-scroll)*56)
         color:=uint32(0x244936)
         if !c.Same{color=0x633B40}
-        panel(hdc,ir(x+9,ry,width-18,39),color,7)
-        textAt(hdc,fmt.Sprintf("0x%08X",c.Offset),x+18,ry+4,98,27,app.fonts.Small,white)
-        textAt(hdc,fmt.Sprintf("%02X",c.Original),x+129,ry+4,67,27,app.fonts.Medium,muted)
-        textAt(hdc,fmt.Sprintf("%02X",c.A),x+325,ry+4,67,27,app.fonts.Medium,white)
-        textAt(hdc,fmt.Sprintf("%02X",c.B),x+522,ry+4,67,27,app.fonts.Medium,white)
-        textAt(hdc,strLimit(filepath.Base(c.PatchA)+" ↔ "+filepath.Base(c.PatchB),40),x+width-300,ry+7,278,24,app.fonts.Micro,white)
+        panel(hdc,ir(x+9,ry,width-18,52),color,7)
+        textAt(hdc,fmt.Sprintf("0x%08X",c.Offset),x+17,ry+4,93,24,app.fonts.Small,white)
+        textAt(hdc,c.OriginalHex,x+107,ry+4,197,24,app.fonts.Small,muted)
+        textAt(hdc,c.AHex,x+305,ry+4,194,24,app.fonts.Small,white)
+        textAt(hdc,c.BHex,x+504,ry+4,width-518,24,app.fonts.Small,white)
+        label:="IDENTICAL WRITES"
+        if !c.Same{label="CONFLICT"}
+        textAt(hdc,label+"  ·  "+strLimit(filepath.Base(c.PatchA)+" / "+filepath.Base(c.PatchB),78),x+17,ry+29,width-30,20,app.fonts.Micro,white)
     }
-    if r.Truncated{textAt(hdc,"More overlaps exist than can be displayed. Do not auto-combine these patches.",x+18,h-108,width-38,24,app.fonts.Small,amber)}
+    if len(r.Overlaps)==0&&status==""{textAt(hdc,"Select a scanned game containing two or more JMPs, then open this tab.",x+19,392,width-32,32,app.fonts.Regular,muted)}
+    if r.Truncated{textAt(hdc,"Additional overlaps hidden; review source JMPs before approving their order.",x+17,h-104,width-36,23,app.fonts.Small,amber)}
 }
+
 func drawManagerLog(hdc uintptr,x,width,h int32,scroll int){
     entries:=manager.log.Snapshot()
     textAt(hdc,fmt.Sprintf("LOCAL OPERATION HISTORY · %d events (no automatic upload)",len(entries)),x+12,270,width-300,24,app.fonts.Micro,muted)
