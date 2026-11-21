@@ -1,11 +1,13 @@
 # Magic Patch Desk — Native Windows edition
 
+> **New conversation / AI coding agent?** Start at [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md), then [AGENTS.md](AGENTS.md), [current QA status](docs/STATUS.md), and [explicit project decisions](docs/DECISIONS.md). Those files are the canonical, repo-contained handoff; older dated documentation is historical. See the copy/paste first-message prompt in PROJECT_CONTEXT.md.
+
 A portable, self-contained Windows x64 application for patching **Original Xbox `.xbe` executables, XDVDFS ISO/XISO game images and Cerbios CCI images**. This is an actual native Win32 GUI — **not HTML, Electron, WebView, .NET, or an installer**. End users only need `MagicPatchDesk-Windows-x64.exe` on Windows 10/11 (64-bit).
 
 ## Get started
 
 1. Double-click `MagicPatchDesk-Windows-x64.exe`. The application displays its existing local library immediately while it checks GitHub for the current JMP count and downloads new JMP files into the user cache. It also refreshes a read-only game/title/cover index from Jay's Patch Hub (at most once a day).
-2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app can propose a matching patch using the embedded XBE's Title ID and CRC32, but **never applies patches automatically**.
+2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app proposes patch matches using the embedded XBE's Title ID and CRC32. Ordinary Patch Library operations require explicit approval; the separate Game Manager supports **user-authorised Auto batch processing** only for unambiguous, CRC-verified games.
 3. Inspect the JMP's commented record groups, toggle those you want, and click **APPLY PATCH**. Save to a new file. The input is left unchanged.
 4. In **Convert & Create**, choose an original XBE and modified XBE to create JMP, IPS, Xdelta, or encrypted IPS. Alternatively, select a JMP/IPS/Xdelta in **Patch Library** and choose an original XBE in **Convert & Create** to generate a converted patch. The conversion tab currently expects XBE files, not ISO-to-ISO comparisons.
 
@@ -46,8 +48,8 @@ Conversion requires the original file because plain IPS and VCDIFF cannot reliab
 
 - Built with the Go standard library and Windows system DLLs (Win32/GDI/GDI+). No .NET, Chrome, Node, Visual C++ Redistributable, driver, installation, or admin privilege is required.
 - **The EXE is currently unsigned.** Windows SmartScreen/antivirus may warn or quarantine it, especially on a new machine. There is no reliable way to guarantee zero warnings without trusted code signing and publisher reputation. Do not disable Windows security to make it run. Consider signing the release using an Authenticode certificate before public distribution.
-- The app only contacts GitHub and Jay's Patch Hub for public catalog/thumbnail updates. It does not upload game files or patch results.
-- The GUI executable has been cross-compiled to a valid PE32+ Windows x64 binary. Core Go tests, including a race-enabled run, passed on Linux. **GUI interactions and original Xbox hardware compatibility have NOT yet been verified on physical Windows 10/11 or an original Xbox**. Treat as a developer/test build until that QA is complete.
+- The app checks public catalogues, Releases and reviewed compatibility metadata on GitHub and Jay's Patch Hub. Optional issue submission sends only redacted diagnostics or user-consented compatibility evidence to GitHub Issues. It **never uploads game binaries, user game images, raw patch payloads or full local filesystem paths** as reports. Automated diagnostic submission is opt-in and stored credentials remain in Windows Credential Manager.
+- The current developer preview additionally passed **native Windows Go tests and executable health/UI paint smoke checks**, as documented in [current QA status](docs/STATUS.md). **Interactive Windows GUI workflows, retail image compatibility and original Xbox game booting have NOT been established on physical test systems.** Treat the release as a developer preview until that QA is complete.
 
 ## Build from source (developers only)
 
