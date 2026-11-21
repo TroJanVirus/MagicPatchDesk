@@ -1311,6 +1311,11 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 			path := syscall.UTF16ToString(buf)
 			ext := strings.ToLower(filepath.Ext(path))
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
+                if app.tab==7 {
+                    selectGameSource(path)
+                    app.status="Game folder loaded for output conversion"
+                    continue
+                }
 				go func() {
 					n, e := core.ImportFolder(app.root, path)
 					if e != nil {
@@ -1340,8 +1345,13 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 					go reloadCatalog()
 					notify("Imported " + filepath.Base(path))
 				}
-			} else if ext == ".xbe" || ext == ".iso" || ext == ".cci" {
-				openInput(path)
+			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
+                if app.tab==7 {
+                    selectGameSource(path)
+                    app.status="Game image loaded for output conversion"
+                }else{
+                    openInput(path)
+                }
 			}
 		}
 		sysCall(dragFinish, wp)
