@@ -412,6 +412,7 @@ func initApp() {
 	app.selectedGame = -1
 	app.selectedPatch = -1
 	app.root, _ = core.GetLibraryDir()
+	loadMaintenanceSettings(app.root)
 	refreshRecentFiles()
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
@@ -437,6 +438,8 @@ func initApp() {
 	sysCall(dwmAttr, app.hwnd, 20, uintptr(unsafe.Pointer(&dark)), 4)
 	sysCall(dragAccept, app.hwnd, 1)
 	sysCall(showWindow, app.hwnd, SW_SHOW)
+	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
+	if maintenancePref.AutoReports {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
 	go reloadAndSync()
 	go syncPatchHubMetadata()
@@ -450,7 +453,7 @@ func initApp() {
 		sysCall(dispatchMsg, uintptr(unsafe.Pointer(&m)))
 	}
 }
-func main() { initApp() }
+func main() { if helperMode() { return }; initApp() }
 func reloadCatalog() {
 	app.mu.Lock()
 	workers := app.workers
@@ -598,6 +601,21 @@ func pickFile(save bool, filter, title, defaultName string) string {
 	return syscall.UTF16ToString(name)
 }
 func openInput(path string) {
+    if core.CCISourcePath(path) {
+        reader,err:=core.OpenCCI(path)
+        if err!=nil {notify("Cannot load CCI: "+err.Error());return}
+        reader.Close()
+        app.mu.Lock()
+        app.input=path
+        app.inputErr="CCI source ready; XBE is checked during preview"
+        app.inputInfo=core.XBEInfo{}
+        app.status="CCI loaded; select patch and preview"
+        app.mu.Unlock()
+        rememberRecent("input",path)
+        redraw()
+        return
+    }
+
 	app.input = path
 	app.inputErr = "Reading executable…"
 	app.inputInfo = core.XBEInfo{}
@@ -834,6 +852,7 @@ func startPreview() {
 		return
 	}
 	app.mu.Unlock()
+    if handled,e:=maybeStartCCIPatch(true,selected,direct,source,password,app.workers,override);handled {if e!=nil{notify(e.Error())};return}
     if handled,e:=maybeStartPF(true,direct,source,app.workers);handled {
         if e!=nil{recordFailure("pf.preview.preflight",e,source,direct,"");notify(e.Error())};return
     }
@@ -889,6 +908,7 @@ func startPatch() {
 		notify("Choose an original XBE or Xbox ISO first.")
 		return
 	}
+    if handled,e:=maybeStartCCIPatch(false,selected,direct,source,password,workers,override);handled {if e!=nil{notify(e.Error())};return}
     if handled,e:=maybeStartPF(false,direct,source,workers);handled {
         if e!=nil{recordFailure("pf.apply.preflight",e,source,direct,"");notify(e.Error())};return
     }
@@ -977,6 +997,8 @@ func convertFiles() { runConversion() }
 
 func handle(action string, index int) {
 	switch action {
+	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
+		maintenanceAction(action)
 	case "tab":
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
@@ -1021,7 +1043,7 @@ func handle(action string, index int) {
 			redraw()
 		}
 	case "open":
-		if p := pickFile(false, "Xbox files\x00*.xbe;*.iso\x00XBE executable\x00*.xbe\x00Xbox disc image\x00*.iso\x00All files\x00*.*\x00", "Choose XBE or Xbox ISO", ""); p != "" {
+		if p := pickFile(false, "Xbox files\x00*.xbe;*.iso;*.cci\x00XBE executable\x00*.xbe\x00Xbox disc image\x00*.iso\x00Cerbios CCI\x00*.cci\x00All files\x00*.*\x00", "Choose XBE or Xbox ISO", ""); p != "" {
 			openInput(p)
 		}
 	case "sync":
@@ -1315,7 +1337,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 					go reloadCatalog()
 					notify("Imported " + filepath.Base(path))
 				}
-			} else if ext == ".xbe" || ext == ".iso" {
+			} else if ext == ".xbe" || ext == ".iso" || ext == ".cci" {
 				openInput(path)
 			}
 		}

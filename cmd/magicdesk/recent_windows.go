@@ -375,7 +375,7 @@ func handleQuickShortcut(key uintptr) bool {
 		app.passFocus = false
 		refreshRecentFiles()
 		redraw()
-	case '1', '2', '3', '4', '5', '6':
+	case '1', '2', '3', '4', '5', '6', '7':
 		handle("tab", int(key-'1'))
 	default:
 		return false
