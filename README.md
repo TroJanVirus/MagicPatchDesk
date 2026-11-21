@@ -110,3 +110,14 @@ reporter counts, and neither closed issues nor closed PRs imply a verified fix.
 ## v0.11 — Recent Files and shortcuts
 
 The Windows sidebar now includes a **Recent** workspace. Reopen previously selected game XBE/ISO inputs and custom patch files, return to conversion sources or inspect output folders, and forget/clear the history without deleting game files. Output files are not automatically used as new originals. Keyboard shortcuts: Ctrl+O (game), Ctrl+P (patch), Ctrl+F (search), Ctrl+R (recent), Ctrl+1–6 (workspaces), F5 (local patch rescan), Esc (leave text entry). The local-only history file is kept separately from all diagnostic reports; full local paths are never uploaded. See `docs/RECENT_WORKSPACE.md`.
+
+
+## v0.12: Managed install, updates, opt-in automatic diagnostics and CCI
+
+Use **Maintenance → Install app** to place a managed executable at `%LOCALAPPDATA%\Programs\MagicPatchDesk\MagicPatchDesk.exe`. The portable EXE can still run independently. Library data remains at `%APPDATA%\MagicPatchDesk`: `Custom/` imported JMP/PF, `GitHub/` synced patches, `Covers/` artwork, `Reports/` local privacy-redacted JSON, `settings.json`, `recent-files.json`, `maintenance.json`. An optional GitHub Issues credential is stored in Windows Credential Manager, never in config files. See [Update contract](docs/UPDATE_CONTRACT.md).
+
+**Maintenance → Check updates / Update now** checks official GitHub Releases, including previews by default, validates the downloaded EXE against the SHA-256 manifest and GitHub digest, restarts using the separate `MagicPatchDeskUpdater.exe` helper and preserves a `MagicPatchDesk.previous.exe` fallback. Versioned releases must always preserve the canonical updater asset and CLI protocol. v0.11 or older portable builds must be upgraded to v0.12 manually once.
+
+**Maintenance → Connect token / Auto-report** (off by default) uploads ONLY privacy-redacted diagnostic JSON to GitHub Issues, grouping repeated failures. Offline errors remain locally queued and can be re-sent with **Sync now**. A GitHub token with issue-write permission is required; users can disconnect it at any time. See [Auto reports](docs/AUTO_REPORTS.md). ChatGPT can then inspect repository Issues through the connected GitHub app, with no need to upload the reports into chat.
+
+**Cerbios `.cci`** is supported with native CCIM v1/LZ4 read/write, split parts, extraction, ISO recompression and direct single-default-XBE patching to a new CCI. More complex PF/multi-file/pack CCI workflows require extraction to XISO first rather than dropping records. See [CCI format and safety](docs/CCI_SUPPORT.md).

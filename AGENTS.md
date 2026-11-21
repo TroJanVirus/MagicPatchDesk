@@ -64,3 +64,10 @@ state locking. Tests are in `core/developer_dashboard_test.go`.
 ## v0.11: local Recent Files workspace and UI keyboard controls
 
 `core/recent.go` stores the last 18 selected file paths, kinds and UTC usage times in a private `recent-files.json` within the application's data root. It is **not diagnostic data**; do not send full paths to GitHub/issues or include this history in `.mpdpack`. `cmd/magicdesk/recent_windows.go` adds native Recent navigation and keyboard shortcuts. After successful patch writes, conversion writes and PF/pack outputs, call `rememberRecent("output",path)` **outside `app.mu`**, only once files exist. On selecting an output, open its folder instead of automatically treating it as the stock original. Forget/Clear do not delete source files. Keep history writes serialized and check on Windows 10/11. See `docs/RECENT_WORKSPACE.md`.
+
+
+## Mandatory v0.12 update protocol and maintenance requirements
+
+**Never break the self-updater.** Read `docs/UPDATE_CONTRACT.md` and keep the `--mpd-apply-update-v1` / `--mpd-healthcheck-v1` CLI branches and `MagicPatchDesk-Windows-x64.exe` canonical GitHub Release asset. Every future release must attach `SHA256SUMS.txt`, increment `core.AppVersion`, run `scripts/verify_release_contract.sh` and preserve `%APPDATA%\MagicPatchDesk` data independently of `%LOCALAPPDATA%\Programs\MagicPatchDesk`. The separate updater helper stages, verifies, replaces after exit and keeps `MagicPatchDesk.previous.exe` for recovery. Do not overwrite source files or delete user data.
+
+CCI support is native, CCIM v1/LZ4 with split sets. Read `docs/CCI_SUPPORT.md`; never silently ignore PF/multi-file/pack operations in CCI. Automatic GitHub issue reporting is OFF by default, requires explicit user opt-in and Windows Credential Manager storage, and uploads only sanitized diagnostic summaries; see `docs/AUTO_REPORTS.md`. No automatic GitHub Actions on new reports.
