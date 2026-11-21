@@ -328,6 +328,45 @@ func managerBuildOverlap(){
     if err!=nil{manager.log.Add("warning","Hex overlap",err.Error())
     }else{manager.log.Add("info","Hex overlap",manager.overlapError)}
 }
+func managerExportCombined(){
+    job,_,ok:=managerSelected()
+    if !ok{return}
+    if job.Game.Kind=="cci"{notify("Inspect the compressed game XBE before combining JMPs.");return}
+    originals,e:=gameOriginals(job.Game.Path,[]string{"default.xbe"})
+    if e!=nil{notify(e.Error());return}
+    patches:=[]*core.Patch{}
+    for _,candidate:=range job.Game.Patches {
+        if candidate.Status=="incompatible" || !strings.EqualFold(filepath.Ext(candidate.File),".jmp"){continue}
+        data,readErr:=os.ReadFile(candidate.File)
+        if readErr!=nil{notify(readErr.Error());return}
+        p,parseErr:=core.ParseJMP(filepath.Base(candidate.File),data)
+        if parseErr!=nil{notify(parseErr.Error());return}
+        if parseErr=p.CheckSingleFileOnly();parseErr!=nil{continue}
+        patches=append(patches,p)
+    }
+    if len(patches)<2{notify("Choose a game with two or more compatible single-file JMPs before combining.");return}
+    data,report,mergeErr:=core.CombineJMPs(originals["default.xbe"],patches,false)
+    if mergeErr!=nil&&report.Different>0{
+        message:=fmt.Sprintf("%d overlapping byte changes CONFLICT.\n\nThe JMPs will apply sequentially in the order shown by the HEX OVERLAPS preview. The later patch may deliberately overwrite bytes from the earlier patch.\n\nThis cannot be automatically proven safe. Review the hex rows first. Combine anyway?",report.Different)
+        if maintenanceDialog("Conflicting JMP bytes",message,0x24|0x100)!=6{return}
+        data,report,mergeErr=core.CombineJMPs(originals["default.xbe"],patches,true)
+    }
+    if mergeErr!=nil{manager.log.Add("error","Merge JMP",mergeErr.Error());notify(mergeErr.Error());return}
+    if maintenanceDialog("Export combined JMP",fmt.Sprintf("Create a NEW combined JMP from %d patches?\n\n%v overlapping bytes; %v conflicting writes.\n\nOriginal sources and authors will be retained in the JMP metadata. The output is independently re-applied and verified before saving.",len(patches),report.Total,report.Different),0x24|0x100)!=6{return}
+    dest:=pickFile(true,"Magic patch\x00*.jmp\x00","Save a new combined JMP","Combined_JMP.jmp")
+    if dest==""{return}
+    if !strings.EqualFold(filepath.Ext(dest),".jmp"){notify("Choose a .jmp output file.");return}
+    file,e:=os.OpenFile(dest,os.O_CREATE|os.O_EXCL|os.O_WRONLY,0644)
+    if e!=nil{notify("Existing patch must not be overwritten: "+e.Error());return}
+    written,e:=file.Write(data)
+    if closeErr:=file.Close();e==nil{e=closeErr}
+    if e==nil&&written!=len(data){e=fmt.Errorf("combined JMP was not completely written")}
+    if e!=nil{os.Remove(dest);notify(e.Error());return}
+    manager.log.Add("pass","Merge JMP",fmt.Sprintf("Verified combined JMP from %d original patches",len(patches)))
+    rememberRecent("patch",dest)
+    notify("Combined JMP verified and saved: "+filepath.Base(dest))
+}
+
 func managerConfirm(environment string){
     job,choice,ok:=managerSelected()
     if !ok||choice>=len(job.Game.Patches){notify("Select a game and matching patch to confirm.");return}
@@ -399,6 +438,7 @@ func managerAction(action string,index int){
         manager.mu.Lock();manager.logScroll+=8;manager.mu.Unlock()
     case "manager-log-next":
         manager.mu.Lock();manager.logScroll-=8;if manager.logScroll<0{manager.logScroll=0};manager.mu.Unlock()
+    case "manager-merge":managerExportCombined()
     case "manager-confidence-refresh":go refreshConfidenceOnUpdate()
     case "manager-confidence-result":
         manager.mu.Lock()
