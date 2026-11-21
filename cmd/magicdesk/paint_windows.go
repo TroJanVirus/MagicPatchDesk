@@ -92,7 +92,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.13", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.14", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
