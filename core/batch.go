@@ -2,6 +2,7 @@ package core
 
 import (
     "context"
+    "crypto/sha256"
     "errors"
     "fmt"
     "os"
@@ -19,6 +20,7 @@ type BatchJob struct {
     Game LibraryGame
     Decision BatchDecision
     PatchFile string
+    PatchSHA256 string
     OutputMask uint32
 }
 type BatchSummary struct {
@@ -38,7 +40,7 @@ func VerifyBatchJob(job BatchJob)error{
     }
     eligible:=0
     for _,p:=range job.Game.Patches{
-        if p.Status=="exact" && p.File==job.PatchFile{eligible++}
+        if p.Status=="exact" && p.File==job.PatchFile && p.SHA256==job.PatchSHA256 && job.PatchSHA256!=""{eligible++}
     }
     if eligible!=1{return errors.New("choose exactly one original-CRC-verified JMP")}
     if job.OutputMask==0 || job.OutputMask&^GameOutputAll!=0{return errors.New("invalid batch output format")}
@@ -98,6 +100,12 @@ func RunBatchJobs(ctx context.Context,sourceRoot,outRoot string,jobs []BatchJob,
         if e!=nil{summary.Failed++;log.Add("error","Identity",label+": "+e.Error());continue}
         b,e:=os.ReadFile(job.PatchFile)
         if e!=nil{summary.Failed++;log.Add("error","Patch",label+": "+e.Error());continue}
+        digest:=sha256.Sum256(b)
+        if job.PatchSHA256!=fmt.Sprintf("%x",digest){
+            summary.Failed++
+            log.Add("error","Patch",label+": JMP changed since library scan; rescan required")
+            continue
+        }
         patch,e:=ParseJMP(filepath.Base(job.PatchFile),b)
         if e==nil{e=patch.CheckSingleFileOnly()}
         if e==nil{
