@@ -88,3 +88,8 @@ Rocky5 / XBMC4Gamers `.pf` files are a full game-folder operation format, not ju
 ## Problem reports (v0.8)
 
 Failed patch, preview, conversion, Rocky5 PF and patch-pack operations now create local privacy-restricted diagnostic JSON reports in the application data `Reports` folder. PF warnings are also retained. Settings > Problem Reports lets users view a report, copy its safe summary, open the folder or open a prefilled GitHub issue for the developer. Nothing is uploaded without review and manual submission. Full paths, passwords, game binaries and raw error strings are excluded. See `docs/DIAGNOSTICS.md`.
+
+
+## v0.9 diagnostic grouping
+
+The Problem Reports section in Settings groups recurring local failures by error category, affected operation, and valid Title ID into stable `MPD-...` IDs. Each report remains separately retained. **Find matches** searches the project GitHub issue titles for an existing group; **Report issue** offers to search first or compose an explicitly reviewed new issue. No reports are automatically uploaded, and the design uses no recurring GitHub Actions. See `docs/DIAGNOSTIC_GROUPING.md`.

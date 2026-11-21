@@ -47,3 +47,8 @@ See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is di
 ## 2026-11-21 — v0.8 diagnostic reporting
 
 Implemented local classified error and PF warning reports (no raw private paths, passwords, game bytes or patch payloads), Settings report controls and manual GitHub issue handoff. Go tests, race checks, vet and Windows x64 cross-build passed locally. Win32 clipboard/dialog and real-user issue submission still require manual Windows verification. No background telemetry.
+
+
+## 2026-11-21 — v0.9 local diagnostic groups
+
+Added deterministic group IDs by error type + operation + Title ID, backward-compatible aggregation of old reports, grouped Settings navigation, and user-initiated GitHub issue matching/search before issue creation. Local Go tests, race checks, vet and Windows cross-build pass; real Windows and GitHub UI verification still pending. No recurring or issue-triggered CI.

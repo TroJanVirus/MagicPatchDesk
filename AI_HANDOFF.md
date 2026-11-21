@@ -73,3 +73,8 @@ See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is di
 ## v0.8: local diagnostic reports
 
 `core/diagnostics.go` classifies failures into a stable privacy-restricted `magicpatchdesk-diagnostic-v1` JSON report; `cmd/magicdesk/diagnostics_windows.go` records errors from all supported patch paths and PF warning counts. Reports are local at `<appdata>/MagicPatchDesk/Reports`, created with a unique random ID; Settings offers view/copy/open/report. `Report issue` opens an explicitly reviewed, prefilled GitHub issue and never posts automatically. Tests check private string exclusion, duplicate creation and warning metadata. Do not add automatic telemetry without explicit approval.
+
+
+## v0.9: local diagnostic grouping / GitHub duplicate discovery
+
+`core/diagnostic_groups.go` makes stable `MPD-...` group IDs from class+operation+Title ID and groups up to 1000 recent local event reports without rewriting older v0.8 records. `core/diagnostics.go` still stores one privacy-redacted JSON per event. `cmd/magicdesk/diagnostics_windows.go` and Settings expose group navigation, count, safe summaries, and opt-in GitHub issue search / new issue. The issue title contains the stable ID so later reports are searchable together. No issue/Actions automation or telemetry is introduced. Do not describe the grouping ID as anonymized; anyone who knows a Title ID and classification can reproduce it. Windows smoke tests remain outstanding.

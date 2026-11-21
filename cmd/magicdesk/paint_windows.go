@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.8", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.9", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -495,43 +495,53 @@ func drawConvert(hdc uintptr, w, h int32) {
 }
 
 func drawSettings(hdc uintptr, w, h int32) {
-	drawPageHeader(hdc, "Settings & storage", "Performance and verification controls. Saved locally; no account required.", w)
+	drawPageHeader(hdc, "Settings & diagnostics", "Performance, verification, offline patches and local problem reports.", w)
 	x := int32(266)
 	width := w - 298
-	panel(hdc, ir(x, 129, width, 154), surface, 17)
-	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 153, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Saved automatically · Parallel workers for ISO copying and patch indexing (1–8).", x+29, 194, width-60, 24, app.fonts.Regular, muted)
-	button(hdc, "−", ir(x+width-217, 208, 48, 48), "workers", -1, false)
-	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 210, 50, 45, app.fonts.Title, white)
-	button(hdc, "+", ir(x+width-95, 208, 48, 48), "workers", 1, false)
-	panel(hdc, ir(x, 302, width, 122), surface, 17)
-	textAt(hdc, "VERIFICATION SAFEGUARDS", x+28, 319, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "CRC32 and Title ID protection. Override resets OFF each launch.", x+29, 357, width-185, 28, app.fonts.Regular, muted)
-	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 353, 152, 43), "override", 0, app.override)
-	panel(hdc, ir(x, 443, width, 169), surface, 17)
-	textAt(hdc, "OFFLINE PATCHES", x+28, 462, width-45, 29, app.fonts.Title, white)
-	textAt(hdc, strLimit(app.root, 100), x+29, 499, width-57, 26, app.fonts.Small, muted)
-	textAt(hdc, "Copy JMP or PF patches into Custom; they remain available offline.", x+29, 527, width-55, 23, app.fonts.Regular, muted)
-	button(hdc, "Open patch folder", ir(x+27, 561, 195, 40), "folder", 0, false)
-	button(hdc, "Import JMP / PF", ir(x+235, 561, 188, 40), "import", 0, false)
-	button(hdc, "Rescan", ir(x+438, 561, 112, 40), "refresh", 0, false)
-	// Diagnostic reports stay local until explicitly submitted.
-	panel(hdc, ir(x, 629, width, 121), surface, 17)
-	textAt(hdc, "PROBLEM REPORTS", x+28, 637, width-58, 27, app.fonts.Title, white)
+	panel(hdc, ir(x, 129, width, 115), surface, 17)
+	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 142, width-55, 29, app.fonts.Title, white)
+	textAt(hdc, "Copying ISO images and indexing patches (1–8 workers).", x+29, 179, width-255, 28, app.fonts.Regular, muted)
+	button(hdc, "−", ir(x+width-217, 173, 48, 43), "workers", -1, false)
+	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 175, 50, 38, app.fonts.Title, white)
+	button(hdc, "+", ir(x+width-95, 173, 48, 43), "workers", 1, false)
+	panel(hdc, ir(x, 258, width, 109), surface, 17)
+	textAt(hdc, "VERIFICATION SAFEGUARDS", x+28, 268, width-55, 29, app.fonts.Title, white)
+	textAt(hdc, "Require the original XBE to match the patch CRC32.", x+29, 308, width-205, 28, app.fonts.Regular, muted)
+	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 302, 152, 43), "override", 0, app.override)
+	panel(hdc, ir(x, 380, width, 130), surface, 17)
+	textAt(hdc, "OFFLINE PATCHES", x+28, 386, width-55, 28, app.fonts.Title, white)
+	textAt(hdc, strLimit(app.root, 100), x+29, 421, width-57, 23, app.fonts.Small, muted)
+	cell := (width - 80) / 3
+	for i, action := range []struct{ label, id string }{{"Patch folder", "folder"}, {"Import JMP / PF", "import"}, {"Rescan", "refresh"}} {
+		button(hdc, action.label, ir(x+27+int32(i)*(cell+13), 460, cell, 38), action.id, 0, false)
+	}
+	panel(hdc, ir(x, 524, width, 201), surface, 17)
+	textAt(hdc, "PROBLEM REPORT GROUPS", x+28, 535, width-210, 27, app.fonts.Title, white)
+	button(hdc, "Reports folder", ir(x+width-167, 531, 143, 33), "diagnostics-folder", 0, false)
 	app.mu.Lock()
-	lastReport, hasReport := app.lastDiagnostic, app.hasDiagnostic
+	groupCount := len(app.diagnosticGroups)
+	groupIndex := app.diagnosticSelected
+	var g core.DiagnosticGroup
+	hasGroup := groupIndex >= 0 && groupIndex < groupCount
+	if hasGroup {
+		g = app.diagnosticGroups[groupIndex]
+	}
 	app.mu.Unlock()
-	state := "No problems recorded this session. Reports stay on this computer."
-	if hasReport { state = "Latest: " + lastReport.ErrorCode + "  ·  ID " + lastReport.ID }
-	textAt(hdc, strLimit(state,105), x+29, 664, width-65, 20, app.fonts.Small, muted)
-	btnWidth := (width-83)/4
-	if btnWidth<112 {btnWidth=112}
-	for i, action := range []struct{label,id string}{
-		{"View report","diagnostics-view"},
-		{"Copy summary","diagnostics-copy"},
-		{"Reports folder","diagnostics-folder"},
-		{"Report issue","diagnostics-github"},
-	} { button(hdc,action.label,ir(x+28+int32(i)*(btnWidth+9),691,btnWidth,40),action.id,0,i==3) }
+	headline := "No reports. Reports stay local until you explicitly share them."
+	detail := ""
+	if hasGroup {
+		headline = fmt.Sprintf("Group %d/%d  ·  %s / %s", groupIndex+1, groupCount, g.ErrorCode, g.Operation)
+		detail = fmt.Sprintf("%s  ·  Title ID %s  ·  %d report(s), %d warning(s)", g.ID, g.TitleID, g.Occurrences, g.Warnings)
+	}
+	textAt(hdc, strLimit(headline, 104), x+28, 572, width-57, 23, app.fonts.Small, white)
+	textAt(hdc, strLimit(detail, 115), x+28, 596, width-57, 23, app.fonts.Small, muted)
+	buttons := [][2]string{{"Previous", "diagnostics-prev"}, {"Next", "diagnostics-next"}, {"View group", "diagnostics-view"}, {"Copy summary", "diagnostics-copy"}, {"Find matches", "diagnostics-find"}, {"Report issue", "diagnostics-github"}}
+	cell2 := (width - 78) / 3
+	for i, v := range buttons {
+		bx := x + 27 + int32(i%3)*(cell2+12)
+		by := int32(627 + (i/3)*45)
+		button(hdc, v[0], ir(bx, by, cell2, 37), v[1], 0, i == 5)
+	}
 	_ = h
 }
 func drawAbout(hdc uintptr, w, h int32) {

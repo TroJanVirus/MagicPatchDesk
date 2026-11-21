@@ -45,3 +45,8 @@ See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is di
 ## Diagnostic reporting v0.8
 
 When modifying patch/conversion code, wire failures through `recordFailure` or `recordWarning` in the native UI, and extend `core/diagnostics.go` with stable error categories rather than raw error telemetry. Do not include absolute paths, usernames, game binaries, patch patterns, passwords, arbitrary comments or unfiltered errors in shareable reports. Reports remain local until a user expressly submits a GitHub issue. Tests and Windows cross-build are mandatory.
+
+
+## v0.9 group IDs
+
+`core/diagnostic_groups.go` computes deterministic IDs from allowlisted error code + operation + validated Title ID. Never include raw error messages, local file paths or game bytes in the group-key inputs or in GitHub issue URLs. Preserve prior JSON reports; recompute missing IDs when grouping. `cmd/magicdesk/diagnostics_windows.go` supplies opt-in GitHub issue search and drafting from the native Settings screen; no background API calls or issue-triggered Actions. Cross-build and run tests after changes.

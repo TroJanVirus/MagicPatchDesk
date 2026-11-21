@@ -22,6 +22,7 @@ import (
 type DiagnosticReport struct {
 	Schema          string `json:"schema"`
 	ID              string `json:"id"`
+	GroupID         string `json:"group_id,omitempty"`
 	OccurredUTC     string `json:"occurred_utc"`
 	AppVersion      string `json:"app_version"`
 	OperatingSystem string `json:"os"`
@@ -177,12 +178,17 @@ func NewFailureReport(ctx FailureContext, failure error) (DiagnosticReport, erro
 	if match := diagnosticOffsetRE.FindStringSubmatch(failure.Error()); match != nil {
 		report.ByteOffset = strings.ToUpper(match[1])
 	}
+	report.GroupID = report.EffectiveGroupID()
 	return report, nil
 }
 
 func (r DiagnosticReport) Summary() string {
-	return fmt.Sprintf("Magic Patch Desk %s | report %s\nSeverity: %s\nOperation: %s\nResult: %s — %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nNo game content, local paths, credentials or raw error strings are included.",
-		r.AppVersion, r.ID, r.Severity, r.Operation, r.ErrorCode, r.Explanation, r.PatchFormat, r.SourceKind, r.TargetExtension, r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount)
+	title := canonicalDiagnosticTitleID(r.TitleID)
+	return fmt.Sprintf("Magic Patch Desk %s | report %s\nGroup: %s\nSeverity: %s\nCategory: %s\nOperation: %s\nTitle ID: %s\nResult: %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nNo game content, local paths, credentials or raw error strings are included.",
+		r.AppVersion, r.ID, r.EffectiveGroupID(), r.Severity,
+		diagnosticTag(r.ErrorCode), diagnosticTag(r.Operation), title,
+		r.Explanation, r.PatchFormat, r.SourceKind, r.TargetExtension,
+		r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount)
 }
 
 // SaveFailureReport creates a private JSON report, never overwriting a prior
@@ -221,7 +227,7 @@ func SaveFailureReport(root string, report DiagnosticReport) (string, error) {
 }
 
 func RecentFailureReports(root string, maxCount int) ([]DiagnosticReport, error) {
-	if maxCount < 1 || maxCount > 50 {
+	if maxCount < 1 || maxCount > 1000 {
 		return nil, errors.New("invalid diagnostic report limit")
 	}
 	folder := filepath.Join(root, "Reports")

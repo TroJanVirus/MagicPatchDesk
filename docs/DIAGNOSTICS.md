@@ -28,3 +28,7 @@ For the most effective investigation, include *manual reproduction steps*, wheth
 ## Verification
 
 `go test ./...` exercises report generation, private local writing, duplicate prevention, failure categorization, warning categorization, recent-report retrieval and intentional exclusion of sensitive strings. Windows x64 compilation is required. The GUI, clipboard and browser workflow still require hands-on Windows testing.
+
+## v0.9: grouped reports
+
+Reports now also carry `group_id`, derived deterministically from the validated Title ID, stable failure category and affected operation. Older v0.8 JSON reports remain readable and are grouped at display time. Settings presents the most recent groups with counts, Next/Previous navigation, a safe summary, and a **Find matches** action that searches GitHub issues for the group ID. **Report issue** searches first or, after an explicit choice, opens a prefilled new issue with that ID in the title. See [DIAGNOSTIC_GROUPING.md](DIAGNOSTIC_GROUPING.md). No automatic telemetry or GitHub Actions runs are involved.
