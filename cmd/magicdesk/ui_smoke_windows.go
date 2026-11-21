@@ -10,7 +10,7 @@ import (
 // Game Outputs layout. It is strictly opt-in via --mpd-ui-smoke-v1 and avoids
 // all network sync, auto-reporting and patch/image modification.
 func smokePaintAndExit() {
-    for _,tab:=range []int{0,1,2,3,4,5,6,7}{
+    for _,tab:=range []int{0,1,2,3,4,5,6,7,8}{
         app.tab=tab
         redraw()
         sysCall(updateWindow,app.hwnd)
@@ -36,6 +36,17 @@ func smokePaintAndExit() {
     }
     if !exportVisible || !formatVisible || !sourceVisible {
         panic(fmt.Sprintf("Game Outputs lacks clickable controls (export=%t format=%t source=%t)",exportVisible,formatVisible,sourceVisible))
+    }
+    app.tab=8
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    var scanAvailable,modeAvailable bool
+    for _,hit:=range app.hits{
+        if hit.Action=="manager-scan"{scanAvailable=true}
+        if hit.Action=="manager-mode"{modeAvailable=true}
+    }
+    if !scanAvailable||!modeAvailable{
+        panic(fmt.Sprintf("Game manager navigation failed (scan=%t tabs=%t)",scanAvailable,modeAvailable))
     }
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
 }
