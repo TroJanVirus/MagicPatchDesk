@@ -6,6 +6,7 @@ import (
     "context"
     "errors"
     "fmt"
+    "hash/crc32"
     "magicpatchdesk/core"
     "os"
     "path/filepath"
@@ -126,16 +127,12 @@ func gameOriginals(source string, wanted []string) (map[string][]byte,error) {
             continue
         }
         if sourceInfo.IsDir(){
-            p:=filepath.Join(source,filepath.FromSlash(canonical))
-            s,e:=os.Lstat(p)
-            if e!=nil{return nil,e}
-            if !s.Mode().IsRegular(){return nil,fmt.Errorf("source target is not regular: %s",canonical)}
-            out[canonical],e=os.ReadFile(p)
+            out[canonical],e=core.ReadGameMember(source,canonical)
             if e!=nil{return nil,e}
             continue
         }
         if canonical!="default.xbe"{return nil,fmt.Errorf("source XBE does not include %s",canonical)}
-        out[canonical],e=os.ReadFile(source)
+        out[canonical],e=readBoundedSource(source)
         if e!=nil{return nil,e}
     }
     return out,nil
@@ -157,8 +154,25 @@ func calculateGameReplacements(source string,selected *core.Patch,direct,passwor
         for _,member:=range manifest.Entries {
             if !seen[member.Target] {targets=append(targets,member.Target);seen[member.Target]=true}
         }
-        originals,e:=gameOriginals(source,targets)
+        originals,e:=gameOriginals(source,append([]string{"default.xbe"},targets...))
         if e!=nil{return nil,e}
+        // A sidecar-only pack still identifies a particular game. Verify that
+        // game's default.xbe before applying any named-file operations.
+        if len(manifest.ExpectedCRCs)>0 {
+            got:=fmt.Sprintf("%08X",crc32.ChecksumIEEE(originals["default.xbe"]))
+            matched:=false
+            for _,want:=range manifest.ExpectedCRCs {
+                if strings.EqualFold(got,want){matched=true;break}
+            }
+            if !matched{return nil,fmt.Errorf("default.xbe CRC32 %s does not match patch pack",got)}
+        }
+        if manifest.TitleID!="" {
+            info,e:=core.InspectXBE(originals["default.xbe"])
+            if e!=nil{return nil,fmt.Errorf("cannot verify patch pack title ID: %w",e)}
+            if !strings.EqualFold(info.TitleID,manifest.TitleID) {
+                return nil,fmt.Errorf("game Title ID %s does not match pack %s",info.TitleID,manifest.TitleID)
+            }
+        }
         return core.ApplyPatchPack(bytes,originals,password)
     }
     p:=selected
