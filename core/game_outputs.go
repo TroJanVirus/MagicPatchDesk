@@ -367,46 +367,78 @@ func BuildGameXISO(folder,destination string) error {
     return os.Rename(tempName,destination)
 }
 
+// VerifyGameXISO independently reopens the packed XDVDFS tree and compares
+// every member's size and SHA256 plus directory presence (including empty dirs).
+// It also detects case collisions and rejects symlinked input paths.
 func VerifyGameXISO(image,folder string) error {
+    info,err:=os.Lstat(folder)
+    if err!=nil{return err}
+    if !info.IsDir(){return errors.New("verification requires an actual game directory")}
     im,err:=OpenXISO(image)
     if err!=nil{return err}
     src,err:=os.Open(image)
     if err!=nil{return err}
     defer src.Close()
     files:=map[string]ImageFile{}
+    dirs:=map[string]bool{}
+    for _, dir:=range im.Directories{
+        name,e:=validGameMember(dir)
+        if e!=nil{return e}
+        key:=strings.ToLower(name)
+        if dirs[key]{return fmt.Errorf("duplicate XISO directory: %s",name)}
+        dirs[key]=true
+    }
     for _, entry:=range im.Files {
         name,e:=validGameMember(entry.Path)
         if e!=nil{return e}
         key:=strings.ToLower(name)
         if _,ok:=files[key];ok{return fmt.Errorf("duplicate XISO member: %s",name)}
+        if dirs[key]{return fmt.Errorf("XISO path is both file and folder: %s",name)}
         files[key]=entry
     }
-    count:=0
-    err=filepath.WalkDir(folder,func(path string, d os.DirEntry, e error)error{
+    seenFiles:=map[string]bool{}
+    seenDirs:=map[string]bool{}
+    err=filepath.WalkDir(folder,func(p string,d os.DirEntry,walkErr error)error{
+        if walkErr!=nil{return walkErr}
+        rel,e:=filepath.Rel(folder,p)
         if e!=nil{return e}
-        if d.IsDir(){return nil}
-        if !d.Type().IsRegular(){return errors.New("non-regular file during verification")}
-        rel,e:=filepath.Rel(folder,path)
-        if e!=nil{return e}
+        if rel=="."{return nil}
         rel,e=validGameMember(filepath.ToSlash(rel))
         if e!=nil{return e}
-        entry,ok:=files[strings.ToLower(rel)]
+        key:=strings.ToLower(rel)
+        if d.Type()&os.ModeSymlink!=0{return fmt.Errorf("symbolic link forbidden during verification: %s",rel)}
+        if d.IsDir(){
+            if seenDirs[key]{return fmt.Errorf("duplicate source directory: %s",rel)}
+            seenDirs[key]=true
+            if !dirs[key]{return fmt.Errorf("missing output XISO directory: %s",rel)}
+            return nil
+        }
+        if !d.Type().IsRegular(){return fmt.Errorf("non-regular source file: %s",rel)}
+        if seenFiles[key]{return fmt.Errorf("duplicate source file: %s",rel)}
+        seenFiles[key]=true
+        entry,ok:=files[key]
         if !ok{return fmt.Errorf("missing output XISO member: %s",rel)}
-        f,e:=os.Open(path)
+        f,e:=os.Open(p)
         if e!=nil{return e}
-        defer f.Close()
-        a:=sha256.New()
-        b:=sha256.New()
-        n,e:=io.Copy(a,f)
-        if e!=nil{return e}
+        hashSource:=sha256.New()
+        readErr:=error(nil)
+        n,copyErr:=io.Copy(hashSource,f)
+        readErr=copyErr
+        if closeErr:=f.Close();readErr==nil{readErr=closeErr}
+        if readErr!=nil{return readErr}
         if n!=int64(entry.Size){return fmt.Errorf("XISO member size mismatch: %s",rel)}
-        if _,e=io.Copy(b,io.NewSectionReader(src,im.Base+int64(entry.StartSector)*sectorSize,int64(entry.Size)));e!=nil{return e}
-        if !strings.EqualFold(fmt.Sprintf("%x",a.Sum(nil)),fmt.Sprintf("%x",b.Sum(nil))){return fmt.Errorf("XISO member hash mismatch: %s",rel)}
-        count++
+        hashImage:=sha256.New()
+        copied,e:=io.Copy(hashImage,io.NewSectionReader(src,im.Base+int64(entry.StartSector)*sectorSize,int64(entry.Size)))
+        if e!=nil{return e}
+        if copied!=int64(entry.Size){return fmt.Errorf("XISO member truncated: %s",rel)}
+        if fmt.Sprintf("%x",hashSource.Sum(nil))!=fmt.Sprintf("%x",hashImage.Sum(nil)){
+            return fmt.Errorf("XISO member SHA256 mismatch: %s",rel)
+        }
         return nil
     })
     if err!=nil{return err}
-    if count!=len(files){return fmt.Errorf("XISO member count mismatch: %d vs %d",count,len(files))}
+    if len(seenFiles)!=len(files){return fmt.Errorf("XISO file count mismatch: %d vs %d",len(seenFiles),len(files))}
+    if len(seenDirs)!=len(dirs){return fmt.Errorf("XISO directory count mismatch: %d vs %d",len(seenDirs),len(dirs))}
     return nil
 }
 
