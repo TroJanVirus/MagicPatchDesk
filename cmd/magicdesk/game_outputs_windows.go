@@ -17,10 +17,34 @@ import (
 // in Patch Library, but does not force the image source's extension on output.
 var gameOutputSource string
 var gameOutputMask uint32 = core.GameOutputXISO
+var gameOutputFormats = map[string]uint32{}
 
 func chosenGameSource() string {
     if gameOutputSource!="" {return gameOutputSource}
     return app.input
+}
+func gameSourceCategory(source string) string {
+    if source=="" {return "xiso"}
+    if info,e:=os.Stat(source);e==nil && info.IsDir(){return "folder"}
+    if core.CCISourcePath(source){return "cci"}
+    if strings.EqualFold(filepath.Ext(source),".xbe"){return "xbe"}
+    if im,e:=core.OpenXISO(source);e==nil && im.Base!=0{return "fulliso"}
+    return "xiso"
+}
+func selectGameSource(source string) {
+    gameOutputSource=source
+    kind:=gameSourceCategory(source)
+    if saved:=gameOutputFormats[kind];saved!=0 {
+        gameOutputMask=saved
+        return
+    }
+    switch kind {
+    case "folder":gameOutputMask=core.GameOutputFolder
+    case "cci":gameOutputMask=core.GameOutputCCI
+    case "xbe":gameOutputMask=core.GameOutputXBE
+    case "fulliso":gameOutputMask=core.GameOutputISO
+    default:gameOutputMask=core.GameOutputXISO
+    }
 }
 func outputNames(mask uint32) string {
     parts:=[]string{}
@@ -37,37 +61,35 @@ func gameOutputAction(action string,index int) {
     switch action {
     case "game-source":
         if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.cci\x00All files\x00*.*\x00","Choose original game image or XBE","");p!="" {
-            gameOutputSource=p
-            switch {
-            case core.CCISourcePath(p):gameOutputMask=core.GameOutputCCI
-            case strings.EqualFold(filepath.Ext(p),".xbe"):gameOutputMask=core.GameOutputXBE
-            default:
-                gameOutputMask=core.GameOutputXISO
-                if im,e:=core.OpenXISO(p);e==nil && im.Base!=0 {
-                    gameOutputMask=core.GameOutputISO
-                }
-            }
+            selectGameSource(p)
             app.status="Game output source: "+filepath.Base(p)
         }
     case "game-folder":
-        // Native open-file dialog locates the *root* default.xbe. This avoids
-        // selecting an arbitrary unrelated parent directory by mistake.
+        // Select the root default.xbe to identify a complete extracted folder.
         if p:=pickFile(false,"Root game XBE\x00default.xbe\x00Xbox XBE\x00*.xbe\x00","Choose default.xbe inside extracted game folder","");p!="" {
             if !strings.EqualFold(filepath.Base(p),"default.xbe") {
                 notify("Select the root default.xbe, not another game executable.")
                 return
             }
-            gameOutputSource=filepath.Dir(p)
-            gameOutputMask=core.GameOutputFolder
+            selectGameSource(filepath.Dir(p))
             app.status="Extracted game folder selected"
         }
     case "game-use-loaded":
-        gameOutputSource=""
-        if strings.EqualFold(filepath.Ext(app.input),".xbe"){gameOutputMask=core.GameOutputXBE
-        } else if core.CCISourcePath(app.input){gameOutputMask=core.GameOutputCCI
-        } else {gameOutputMask=core.GameOutputXISO}
+        selectGameSource("")
+        gameOutputMask=core.GameOutputXISO
+        kind:=gameSourceCategory(app.input)
+        if saved:=gameOutputFormats[kind];saved!=0 {
+            gameOutputMask=saved
+        } else if kind=="xbe"{gameOutputMask=core.GameOutputXBE
+        }else if kind=="cci"{gameOutputMask=core.GameOutputCCI
+        }else if kind=="fulliso"{gameOutputMask=core.GameOutputISO}
     case "game-format":
-        if index>=0 && index<=4 {gameOutputMask ^= uint32(1)<<uint(index)}
+        if index>=0 && index<=4 {
+            gameOutputMask ^= uint32(1)<<uint(index)
+            if gameOutputFormats==nil{gameOutputFormats=map[string]uint32{}}
+            gameOutputFormats[gameSourceCategory(chosenGameSource())]=gameOutputMask
+            savePreferences()
+        }
     case "game-export":
         startGameOutput()
     case "game-credits":
