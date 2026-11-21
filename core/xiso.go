@@ -24,6 +24,7 @@ type Image struct {
 	RootSector uint32
 	RootSize   uint32
 	Files      []ImageFile
+	Directories []string // preserve empty directories during extraction/repacking
 }
 type ImageFile struct {
 	Path        string
@@ -129,6 +130,7 @@ func (im *Image) walk(f *os.File, prefix string, sector uint32, size uint32, vis
 			pth = prefix + "/" + name
 		}
 		if attr&0x10 != 0 {
+			im.Directories = append(im.Directories, pth)
 			if sector != 0 && filesize != 0 {
 				if err := im.walk(f, pth, sector, filesize, visited, depth+1); err != nil {
 					return err
