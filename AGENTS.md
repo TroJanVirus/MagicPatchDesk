@@ -19,7 +19,7 @@ Read `README.md`, `AI_HANDOFF.md`, and `docs/PROJECT_STATE.md` before making cha
 - Identically named JMP comments must appear as one group toggle (case-insensitive), while records execute in their original sequence.
 - Validate XBE CRC32 and Title ID where specified. Never silently override mismatches.
 - Never overwrite the selected original XBE or ISO; stage writes, report errors, and produce an independent patched output.
-- Handle XISO/XDVDFS layouts defensively. Do not falsely claim support for compressed CCI/CHD or every xdelta3 stream.
+- Handle XISO/XDVDFS layouts defensively. CCI images are supported by the native CCIM/LZ4 implementation; verify source and split-set compatibility. Never overclaim arbitrary image containers or all xdelta3 streams.
 - Keep offline use functional without GitHub or PatchHub; local JMPs in `%APPDATA%\\MagicPatchDesk\\Custom` must work even if sync fails.
 - Preserve original patch author credits and links. Do not bundle copyrighted Xbox game images or executables.
 
