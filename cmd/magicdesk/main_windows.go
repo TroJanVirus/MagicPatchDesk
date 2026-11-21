@@ -417,6 +417,7 @@ func initApp() {
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
+        if prefs.GameOutputFormats!=nil {gameOutputFormats=prefs.GameOutputFormats}
 	}
 	app.status = "Loading local patch library…"
 	app.syncStatus = "Connecting to GitHub…"
@@ -732,7 +733,7 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 
 // Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
 func savePreferences() {
-	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter}); err != nil {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, GameOutputFormats: gameOutputFormats}); err != nil {
 		notify("Could not save interface preferences: " + err.Error())
 	}
 }
