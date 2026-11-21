@@ -1,5 +1,7 @@
 # MagicPatchDesk — development handoff
 
+> **Current-state notice (2026-11-22):** This file is an **append-only development history** spanning early prototypes through v0.14.0-test.2. Several old "known gaps" and "planned" paragraphs below were implemented later. For the authoritative current state, open **[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)** and **[docs/STATUS.md](docs/STATUS.md)** first; for decisions made by the owner, read **[docs/DECISIONS.md](docs/DECISIONS.md)**. Check `main` and live Releases for newer changes. This file must not be used by reading only its opening sections.
+
 ## Goal
 
 Create a fast, visually approachable *native* Windows application that browses the Xbox patch catalogue, applies JMP/IPS/EIPS/limited VCDIFF patches to XBEs and supported XISOs, and creates/converts patches. The original HTML proof of concept is **not** the target UI.
@@ -32,7 +34,7 @@ Create a fast, visually approachable *native* Windows application that browses t
 6. Make unsupported formats and unsafe ISO growth explicit errors, not silent success.
 7. Keep Windows distribution portable; unsigned developer executables may trigger SmartScreen, and code signing is not solved by bundling a file.
 
-## Known gaps
+## Historical known gaps (early build; superseded by later entries)
 
 - Windows UI and console-boot compatibility have not been independently validated on real hardware.
 - Xdelta3 secondary compression and custom VCDIFF instruction tables are unsupported.
@@ -41,7 +43,7 @@ Create a fast, visually approachable *native* Windows application that browses t
 - No automated game-image regression corpus (copyright concerns); add synthetic XDVDFS and JMP tests as improvements are made.
 - No executable auto-updater, presets/undo journal, batch conversions or complete game-asset editor yet.
 
-## Recommended next actions
+## Historical next actions (early build; use PROJECT_CONTEXT.md for current priorities)
 
 1. Verify launch, rendering, file dialogs, DPI and drag/drop on a clean Windows 10 and Windows 11 install.
 2. Add end-to-end fixture tests from real JMP metadata (without redistribution of game bytes); test CRC32 matching and group controls.

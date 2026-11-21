@@ -1,6 +1,16 @@
 # MagicPatchDesk: instructions for coding agents
 
-Read `README.md`, `AI_HANDOFF.md`, and `docs/PROJECT_STATE.md` before making changes. This repository is the authoritative source of the *native Windows* Magic Patch Desk app, not the earlier HTML workbench.
+## Mandatory new-session bootstrap (read first)
+
+**This repository is the durable context for all future conversations.** Before changing source or answering a project-status question:
+
+1. Read **`PROJECT_CONTEXT.md`** and **`docs/STATUS.md`** for current, evidence-backed implementation, latest verified release, unverified items and the exact resumption workflow.
+2. Read **`docs/DECISIONS.md`** for the project owner's explicit requirements, deferrals and immutable constraints.
+3. Then read `README.md`, `AI_HANDOFF.md`, `docs/PROJECT_STATE.md`, `docs/UPDATE_CONTRACT.md`, `CREDITS.md` and task-specific documentation/source. `AI_HANDOFF.md` and `docs/PROJECT_STATE.md` are **chronological histories**, not an authoritative current version at their beginning.
+4. Fetch current GitHub `main`, the latest release, issues/PRs, and QA results. If source, release or newer instructions disagree with an older document, report and correct the discrepancy. **Never infer the state of the repo from a previous ChatGPT conversation alone.**
+5. At the end of every meaningful code/release milestone, update `PROJECT_CONTEXT.md` (current summary), `docs/STATUS.md` (verified vs pending), and `AI_HANDOFF.md`/`docs/PROJECT_STATE.md` (dated evidence) in the same change. Update `docs/DECISIONS.md` only for new explicit owner decisions. Verify that future agents can resume without chat history.
+
+This repository is the authoritative source of the *native Windows* Magic Patch Desk app, not the earlier HTML workbench. This repository is the authoritative source of the *native Windows* Magic Patch Desk app, not the earlier HTML workbench.
 
 ## Source and build
 

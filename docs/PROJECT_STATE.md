@@ -1,6 +1,8 @@
-# Project state — native Windows first developer build
+# Project state — chronological implementation history
 
-Last consolidated: 2026-11-21 (NZ). This document captures what is present in the source tree, not a promise of hardware compatibility.
+> **Historical development record, not a current-state header.** This file starts with early-build facts from 2026-11-21, then has dated additions through the verified **v0.14.0-test.2** preview. For current QA and active priorities, use [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md), [STATUS.md](STATUS.md) and [DECISIONS.md](DECISIONS.md). Later entries supersede early plans; check live `main` and Releases.
+
+Chronology begins 2026-11-21 (NZ); this file retains dated milestones and is not a substitute for current live code/release verification. Automated QA is not a promise of hardware compatibility.
 
 ## Implemented
 
