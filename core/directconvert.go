@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"path/filepath"
 	"strings"
 )
@@ -232,7 +233,31 @@ func ConvertPatchBytes(sourceName string, patchBytes []byte, sourceXBE []byte, o
 		if err != nil {
 			return nil, plan, fmt.Errorf("source patch cannot be applied to this original: %w", err)
 		}
-		converted, err := BuildPatchWithOptions(sourceXBE, after, outputFormat, password, title, useRLE)
+		var converted []byte
+		if !plan.RequiresSource {
+			// Preserve the exact original records and their write order. A stock
+			// XBE here is for verification, not a reason to silently strip
+			// writes that happen to be no-ops on that particular version.
+			converted, _, err = ConvertPatchBytes(sourceName, patchBytes, nil, outputFormat, password, useRLE, title)
+			if err == nil && outputFormat == 0 && (ext == ".ips" || ext == ".eips") {
+				// IPS contains no identity checks. When a source is available,
+				// attach its verified CRC32 to the generated JMP while leaving
+				// the offset records unchanged.
+				var p *Patch
+				p, err = ParseJMP("converted.jmp", converted)
+				if err == nil {
+					info, inspectErr := InspectXBE(sourceXBE)
+					if inspectErr == nil {
+						p.Headers["version"] = fmt.Sprintf("%s {%08X}", info.TitleID, crc32.ChecksumIEEE(sourceXBE))
+					} else {
+						p.Headers["version"] = fmt.Sprintf("{%08X}", crc32.ChecksumIEEE(sourceXBE))
+					}
+					converted = SerializeJMP(p)
+				}
+			}
+		} else {
+			converted, err = BuildPatchWithOptions(sourceXBE, after, outputFormat, password, title, useRLE)
+		}
 		if err != nil {
 			return nil, plan, err
 		}

@@ -28,3 +28,9 @@
 - `go vet ./...`
 - Cross-compile native Windows x64 GUI with Go 1.23
 - New regression tests cover conversion preflights, direct/reencoded IPS RLE, disabled JMP records, source validation, BPS/Xdelta requirements, cache validation, normalized cover title matching and PatchHub source markup.
+
+### Test 2 correctness follow-up
+
+- Supplying an original XBE for **verification** no longer strips offset records that happen to already match the original bytes; source-free and source-verified JMP offset → IPS generate the same writes, including no-ops.
+- Source-verified IPS → JMP preserves its explicit offset records and attaches the original XBE's Title ID and CRC32 in JMP metadata (when recognized), rather than emitting only byte differences.
+- Added regression tests for no-op preservation and checksum-enriched verified JMP output.

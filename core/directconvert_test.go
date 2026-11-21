@@ -281,3 +281,49 @@ func TestPatchHubTemplateImageParsing(t *testing.T) {
 		t.Fatalf("image parsing failed %+v", got.Games[3])
 	}
 }
+
+func TestOriginalForVerificationDoesNotStripNoOpWrites(t *testing.T) {
+	original := fakeXBE()
+	payload := []byte(fmt.Sprintf("#Jay's Magic Patcher\nsystem=Xbox\ngame-title=Halo 2\nregion=Global\nversion=4D530064 {%08X}\nauthor=Test\nnotes=Explicit no-op must survive\n#Explicit record\n0x390:AABBCCDD\n", crc32.ChecksumIEEE(original)))
+	without, _, err := ConvertPatchBytes("noop.jmp", payload, nil, 1, "", true, "Halo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	with, _, err := ConvertPatchBytes("noop.jmp", payload, original, 1, "", true, "Halo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(without, with) {
+		t.Fatal("supplying source stripped explicit JMP offset record")
+	}
+	parsed, err := DecodeIPS(with)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Records) != 1 || parsed.Records[0].Offset != 0x390 {
+		t.Fatalf("lost record: %+v", parsed.Records)
+	}
+}
+
+func TestVerifiedIPStoJMPAddsOriginalChecksum(t *testing.T) {
+	original := fakeXBE()
+	ips := IPSPatch{Records: []IPSRecord{{Offset: 300, Data: []byte{0x42}}}}
+	data, err := EncodeIPSPatch(ips, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, _, err := ConvertPatchBytes("one.ips", data, original, 0, "", true, "Halo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := ParseJMP("out.jmp", output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.CRCs) != 1 || p.CRCs[0] != crc32.ChecksumIEEE(original) {
+		t.Fatal("verified original checksum not saved")
+	}
+	if _, err = p.Apply(original, false); err != nil {
+		t.Fatal(err)
+	}
+}
