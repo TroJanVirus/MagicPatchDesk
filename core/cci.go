@@ -36,49 +36,60 @@ type CCIReader struct {
 
 func CCISourcePath(path string) bool { return strings.EqualFold(filepath.Ext(path), ".cci") }
 
+// discoverCCIParts accepts either a standalone .cci or a complete numbered
+// set. A missing middle part must never silently truncate the original disc.
 func discoverCCIParts(path string) ([]string, error) {
-	if !CCISourcePath(path) {
-		return nil, errors.New("expected .cci input")
-	}
-	if _, err := os.Stat(path); err != nil {
-		return nil, err
-	}
-	ext := filepath.Ext(path)
-	base := path[:len(path)-len(ext)]
-	dot := strings.LastIndex(base, ".")
-	if dot >= 0 {
-		if n, e := strconv.Atoi(base[dot+1:]); e == nil && n >= 1 && n <= 9999 {
-			base = base[:dot]
-		}
-	}
-	first := base + ".1.cci"
-	if _, err := os.Stat(first); err != nil {
-		if dot >= 0 {
-			if n, e := strconv.Atoi(path[:len(path)-len(ext)][dot+1:]); e == nil && n > 1 {
-				return nil, errors.New("split CCI is missing its first part")
-			}
-		}
-		return []string{path}, nil
-	}
-	out := make([]string, 0, 3)
-	for i := 1; i <= 64; i++ {
-		p := fmt.Sprintf("%s.%d.cci", base, i)
-		if _, err := os.Stat(p); err != nil {
-			break
-		}
-		out = append(out, p)
-	}
-	if len(out) == 0 {
-		return nil, errors.New("missing CCI first part")
-	}
-	// A numeric part beyond the discovered contiguous sequence must not be read
-	// by itself and mistaken for a complete disc image.
-	if dot >= 0 {
-		if n, e := strconv.Atoi(path[:len(path)-len(ext)][dot+1:]); e == nil && (n < 1 || n > len(out)) {
-			return nil, errors.New("CCI split set has missing parts")
-		}
-	}
-	return out, nil
+    if !CCISourcePath(path) {return nil,errors.New("expected .cci input")}
+    if _,err:=os.Stat(path);err!=nil{return nil,err}
+    ext:=filepath.Ext(path)
+    stem:=path[:len(path)-len(ext)]
+    base:=stem
+    selectedPart:=0
+    if dot:=strings.LastIndex(stem,".");dot>=0 {
+        if n,e:=strconv.Atoi(stem[dot+1:]);e==nil && n>=1 && n<=9999{
+            selectedPart=n
+            base=stem[:dot]
+        }
+    }
+    first:=base+".1.cci"
+    if _,err:=os.Stat(first);err!=nil{
+        if selectedPart>0{return nil,fmt.Errorf("split CCI first part is missing: %s",filepath.Base(first))}
+        if !os.IsNotExist(err){return nil,err}
+        return []string{path},nil
+    }
+    // When both a standalone image and a numbered set exist, selecting the
+    // unsuffixed name is ambiguous: make the user select part 1 explicitly.
+    if selectedPart==0{return nil,errors.New("ambiguous CCI source: standalone .cci and .1.cci both exist; select .1.cci explicitly")}
+    if selectedPart>64{return nil,errors.New("CCI split part number exceeds the supported 64-part limit")}
+    entries,err:=os.ReadDir(filepath.Dir(base))
+    if err!=nil{return nil,err}
+    prefix:=strings.ToLower(filepath.Base(base))+"."
+    parts:=map[int]string{}
+    maxPart:=0
+    for _,entry:=range entries {
+        name:=entry.Name()
+        lower:=strings.ToLower(name)
+        // "game.cci" is shorter than "game.<part>.cci". Do not
+        // slice it as though a numeric part exists (would panic).
+        if len(lower)<=len(prefix)+4 || !strings.HasPrefix(lower,prefix) || !strings.HasSuffix(lower,".cci"){continue}
+        between:=lower[len(prefix):len(lower)-4]
+        n,e:=strconv.Atoi(between)
+        if e!=nil||n<1{continue}
+        if n>64{return nil,fmt.Errorf("CCI split set exceeds 64 parts: %s",name)}
+        if _,exists:=parts[n];exists{return nil,fmt.Errorf("ambiguous duplicate CCI split part %d",n)}
+        if !entry.Type().IsRegular(){return nil,fmt.Errorf("non-regular CCI split part: %s",name)}
+        parts[n]=filepath.Join(filepath.Dir(base),name)
+        if n>maxPart{maxPart=n}
+    }
+    if maxPart==0{return nil,errors.New("missing CCI split first part")}
+    out:=make([]string,0,maxPart)
+    for n:=1;n<=maxPart;n++{
+        part,exists:=parts[n]
+        if !exists{return nil,fmt.Errorf("CCI split set has missing part %d",n)}
+        out=append(out,part)
+    }
+    if selectedPart>len(out){return nil,errors.New("requested CCI split part is missing")}
+    return out,nil
 }
 func (r *CCIReader) Close() error {
 	var first error

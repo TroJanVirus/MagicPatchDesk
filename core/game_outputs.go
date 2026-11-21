@@ -42,7 +42,9 @@ func validGameMember(p string) (string, error) {
         if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
             return "", fmt.Errorf("unsafe trailing dot/space in %q", part)
         }
-        name := strings.ToUpper(strings.TrimSuffix(part, filepath.Ext(part)))
+        // Windows treats CON.txt.more like CON: inspect everything before the first dot.
+        // Trimming spaces catches Win32 aliases such as "CON .txt".
+        name := strings.ToUpper(strings.TrimRight(strings.SplitN(part, ".", 2)[0], " "))
         switch name {
         case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
             return "", fmt.Errorf("reserved filesystem filename %q", part)
@@ -74,6 +76,24 @@ func resolveGameMember(root, member string) (string,error) {
         if info.Mode()&os.ModeSymlink!=0{return "",fmt.Errorf("symlink target forbidden: %s",canonical)}
     }
     return current,nil
+}
+
+// ReadGameMember resolves a patch target case-insensitively, rejects symlinks,
+// and limits memory use before returning a file for a named patch operation.
+func ReadGameMember(root, member string) ([]byte,error) {
+    target,err:=resolveGameMember(root,member)
+    if err!=nil{return nil,err}
+    info,err:=os.Lstat(target)
+    if err!=nil{return nil,err}
+    if !info.Mode().IsRegular(){return nil,fmt.Errorf("game target is not a regular file: %s",member)}
+    if info.Size()>512<<20{return nil,fmt.Errorf("game target exceeds 512 MiB patch limit: %s",member)}
+    file,err:=os.Open(target)
+    if err!=nil{return nil,err}
+    defer file.Close()
+    b,err:=io.ReadAll(io.LimitReader(file,info.Size()+1))
+    if err!=nil{return nil,err}
+    if int64(len(b))!=info.Size(){return nil,fmt.Errorf("game target changed during read: %s",member)}
+    return b,nil
 }
 
 func ensureNewOutput(dest string) error {
@@ -114,9 +134,10 @@ func ExtractGameXISO(image, destination string) error {
         if e = os.MkdirAll(filepath.Dir(target), 0755); e != nil { return e }
         f, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
         if e != nil { return e }
-        _, e = io.Copy(f, io.NewSectionReader(src, im.Base+int64(member.StartSector)*sectorSize, int64(member.Size)))
-        if closeErr := f.Close(); e == nil { e = closeErr }
-        if e != nil { return fmt.Errorf("extract %s: %w", name, e) }
+        written, copyErr := io.Copy(f, io.NewSectionReader(src, im.Base+int64(member.StartSector)*sectorSize, int64(member.Size)))
+        if closeErr := f.Close(); copyErr == nil { copyErr = closeErr }
+        if copyErr != nil { return fmt.Errorf("extract %s: %w", name, copyErr) }
+        if written != int64(member.Size) { return fmt.Errorf("truncated XISO file %s: copied %d of %d bytes", name, written, member.Size) }
     }
     if err = ensureNewOutput(destination); err != nil { return err }
     return os.Rename(tmp, destination)
@@ -157,10 +178,12 @@ func CopyExtractedGame(source, dest string) error {
         if e != nil { return e }
         out, e := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
         if e != nil { in.Close(); return e }
-        _, e = io.Copy(out, in)
-        if closeErr := in.Close(); e == nil { e = closeErr }
-        if closeErr := out.Close(); e == nil { e = closeErr }
-        return e
+        copied, copyErr := io.Copy(out, in)
+        if closeErr := in.Close(); copyErr == nil { copyErr = closeErr }
+        if closeErr := out.Close(); copyErr == nil { copyErr = closeErr }
+        if copyErr != nil { return copyErr }
+        if copied != info.Size() { return fmt.Errorf("source file changed during copy: %s", clean) }
+        return nil
     })
     if err != nil { return err }
     if err = ensureNewOutput(dest); err != nil { return err }
@@ -232,6 +255,8 @@ func prepareXDVTables(root *xdvNode) error {
         if total > 262144 { return errors.New("XDVDFS directory table exceeds pointer limit") }
     }
     root.table = make([]byte,total)
+    // XDVDFS directory entry padding is 0xFF, not an implicit zero.
+    for i:=range root.table {root.table[i]=0xFF}
     root.size = uint32(total)
     return nil
 }
@@ -266,26 +291,61 @@ func assignXDV(root *xdvNode) (uint64,error) {
     if next>uint64(^uint32(0)) {return 0,errors.New("XISO too large")}
     return next,nil
 }
+// fillXDVTables emits a balanced binary-search tree with the root at offset 0.
+// XDVDFS directory lookups follow left/right pointers; a right-only linked
+// chain degrades to O(N) depth for folders containing thousands of files.
 func fillXDVTables(root *xdvNode) error {
-    if root.folder {
+    if root.folder && len(root.children)>0 {
+        order:=make([]*xdvNode,0,len(root.children))
+        var appendBalanced func(int,int)
+        appendBalanced=func(start,end int){
+            if start>=end{return}
+            middle:=start+(end-start)/2
+            order=append(order,root.children[middle])
+            appendBalanced(start,middle)
+            appendBalanced(middle+1,end)
+        }
+        appendBalanced(0,len(root.children))
+        positions:=make(map[*xdvNode]int,len(order))
         offset:=0
-        for i,n:=range root.children {
-            entry:=root.table[offset:]
-            if i+1<len(root.children) {
-                next:=offset+((14+len(n.name)+3)&^3)
-                if next/4>65535 {return errors.New("XDVDFS sibling pointer overflow")}
-                binary.LittleEndian.PutUint16(entry[2:],uint16(next/4))
+        for _,n:=range order {
+            positions[n]=offset
+            offset+=(14+len(n.name)+3)&^3
+        }
+        if offset!=len(root.table){return errors.New("internal XDVDFS directory table size mismatch")}
+        var emit func(int,int)(*xdvNode,error)
+        emit=func(start,end int)(*xdvNode,error){
+            if start>=end{return nil,nil}
+            middle:=start+(end-start)/2
+            n:=root.children[middle]
+            left,e:=emit(start,middle)
+            if e!=nil{return nil,e}
+            right,e:=emit(middle+1,end)
+            if e!=nil{return nil,e}
+            entry:=root.table[positions[n]:]
+            // Clear the 14-byte header while preserving 0xFF name padding.
+            for i:=0;i<14;i++{entry[i]=0}
+            if left!=nil {
+                pos:=positions[left]/4
+                if pos==0||pos>65535{return nil,errors.New("XDVDFS left pointer overflow")}
+                binary.LittleEndian.PutUint16(entry[0:],uint16(pos))
+            }
+            if right!=nil {
+                pos:=positions[right]/4
+                if pos==0||pos>65535{return nil,errors.New("XDVDFS right pointer overflow")}
+                binary.LittleEndian.PutUint16(entry[2:],uint16(pos))
             }
             binary.LittleEndian.PutUint32(entry[4:],n.sector)
             binary.LittleEndian.PutUint32(entry[8:],n.size)
-            if n.folder {entry[12]=0x10} else {entry[12]=0x20}
+            if n.folder {entry[12]=0x10}else{entry[12]=0x20}
             entry[13]=byte(len(n.name))
             copy(entry[14:],n.name)
-            offset += (14+len(n.name)+3)&^3
+            return n,nil
         }
+        if _,err:=emit(0,len(root.children));err!=nil{return err}
     }
     for _,n:=range root.children {
-        if err:=fillXDVTables(n); err!=nil{return err}
+        if err:=fillXDVTables(n);err!=nil{return err}
     }
     return nil
 }
@@ -311,7 +371,11 @@ func BuildGameXISO(folder,destination string) error {
     defer os.Remove(tempName)
     closePending:=true
     defer func(){if closePending {tmp.Close()}}()
-    if err=tmp.Truncate(int64(next)*sectorSize);err!=nil{return err}
+    // Physical XDVDFS images are padded to a 64 KiB boundary; directory
+    // and file LBAs remain relative to the same game-partition origin.
+    imageBytes:=int64(next)*sectorSize
+    paddedBytes:=(imageBytes+0xFFFF)&^int64(0xFFFF)
+    if err=tmp.Truncate(paddedBytes);err!=nil{return err}
     vol:=make([]byte,2048)
     copy(vol,volumeMagic)
     copy(vol[0x7ec:],volumeMagic)
@@ -326,10 +390,13 @@ func BuildGameXISO(folder,destination string) error {
         if n.folder {return nil}
         in,e:=os.Open(filepath.Join(folder,filepath.FromSlash(n.relative)))
         if e!=nil{return e}
-        defer in.Close()
-        count,e:=io.Copy(io.NewOffsetWriter(tmp,int64(n.sector)*sectorSize),in)
-        if e!=nil{return e}
-        if count!=int64(n.size) {return fmt.Errorf("source changed during packing: %s",n.relative)}
+        count,copyErr:=io.CopyN(io.NewOffsetWriter(tmp,int64(n.sector)*sectorSize),in,int64(n.size))
+        info,statErr:=in.Stat()
+        closeErr:=in.Close()
+        if copyErr!=nil{return fmt.Errorf("pack %s: %w",n.relative,copyErr)}
+        if statErr!=nil{return statErr}
+        if closeErr!=nil{return closeErr}
+        if count!=int64(n.size) || info.Size()!=int64(n.size) {return fmt.Errorf("source changed during packing: %s",n.relative)}
         return nil
     })
     if err!=nil{return err}
@@ -341,46 +408,78 @@ func BuildGameXISO(folder,destination string) error {
     return os.Rename(tempName,destination)
 }
 
+// VerifyGameXISO independently reopens the packed XDVDFS tree and compares
+// every member's size and SHA256 plus directory presence (including empty dirs).
+// It also detects case collisions and rejects symlinked input paths.
 func VerifyGameXISO(image,folder string) error {
+    info,err:=os.Lstat(folder)
+    if err!=nil{return err}
+    if !info.IsDir(){return errors.New("verification requires an actual game directory")}
     im,err:=OpenXISO(image)
     if err!=nil{return err}
     src,err:=os.Open(image)
     if err!=nil{return err}
     defer src.Close()
     files:=map[string]ImageFile{}
+    dirs:=map[string]bool{}
+    for _, dir:=range im.Directories{
+        name,e:=validGameMember(dir)
+        if e!=nil{return e}
+        key:=strings.ToLower(name)
+        if dirs[key]{return fmt.Errorf("duplicate XISO directory: %s",name)}
+        dirs[key]=true
+    }
     for _, entry:=range im.Files {
         name,e:=validGameMember(entry.Path)
         if e!=nil{return e}
         key:=strings.ToLower(name)
         if _,ok:=files[key];ok{return fmt.Errorf("duplicate XISO member: %s",name)}
+        if dirs[key]{return fmt.Errorf("XISO path is both file and folder: %s",name)}
         files[key]=entry
     }
-    count:=0
-    err=filepath.WalkDir(folder,func(path string, d os.DirEntry, e error)error{
+    seenFiles:=map[string]bool{}
+    seenDirs:=map[string]bool{}
+    err=filepath.WalkDir(folder,func(p string,d os.DirEntry,walkErr error)error{
+        if walkErr!=nil{return walkErr}
+        rel,e:=filepath.Rel(folder,p)
         if e!=nil{return e}
-        if d.IsDir(){return nil}
-        if !d.Type().IsRegular(){return errors.New("non-regular file during verification")}
-        rel,e:=filepath.Rel(folder,path)
-        if e!=nil{return e}
+        if rel=="."{return nil}
         rel,e=validGameMember(filepath.ToSlash(rel))
         if e!=nil{return e}
-        entry,ok:=files[strings.ToLower(rel)]
+        key:=strings.ToLower(rel)
+        if d.Type()&os.ModeSymlink!=0{return fmt.Errorf("symbolic link forbidden during verification: %s",rel)}
+        if d.IsDir(){
+            if seenDirs[key]{return fmt.Errorf("duplicate source directory: %s",rel)}
+            seenDirs[key]=true
+            if !dirs[key]{return fmt.Errorf("missing output XISO directory: %s",rel)}
+            return nil
+        }
+        if !d.Type().IsRegular(){return fmt.Errorf("non-regular source file: %s",rel)}
+        if seenFiles[key]{return fmt.Errorf("duplicate source file: %s",rel)}
+        seenFiles[key]=true
+        entry,ok:=files[key]
         if !ok{return fmt.Errorf("missing output XISO member: %s",rel)}
-        f,e:=os.Open(path)
+        f,e:=os.Open(p)
         if e!=nil{return e}
-        defer f.Close()
-        a:=sha256.New()
-        b:=sha256.New()
-        n,e:=io.Copy(a,f)
-        if e!=nil{return e}
+        hashSource:=sha256.New()
+        readErr:=error(nil)
+        n,copyErr:=io.Copy(hashSource,f)
+        readErr=copyErr
+        if closeErr:=f.Close();readErr==nil{readErr=closeErr}
+        if readErr!=nil{return readErr}
         if n!=int64(entry.Size){return fmt.Errorf("XISO member size mismatch: %s",rel)}
-        if _,e=io.Copy(b,io.NewSectionReader(src,im.Base+int64(entry.StartSector)*sectorSize,int64(entry.Size)));e!=nil{return e}
-        if !strings.EqualFold(fmt.Sprintf("%x",a.Sum(nil)),fmt.Sprintf("%x",b.Sum(nil))){return fmt.Errorf("XISO member hash mismatch: %s",rel)}
-        count++
+        hashImage:=sha256.New()
+        copied,e:=io.Copy(hashImage,io.NewSectionReader(src,im.Base+int64(entry.StartSector)*sectorSize,int64(entry.Size)))
+        if e!=nil{return e}
+        if copied!=int64(entry.Size){return fmt.Errorf("XISO member truncated: %s",rel)}
+        if fmt.Sprintf("%x",hashSource.Sum(nil))!=fmt.Sprintf("%x",hashImage.Sum(nil)){
+            return fmt.Errorf("XISO member SHA256 mismatch: %s",rel)
+        }
         return nil
     })
     if err!=nil{return err}
-    if count!=len(files){return fmt.Errorf("XISO member count mismatch: %d vs %d",count,len(files))}
+    if len(seenFiles)!=len(files){return fmt.Errorf("XISO file count mismatch: %d vs %d",len(seenFiles),len(files))}
+    if len(seenDirs)!=len(dirs){return fmt.Errorf("XISO directory count mismatch: %d vs %d",len(seenDirs),len(dirs))}
     return nil
 }
 

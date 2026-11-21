@@ -553,43 +553,67 @@ func drawSettings(hdc uintptr, w, h int32) {
 	}
 	_ = h
 }
+// drawGameOutputs scales its vertical layout to fit a typical 720p desktop
+// instead of hiding the Create button under the bottom status bar.
 func drawGameOutputs(hdc uintptr, w, h int32) {
     drawPageHeader(hdc, "Game image outputs", "Choose exactly which game files and image formats to generate.", w)
+    if h<610 {
+        textAt(hdc,"Increase the window height to show the complete Game Outputs workspace.",265,148,w-308,44,app.fonts.Regular,amber)
+        return
+    }
     x:=int32(265)
     width:=w-294
-    panel(hdc,ir(x,125,width,624),surface,19)
-    textAt(hdc,"01   GAME SOURCE",x+31,150,width-55,25,app.fonts.Micro,muted)
+    factor:=float64(1)
+    if h<785 {factor=float64(h-180)/624.0}
+    y:=func(original int32)int32{return 125+int32(float64(original-125)*factor)}
+    hh:=func(original int32)int32 {
+        if factor>=1 {return original}
+        scaled:=int32(float64(original)*factor)
+        if scaled<26{return 26}
+        return scaled
+    }
+    panelHeight:=int32(624)
+    if h<785 {panelHeight=h-180}
+    panel(hdc,ir(x,125,width,panelHeight),surface,19)
+    textAt(hdc,"01   GAME SOURCE",x+31,y(150),width-55,hh(25),app.fonts.Micro,muted)
     source:=chosenGameSource()
-    description:="Use a loaded game, select an ISO/XISO/CCI/XBE, or locate an extracted folder"
+    description:="Use a loaded game, choose an image, or locate its extracted folder"
     if source!="" {description=source}
-    panel(hdc,ir(x+28,179,width-56,43),surface2,12)
-    textAt(hdc,strLimit(description,92),x+42,186,width-84,28,app.fonts.Medium,white)
+    panel(hdc,ir(x+28,y(179),width-56,hh(43)),surface2,12)
+    textAt(hdc,strLimit(description,92),x+42,y(186),width-84,hh(28),app.fonts.Medium,white)
     third:=(width-81)/3
-    button(hdc,"Choose image/XBE",ir(x+28,232,third,38),"game-source",0,false)
-    button(hdc,"Choose extracted folder",ir(x+40+third,232,third,38),"game-folder",0,false)
-    button(hdc,"Use loaded game",ir(x+52+2*third,232,third,38),"game-use-loaded",0,false)
-    textAt(hdc,"02   GAME OUTPUT FORMATS  ·  SELECT ONE OR MORE",x+31,297,width-55,27,app.fonts.Micro,muted)
+    button(hdc,"Choose image/XBE",ir(x+28,y(232),third,hh(38)),"game-source",0,false)
+    button(hdc,"Choose extracted folder",ir(x+40+third,y(232),third,hh(38)),"game-folder",0,false)
+    button(hdc,"Use loaded game",ir(x+52+2*third,y(232),third,hh(38)),"game-use-loaded",0,false)
+    textAt(hdc,"02   GAME OUTPUT FORMATS  ·  SELECT ONE OR MORE",x+31,y(297),width-55,hh(27),app.fonts.Micro,muted)
     labels:=[]string{"Patched game XBE only","Extracted game folder","Game-partition XISO","Cerbios compressed CCI","Preserve full-disc ISO"}
     cell:=(width-84)/2
     for i,v:=range labels {
         cx:=x+28+int32(i%2)*(cell+15)
-        cy:=int32(330+(i/2)*59)
-        panel(hdc,ir(cx,cy,cell,49),map[bool]uint32{true:0x2E4E78,false:surface2}[gameOutputMask&(uint32(1)<<uint(i))!=0],12)
-        mark(hdc,ir(cx+13,cy+16,18,18),gameOutputMask&(uint32(1)<<uint(i))!=0)
-        textAt(hdc,v,cx+43,cy+9,cell-49,32,app.fonts.Medium,white)
-        addHit(ir(cx,cy,cell,49),"game-format",i)
+        cy:=y(int32(330+(i/2)*59))
+        cellHeight:=hh(49)
+        active:=gameOutputMask&(uint32(1)<<uint(i))!=0
+        fillColor:=uint32(surface2)
+        if active{fillColor=0x2E4E78}
+        panel(hdc,ir(cx,cy,cell,cellHeight),fillColor,12)
+        mark(hdc,ir(cx+13,cy+(cellHeight-18)/2,18,18),active)
+        textAt(hdc,v,cx+43,cy+3,cell-49,cellHeight-6,app.fonts.Medium,white)
+        addHit(ir(cx,cy,cell,cellHeight),"game-format",i)
     }
-    textAt(hdc,"03   PATCH SOURCE  ·  OPTIONAL",x+31,518,width-55,28,app.fonts.Micro,muted)
+    textAt(hdc,"03   PATCH SOURCE  ·  OPTIONAL",x+31,y(518),width-55,hh(28),app.fonts.Micro,muted)
     patch:="No patch: convert/extract original game without modification"
     if app.directFile!="" {patch=filepath.Base(app.directFile)
     }else if app.parsed!=nil {patch=app.parsed.Filename}
-    panel(hdc,ir(x+28,545,width-56,44),surface2,11)
-    textAt(hdc,strLimit(patch,90),x+43,552,width-83,28,app.fonts.Regular,white)
-    textAt(hdc,"Choose patches and record groups in Patch Library. All named targets must be resolved.",x+32,604,width-60,25,app.fonts.Small,muted)
-    textAt(hdc,"XISO uses .iso extension, but is NOT a full-disc ISO. Every output is verified.",x+32,630,width-60,25,app.fonts.Small,muted)
-    button(hdc,"CREATE SELECTED OUTPUTS",ir(x+width-304,674,270,47),"game-export",0,true)
-    textAt(hdc,outputNames(gameOutputMask),x+31,685,width-345,26,app.fonts.Small,mint)
-    _=h
+    if gameOutputIgnorePatch{patch="Conversion only — selected patch will NOT be applied"}
+    panel(hdc,ir(x+28,y(545),width-56,hh(44)),surface2,11)
+    textAt(hdc,strLimit(patch,90),x+43,y(552),width-230,hh(28),app.fonts.Regular,white)
+    patchAction:="Skip patch"
+    if gameOutputIgnorePatch{patchAction="Include patch"}
+    button(hdc,patchAction,ir(x+width-181,y(549),142,hh(35)),"game-patch-toggle",0,false)
+    textAt(hdc,"Patch Library selects records; use Skip patch for clean image conversions.",x+32,y(604),width-60,hh(25),app.fonts.Small,muted)
+    textAt(hdc,"XISO is NOT a full-disc ISO. All outputs are verified before publication.",x+32,y(630),width-60,hh(25),app.fonts.Small,muted)
+    button(hdc,"CREATE SELECTED OUTPUTS",ir(x+width-304,y(674),270,hh(47)),"game-export",0,true)
+    textAt(hdc,outputNames(gameOutputMask),x+31,y(685),width-345,hh(26),app.fonts.Small,mint)
 }
 
 func drawAbout(hdc uintptr, w, h int32) {

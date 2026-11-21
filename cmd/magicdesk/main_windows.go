@@ -439,6 +439,10 @@ func initApp() {
 	sysCall(dwmAttr, app.hwnd, 20, uintptr(unsafe.Pointer(&dark)), 4)
 	sysCall(dragAccept, app.hwnd, 1)
 	sysCall(showWindow, app.hwnd, SW_SHOW)
+    if smokeWindowsUI {
+        smokePaintAndExit()
+        return
+    }
 	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
 	if maintenancePref.AutoReports {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
@@ -454,7 +458,15 @@ func initApp() {
 		sysCall(dispatchMsg, uintptr(unsafe.Pointer(&m)))
 	}
 }
-func main() { if helperMode() { return }; initApp() }
+var smokeWindowsUI bool
+
+func main() {
+    if len(os.Args)==2 && os.Args[1]=="--mpd-ui-smoke-v1" {
+        smokeWindowsUI=true
+    }
+    if helperMode(){return}
+    initApp()
+}
 func reloadCatalog() {
 	app.mu.Lock()
 	workers := app.workers
