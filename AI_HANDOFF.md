@@ -51,3 +51,7 @@ Create a fast, visually approachable *native* Windows application that browses t
 5. Release signed Windows binaries via GitHub Releases when ready, rather than committing binaries to source control.
 
 Never claim a Windows GUI run or Xbox boot passed based only on Linux unit tests or Windows cross-compilation.
+
+## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
+
+Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.

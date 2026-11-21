@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.2", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.3", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -407,50 +407,63 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	_ = version
 }
 func drawConvert(hdc uintptr, w, h int32) {
-	drawPageHeader(hdc, "Convert & create", "Turn a stock XBE and modified XBE (or selected patch) into JMP, IPS, Xdelta or encrypted IPS.", w)
+	drawPageHeader(hdc, "Convert & create", "Convert JMP, IPS, BPS, Xdelta and encrypted IPS using a stock XBE, or create a patch from two XBEs.", w)
 	x := int32(265)
 	width := w - 294
 	panel(hdc, ir(x, 125, width, 620), surface, 19)
-	textAt(hdc, "CREATE A PATCH", x+28, 147, width-40, 29, app.fonts.Title, white)
-	textAt(hdc, "01   Original / stock XBE", x+32, 205, width-65, 22, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 238, width-220, 56), surface2, 12)
-	label := "No original selected"
-	if app.aFile != "" {
-		label = filepath.Base(app.aFile)
+	textAt(hdc, "PATCH CONVERTER", x+28, 145, width-40, 29, app.fonts.Title, white)
+
+	textAt(hdc, "01   Stock / original XBE  ·  required for reliable conversion", x+31, 181, width-55, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 208, width-226, 43), surface2, 12)
+	label := "Choose your original XBE"
+	if app.aFile != "" { label = filepath.Base(app.aFile) }
+	textAt(hdc, label, x+44, 214, width-253, 31, app.fonts.Medium, white)
+	button(hdc, "Choose stock XBE", ir(x+width-190, 209, 160, 40), "a", 0, false)
+
+	textAt(hdc, "02   Source patch  ·  JMP / IPS / BPS / Xdelta / encrypted IPS", x+31, 259, width-50, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 285, width-226, 43), surface2, 12)
+	label = "Choose an existing patch to convert"
+	if app.convertPatchFile != "" {
+		label = filepath.Base(app.convertPatchFile)
+	} else if app.bFile == "" && app.directFile != "" {
+		label = filepath.Base(app.directFile) + "  (library)"
+	} else if app.bFile == "" && app.parsed != nil {
+		label = app.parsed.Filename + "  (library)"
 	}
-	textAt(hdc, label, x+47, 252, width-259, 29, app.fonts.Medium, white)
-	button(hdc, "Choose original", ir(x+width-181, 243, 153, 46), "a", 0, false)
-	textAt(hdc, "02   Modified XBE  ·  optional when a patch is selected", x+32, 309, width-65, 22, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 341, width-220, 56), surface2, 12)
-	label = "Use selected library/custom patch"
-	if app.bFile != "" {
-		label = filepath.Base(app.bFile)
-	}
-	textAt(hdc, label, x+47, 354, width-259, 29, app.fonts.Medium, white)
-	button(hdc, "Choose modified", ir(x+width-181, 346, 153, 46), "b", 0, false)
-	textAt(hdc, "OUTPUT FORMAT", x+30, 414, width-40, 24, app.fonts.Micro, muted)
-	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted"}
+	textAt(hdc, label, x+44, 291, width-253, 31, app.fonts.Medium, white)
+	button(hdc, "Choose patch", ir(x+width-190, 286, 160, 40), "cpatch", 0, false)
+
+	textAt(hdc, "OR   Modified XBE  ·  alternative to a source patch", x+31, 336, width-60, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 362, width-226, 43), surface2, 12)
+	label = "Optional: choose a pre-patched XBE"
+	if app.bFile != "" { label = filepath.Base(app.bFile) }
+	textAt(hdc, label, x+44, 369, width-253, 29, app.fonts.Medium, white)
+	button(hdc, "Choose modified", ir(x+width-190, 363, 160, 40), "b", 0, false)
+
+	textAt(hdc, "OUTPUT PATCH FORMAT", x+30, 416, width-50, 20, app.fonts.Micro, muted)
+	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted", "BPS  ·  CRC32-verified"}
+	cell := (width-85)/2
 	for i, s := range labels {
-		bx := x + 31 + int32(i%2)*248
-		by := int32(444 + int32(i/2)*51)
-		panel(hdc, ir(bx, by, 230, 43), map[bool]uint32{true: 0x32517B, false: surface2}[app.format == i], 12)
-		mark(hdc, ir(bx+12, by+13, 17, 17), app.format == i)
-		textAt(hdc, s, bx+39, by+7, 187, 27, app.fonts.Small, white)
-		addHit(ir(bx, by, 230, 43), "format", i)
+		bx := x + 28 + int32(i%2)*(cell+13)
+		by := int32(439 + (i/2)*41)
+		panel(hdc, ir(bx, by, cell, 35), map[bool]uint32{true: 0x32517B, false: surface2}[app.format == i], 10)
+		mark(hdc, ir(bx+10, by+9, 16, 16), app.format == i)
+		textAt(hdc, s, bx+34, by+4, cell-40, 28, app.fonts.Small, white)
+		addHit(ir(bx, by, cell, 35), "format", i)
 	}
-	textAt(hdc, "Encrypted IPS password  ·  minimum 8 characters", x+32, 552, width-50, 22, app.fonts.Micro, muted)
-	panel(hdc, ir(x+29, 583, width-58, 43), surface2, 11)
-	placeholder := "Enter a password for EIPS creation / decryption"
-	if app.password != "" {
-		placeholder = strings.Repeat("•", len([]rune(app.password)))
-	}
-	textAt(hdc, placeholder, x+45, 590, width-90, 27, app.fonts.Regular, white)
-	if app.passFocus {
-		fill(hdc, ir(x+29, 625, width-58, 2), blue)
-	}
-	addHit(ir(x+29, 583, width-58, 43), "password", 0)
-	button(hdc, "CREATE PATCH FILE", ir(x+width-276, 650, 245, 52), "convert", 0, true)
-	textAt(hdc, "File conversion is local. We never send game files to GitHub.", x+30, 704, width-310, 22, app.fonts.Small, muted)
+	textAt(hdc, "Password (EIPS encryption / decryption; 8+ characters to create)", x+30, 562, width-55, 21, app.fonts.Micro, muted)
+	panel(hdc, ir(x+28, 584, width-56, 37), surface2, 10)
+	placeholder := "Password for encrypted IPS"
+	if app.password != "" { placeholder = strings.Repeat("•", len([]rune(app.password))) }
+	textAt(hdc, placeholder, x+44, 590, width-90, 25, app.fonts.Regular, white)
+	if app.passFocus { fill(hdc, ir(x+28, 620, width-56, 2), blue) }
+	addHit(ir(x+28, 584, width-56, 37), "password", 0)
+
+	mark(hdc, ir(x+32, 631, 18, 18), app.ipsRLE)
+	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
+	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
+	button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
+	textAt(hdc, "All conversions are local. The original XBE and input patch are never overwritten.", x+30, 707, width-53, 25, app.fonts.Small, muted)
 	_ = h
 }
 

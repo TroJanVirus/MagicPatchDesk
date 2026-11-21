@@ -203,7 +203,9 @@ type appState struct {
 	busy          bool
 	progress      float64
 	aFile, bFile  string
-	directFile    string
+	convertPatchFile string
+	ipsRLE bool
+	directFile string
 	format        int
 	password      string
 	passFocus     bool
@@ -293,6 +295,7 @@ func notify(s string) {
 func initApp() {
 	runtime.LockOSThread()
 	app.workers = 4
+	app.ipsRLE = true
 	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
@@ -820,41 +823,60 @@ func startPatch() {
 
 func convertFiles() {
 	if app.aFile == "" {
-		notify("Choose the original XBE before converting.")
+		notify("Choose the stock/original XBE to convert a patch.")
 		return
 	}
-	if app.bFile == "" && app.parsed == nil && app.directFile == "" {
-		notify("Choose a modified XBE, or select a patch from the library.")
+	if app.bFile == "" && app.convertPatchFile == "" && app.parsed == nil && app.directFile == "" {
+		notify("Choose a source patch (JMP, IPS, Xdelta, BPS or EIPS) or a modified XBE.")
 		return
 	}
 	format := app.format
-	ext := []string{".jmp", ".ips", ".xdelta", ".eips"}[format]
-	output := pickFile(true, "Patch file\x00*.jmp;*.ips;*.eips;*.xdelta\x00All files\x00*.*\x00", "Save converted patch", "ConvertedPatch"+ext)
-	if output == "" {
+	exts := []string{".jmp", ".ips", ".xdelta", ".eips", ".bps"}
+	if format < 0 || format >= len(exts) {
+		notify("Unsupported output format.")
 		return
 	}
+	ext := exts[format]
+	output := pickFile(true, "Patch files\x00*.jmp;*.ips;*.eips;*.xdelta;*.bps\x00All files\x00*.*\x00", "Save converted patch", "ConvertedPatch"+ext)
+	if output == "" { return }
+	if filepath.Ext(output) == "" { output += ext }
+	if !strings.EqualFold(filepath.Ext(output), ext) {
+		notify("Output extension does not match selected patch format: " + ext)
+		return
+	}
+	if strings.EqualFold(filepath.Clean(output), filepath.Clean(app.aFile)) ||
+		(app.convertPatchFile != "" && strings.EqualFold(filepath.Clean(output), filepath.Clean(app.convertPatchFile))) ||
+		(app.bFile != "" && strings.EqualFold(filepath.Clean(output), filepath.Clean(app.bFile))) {
+		notify("Output must not overwrite the original, source patch, or modified XBE.")
+		return
+	}
+	aPath, bPath, sourcePatch, pass, direct, selected, useRLE := app.aFile, app.bFile, app.convertPatchFile, app.password, app.directFile, app.parsed, app.ipsRLE
 	app.mu.Lock()
+	if app.busy { app.mu.Unlock(); return }
 	app.busy = true
+	app.status = "Converting patch locally…"
 	app.mu.Unlock()
 	redraw()
-	aPath, bPath, pass, direct, selected := app.aFile, app.bFile, app.password, app.directFile, app.parsed
 	go func() {
 		a, err := os.ReadFile(aPath)
 		if err == nil {
 			var b []byte
-			if bPath != "" {
+			switch {
+			case sourcePatch != "":
+				b, err = core.ApplyPatchFile(a, sourcePatch, pass, false)
+			case bPath != "":
 				b, err = os.ReadFile(bPath)
-			} else if direct != "" {
+			case direct != "":
 				b, err = core.ApplyPatchFile(a, direct, pass, false)
-			} else {
+			case selected != nil:
 				b, err = selected.Apply(a, false)
+			default:
+				err = fmt.Errorf("no source patch or modified XBE selected")
 			}
 			if err == nil {
-				var out []byte
-				out, err = core.BuildPatch(a, b, format, pass, strings.TrimSuffix(filepath.Base(aPath), filepath.Ext(aPath)))
-				if err == nil {
-					err = atomicWrite(output, out)
-				}
+				var converted []byte
+				converted, err = core.BuildPatchWithOptions(a, b, format, pass, strings.TrimSuffix(filepath.Base(aPath), filepath.Ext(aPath)), useRLE)
+				if err == nil { err = atomicWrite(output, converted) }
 			}
 		}
 		app.mu.Lock()
@@ -862,7 +884,7 @@ func convertFiles() {
 		if err != nil {
 			app.status = "Conversion failed: " + err.Error()
 		} else {
-			app.status = "Saved " + strings.ToUpper(ext) + " patch: " + output
+			app.status = "Converted patch saved: " + output
 		}
 		app.mu.Unlock()
 		redraw()
@@ -901,7 +923,7 @@ func handle(action string, index int) {
 			app.parsed.SetRecordEnabled(index, !app.parsed.Records[index].Enabled)
 		}
 	case "direct":
-		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.jmp\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
+		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
 			app.directFile = path
 			app.status = "Custom patch loaded: " + filepath.Base(path)
 			redraw()
@@ -950,13 +972,21 @@ func handle(action string, index int) {
 	case "override":
 		app.override = !app.override
 	case "a":
-		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose original XBE", ""); p != "" {
+		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose stock/original XBE", ""); p != "" {
 			app.aFile = p
+		}
+	case "cpatch":
+		if p := pickFile(false, "Patch files\x00*.jmp;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
+			app.convertPatchFile = p
+			app.bFile = "" // A source patch and a modified XBE are alternative inputs.
 		}
 	case "b":
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose modified XBE", ""); p != "" {
 			app.bFile = p
+			app.convertPatchFile = ""
 		}
+	case "ipsrle":
+		app.ipsRLE = !app.ipsRLE
 	case "format":
 		app.format = index
 	case "password":
@@ -1096,6 +1126,10 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 						notify(fmt.Sprintf("Imported %d JMP files from %s", n, filepath.Base(path)))
 					}
 				}()
+			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps") {
+				app.convertPatchFile = path
+				app.bFile = ""
+				app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" {
 				if _, err := core.ImportJMP(app.root, path); err != nil {
 					notify(err.Error())

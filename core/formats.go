@@ -38,25 +38,35 @@ func ApplyPatchFile(original []byte, patchPath, password string, overrideCRC boo
 		return p.Apply(original)
 	case ".xdelta", ".vcdiff":
 		return DecodeXdelta(original, b)
+	case ".bps":
+		return DecodeBPS(original, b)
 	default:
 		return nil, fmt.Errorf("unsupported patch file %q", filepath.Ext(patchPath))
 	}
 }
 func BuildPatch(original, modified []byte, format int, password string, title string) ([]byte, error) {
+	return BuildPatchWithOptions(original, modified, format, password, title, true)
+}
+
+// BuildPatchWithOptions explicitly controls IPS run-length encoding for both
+// classic IPS and encrypted IPS payloads.
+func BuildPatchWithOptions(original, modified []byte, format int, password string, title string, ipsRLE bool) ([]byte, error) {
 	switch format {
 	case 0:
 		s, err := DiffToJMP(original, modified, title)
 		return []byte(s), err
 	case 1:
-		return EncodeIPS(original, modified)
+		return EncodeIPSWithRLE(original, modified, ipsRLE)
 	case 2:
 		return EncodeXdelta(original, modified)
 	case 3:
-		b, err := EncodeIPS(original, modified)
+		b, err := EncodeIPSWithRLE(original, modified, ipsRLE)
 		if err != nil {
 			return nil, err
 		}
 		return EncryptIPS(b, password)
+	case 4:
+		return EncodeBPS(original, modified)
 	default:
 		return nil, errors.New("unsupported output format")
 	}

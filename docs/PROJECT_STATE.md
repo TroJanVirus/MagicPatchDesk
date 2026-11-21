@@ -40,3 +40,7 @@ Last consolidated: 2026-11-21 (NZ). This document captures what is present in th
 - Baseline source: `main` at `2ca03edcc227174b4e252ebe5657142f5666ae29`.
 - Initial portable release: `release/v0.1.0` runs a **single** GitHub Actions job that creates the GitHub Release `v0.1.0` with built EXE and SHA256SUMS. No recurring jobs.
 - Current test features: `feature/dry-run-record-controls-settings` proposed as v0.2.0 test, not merged into baseline until Windows GUI QA.
+
+## 2026-11-21: BPS / IPS encoding and patch-to-patch conversion
+
+Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, optional standard IPS RLE encoding, a direct source-patch picker in Convert & Create, all five output formats, and 25 synthetic conversion combinations across five input formats. Original XBE remains mandatory. Xdelta3 compatibility is still limited to uncompressed VCDIFF streams; do not claim universal xdelta3 support.

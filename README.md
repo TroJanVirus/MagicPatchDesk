@@ -65,3 +65,7 @@ go build -trimpath -ldflags="-H windowsgui -s -w" -o MagicPatchDesk-Windows-x64.
 Source is under `core` and `cmd/magicdesk`, plus interoperability fixtures in `testdata`. `docs/` may contain later design notes. Keep Jay's patch author credits intact; the GitHub JMP files are **not** bundled with this build, but are synced on launch if reachable.
 
 Feedback and bug reports should include game title, XBE Title ID/CRC32, region, specific JMP filename, and whether the target was loose `.xbe`, XISO or full-disc ISO. Do not distribute copyrighted game images as bug reports.
+
+## Patch-to-patch conversion (v0.3 test)
+
+In **Convert & Create**, choose your **stock XBE**, then select either **Choose patch** (JMP, IPS, EIPS, Xdelta or BPS) or a modified XBE. Choose a target patch format (JMP, IPS, Xdelta, encrypted IPS or BPS) and select **Convert / Create Patch**. The original XBE is required: differential patch formats cannot be safely transformed without reconstructing the modified bytes. IPS RLE encoding can be turned on or off independently of EIPS password encryption. BPS1 verifies source, output and patch CRC32. The Xdelta decoder remains limited to uncompressed default-table VCDIFF.

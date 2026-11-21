@@ -85,26 +85,67 @@ func (p IPSPatch) Apply(src []byte) ([]byte, error) {
 	}
 	return out, nil
 }
+
+// EncodeIPS emits standard PATCH/EOF IPS. Repeated byte ranges are represented
+// using IPS RLE records when they occupy fewer bytes than a literal record.
 func EncodeIPS(a, b []byte) ([]byte, error) {
+	return EncodeIPSWithRLE(a, b, true)
+}
+
+// EncodeIPSWithRLE allows users to choose regular IPS records or the standard
+// zero-length IPS RLE record encoding. Both are ordinary .ips files.
+func EncodeIPSWithRLE(a, b []byte, useRLE bool) ([]byte, error) {
 	if len(b) > 0xFFFFFF {
-		return nil, errors.New("IPS max output length is 16MiB; use JMP or Xdelta")
+		return nil, errors.New("IPS output exceeds 24-bit final-size limit (16 MiB); use BPS or Xdelta")
 	}
 	var out bytes.Buffer
 	out.WriteString("PATCH")
+	const eofOffset = 0x454F46
+	writeHead := func(start, count int) {
+		out.Write([]byte{byte(start >> 16), byte(start >> 8), byte(start), byte(count >> 8), byte(count)})
+	}
+	same := func(i int) bool { return i < len(a) && a[i] == b[i] }
+	runLength := func(i int) int {
+		n := 1
+		for i+n < len(b) && n < 0xFFFF && b[i+n] == b[i] {
+			n++
+		}
+		return n
+	}
 	for i := 0; i < len(b); {
-		if i < len(a) && a[i] == b[i] {
+		if same(i) {
 			i++
 			continue
 		}
-		st := i
-		for i < len(b) && (i >= len(a) || a[i] != b[i]) && i-st < 0xFFFF {
+		// Reserved EOF marker cannot appear as a record offset. Add one byte
+		// of unchanged target context to a literal record starting earlier.
+		if i == eofOffset {
+			start := i - 1
+			end := i + 1
+			for end < len(b) && end-start < 0xFFFF && !same(end) {
+				end++
+			}
+			writeHead(start, end-start)
+			out.Write(b[start:end])
+			i = end
+			continue
+		}
+		run := runLength(i)
+		if useRLE && run >= 4 {
+			out.Write([]byte{byte(i >> 16), byte(i >> 8), byte(i), 0, 0, byte(run >> 8), byte(run), b[i]})
+			i += run
+			continue
+		}
+		start := i
+		i++
+		for i < len(b) && i-start < 0xFFFF && !same(i) {
+			if i == eofOffset || (useRLE && runLength(i) >= 4) {
+				break
+			}
 			i++
 		}
-		if st == 0x454F46 {
-			return nil, errors.New("IPS cannot encode a record at reserved EOF offset; use Xdelta")
-		}
-		out.Write([]byte{byte(st >> 16), byte(st >> 8), byte(st), byte((i - st) >> 8), byte(i - st)})
-		out.Write(b[st:i])
+		writeHead(start, i-start)
+		out.Write(b[start:i])
 	}
 	out.WriteString("EOF")
 	if len(a) != len(b) {
