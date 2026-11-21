@@ -69,7 +69,9 @@ func discoverCCIParts(path string) ([]string, error) {
     for _,entry:=range entries {
         name:=entry.Name()
         lower:=strings.ToLower(name)
-        if !strings.HasPrefix(lower,prefix) || !strings.HasSuffix(lower,".cci"){continue}
+        // "game.cci" is shorter than "game.<part>.cci". Do not
+        // slice it as though a numeric part exists (would panic).
+        if len(lower)<=len(prefix)+4 || !strings.HasPrefix(lower,prefix) || !strings.HasSuffix(lower,".cci"){continue}
         between:=lower[len(prefix):len(lower)-4]
         n,e:=strconv.Atoi(between)
         if e!=nil||n<1{continue}
