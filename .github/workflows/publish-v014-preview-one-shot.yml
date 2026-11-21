@@ -118,3 +118,4 @@ jobs:
           verified="$(gh release view v0.14.0-test.1 --repo "${GITHUB_REPOSITORY}" --json tagName,isPrerelease,assets \
             --jq '(.tagName=="v0.14.0-test.1") and .isPrerelease and (any(.assets[]; .name=="MagicPatchDesk-Windows-x64.exe")) and (any(.assets[]; .name=="SHA256SUMS.txt"))')"
           test "$verified" = true
+# Retry after resolving a JMP provenance note / named-target parsing collision.
