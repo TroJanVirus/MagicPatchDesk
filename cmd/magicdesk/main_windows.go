@@ -1000,8 +1000,13 @@ func startPatch() {
 			app.progress = 1
 		}
 		app.mu.Unlock()
-		if err == nil {rememberRecent("output",dest)}
-		if err != nil {recordFailure("patch.apply",err,source,direct,ext)}
+        if err==nil {
+            manager.log.Add("pass","Patch","Patched copy saved; original input preserved")
+            rememberRecent("output",dest)
+        }else{
+            manager.log.Add("error","Patch","Patch preview or write failed: "+err.Error())
+            recordFailure("patch.apply",err,source,direct,ext)
+        }
 		redraw()
 	}()
 }
