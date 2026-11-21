@@ -26,3 +26,8 @@ Read `README.md`, `AI_HANDOFF.md`, and `docs/PROJECT_STATE.md` before making cha
 ## Testing and reporting
 
 For bug reports, record the game title, Title ID, original XBE CRC32, JMP filename, selected groups, and whether the input was `.xbe`, game-partition XISO, or full-disc ISO. Document any unverified hardware, Windows GUI, or game-boot claims explicitly in `docs/PROJECT_STATE.md`.
+
+
+## Multi-file JMP rules
+
+A comment naming `settings.cfg` targets that file. Prompt the user to locate/use, skip, or cancel; never silently apply that record to the default XBE. Reject ambiguous/unsafe paths and preserve the original. In an XISO resolve by unique relative path or basename. Multiple file targets must not be collapsed into one IPS, BPS or Xdelta patch without separating the records.

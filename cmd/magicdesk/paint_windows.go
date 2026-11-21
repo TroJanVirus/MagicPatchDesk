@@ -82,7 +82,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.2", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.5", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -273,7 +273,8 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	} else if app.inputErr != "" {
 		textAt(hdc, strLimit(app.inputErr, 95), 273, h-82, w-625, 17, app.fonts.Small, amber)
 	}
-	button(hdc, "Browse file", ir(w-344, h-119, 130, 43), "open", 0, false)
+	button(hdc, "Browse file", ir(w-466, h-119, 122, 43), "open", 0, false)
+	button(hdc, "PREVIEW", ir(w-333, h-119, 119, 43), "preview", 0, false)
 	button(hdc, "APPLY PATCH", ir(w-202, h-119, 175, 43), "apply", 0, true)
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
@@ -326,28 +327,79 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		return
 	}
 	textAt(hdc, fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS", len(p.Records)), x+23, groupY, width-43, 23, app.fonts.Micro, muted)
-	textAt(hdc, "Click a group to toggle all matching comments.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
+	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
 	rowY := groupY + 56
-	visible := int((bottom - rowY - 88) / 42)
+	visible := int((bottom - rowY - 88) / 38)
 	if visible < 1 {
 		visible = 1
 	}
-	if app.groupScroll > len(p.Groups)-visible {
-		app.groupScroll = len(p.Groups) - visible
+	type row struct {
+		group  int
+		record int
+	}
+	rows := make([]row, 0, len(p.Groups)+len(p.Records))
+	for gi, g := range p.Groups {
+		rows = append(rows, row{gi, -1})
+		if app.expandedGroup == gi {
+			for ri, r := range p.Records {
+				if strings.EqualFold(r.Group, g.Name) {
+					rows = append(rows, row{gi, ri})
+				}
+			}
+		}
+	}
+	if app.groupScroll > len(rows)-visible {
+		app.groupScroll = len(rows) - visible
 	}
 	if app.groupScroll < 0 {
 		app.groupScroll = 0
 	}
-	for i := 0; i < visible && i+app.groupScroll < len(p.Groups); i++ {
-		idx := i + app.groupScroll
-		g := p.Groups[idx]
-		y := rowY + int32(i)*42
-		panel(hdc, ir(x+18, y, width-36, 36), 0x24344B, 9)
-		mark(hdc, ir(x+28, y+8, 19, 19), g.Enabled)
-		textAt(hdc, strLimit(g.Name, 54), x+60, y+5, width-168, 27, app.fonts.Medium, white)
-		textAt(hdc, fmt.Sprintf("×%d", g.Count), x+width-81, y+6, 57, 24, app.fonts.Small, muted)
+	for i := 0; i < visible && i+app.groupScroll < len(rows); i++ {
+		r := rows[i+app.groupScroll]
+		y := rowY + int32(i)*38
+		if r.record >= 0 {
+			rec := p.Records[r.record]
+			panel(hdc, ir(x+34, y, width-52, 34), 0x1F2F45, 8)
+			mark(hdc, ir(x+47, y+8, 18, 18), rec.Enabled)
+			label := fmt.Sprintf("#%d  %s", r.record+1, rec.Kind)
+            if target, targetErr := core.TargetFromComment(rec.Comment); targetErr == nil && target != "default.xbe" {
+                label += " → " + target
+            }
+			if rec.Kind == core.Offset {
+				label += fmt.Sprintf("  ·  0x%X", rec.Offset)
+			}
+			if rec.Kind == core.SearchReplace {
+				label += fmt.Sprintf("  ·  %d bytes", len(rec.Find))
+			}
+			if rec.Kind == core.Append {
+				label += fmt.Sprintf("  ·  %d bytes", len(rec.Data))
+			}
+			textAt(hdc, strLimit(label, 67), x+78, y+5, width-126, 24, app.fonts.Small, muted)
+			if !app.busy {
+				addHit(ir(x+34, y, width-52, 34), "record", r.record)
+			}
+			continue
+		}
+		g := p.Groups[r.group]
+		panel(hdc, ir(x+18, y, width-36, 34), 0x24344B, 9)
+		mark(hdc, ir(x+47, y+8, 18, 18), g.Enabled)
+		if g.Mixed {
+			textAt(hdc, "–", x+50, y+6, 14, 21, app.fonts.Micro, white)
+		}
+		textAt(hdc, strLimit(g.Name, 50), x+78, y+5, width-185, 24, app.fonts.Medium, white)
+		textAt(hdc, fmt.Sprintf("×%d", g.Count), x+width-76, y+6, 54, 23, app.fonts.Small, muted)
+		if g.Count > 1 {
+			chevron := "+"
+			if app.expandedGroup == r.group {
+				chevron = "−"
+			}
+			textAt(hdc, chevron, x+26, y+5, 18, 22, app.fonts.Title, blue)
+			if !app.busy {
+				addHit(ir(x+18, y, 29, 34), "expand", r.group)
+			}
+		}
 		if !app.busy {
-			addHit(ir(x+18, y, width-36, 36), "group", idx)
+			addHit(ir(x+48, y, width-66, 34), "group", r.group)
 		}
 	}
 	foot := bottom - 72
@@ -358,50 +410,70 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	_ = version
 }
 func drawConvert(hdc uintptr, w, h int32) {
-	drawPageHeader(hdc, "Convert & create", "Turn a stock XBE and modified XBE (or selected patch) into JMP, IPS, Xdelta or encrypted IPS.", w)
+	drawPageHeader(hdc, "Convert & create", "Convert JMP, IPS, BPS, Xdelta and encrypted IPS using a stock XBE, or create a patch from two XBEs.", w)
 	x := int32(265)
 	width := w - 294
 	panel(hdc, ir(x, 125, width, 620), surface, 19)
-	textAt(hdc, "CREATE A PATCH", x+28, 147, width-40, 29, app.fonts.Title, white)
-	textAt(hdc, "01   Original / stock XBE", x+32, 205, width-65, 22, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 238, width-220, 56), surface2, 12)
-	label := "No original selected"
-	if app.aFile != "" {
-		label = filepath.Base(app.aFile)
+	textAt(hdc, "PATCH CONVERTER", x+28, 145, width-40, 29, app.fonts.Title, white)
+
+	textAt(hdc, "01   Stock / original XBE  ·  optional for direct offset patches", x+31, 181, width-55, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 208, width-226, 43), surface2, 12)
+	label := "Choose your original XBE"
+	if app.aFile != "" { label = filepath.Base(app.aFile) }
+	textAt(hdc, label, x+44, 214, width-253, 31, app.fonts.Medium, white)
+	button(hdc, "Choose stock XBE", ir(x+width-190, 209, 160, 40), "a", 0, false)
+
+	textAt(hdc, "02   Source patch  ·  JMP / IPS / BPS / Xdelta / encrypted IPS", x+31, 259, width-50, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 285, width-226, 43), surface2, 12)
+	label = "Choose an existing patch to convert"
+	if app.convertPatchFile != "" {
+		label = filepath.Base(app.convertPatchFile)
+	} else if app.bFile == "" && app.directFile != "" {
+		label = filepath.Base(app.directFile) + "  (library)"
+	} else if app.bFile == "" && app.parsed != nil {
+		label = app.parsed.Filename + "  (library)"
 	}
-	textAt(hdc, label, x+47, 252, width-259, 29, app.fonts.Medium, white)
-	button(hdc, "Choose original", ir(x+width-181, 243, 153, 46), "a", 0, false)
-	textAt(hdc, "02   Modified XBE  ·  optional when a patch is selected", x+32, 309, width-65, 22, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 341, width-220, 56), surface2, 12)
-	label = "Use selected library/custom patch"
-	if app.bFile != "" {
-		label = filepath.Base(app.bFile)
-	}
-	textAt(hdc, label, x+47, 354, width-259, 29, app.fonts.Medium, white)
-	button(hdc, "Choose modified", ir(x+width-181, 346, 153, 46), "b", 0, false)
-	textAt(hdc, "OUTPUT FORMAT", x+30, 414, width-40, 24, app.fonts.Micro, muted)
-	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted"}
+	textAt(hdc, label, x+44, 291, width-253, 31, app.fonts.Medium, white)
+	button(hdc, "Choose patch", ir(x+width-190, 286, 160, 40), "cpatch", 0, false)
+
+	textAt(hdc, "OR   Modified XBE  ·  alternative to a source patch", x+31, 336, width-60, 20, app.fonts.Medium, muted)
+	panel(hdc, ir(x+28, 362, width-226, 43), surface2, 12)
+	label = "Optional: choose a pre-patched XBE"
+	if app.bFile != "" { label = filepath.Base(app.bFile) }
+	textAt(hdc, label, x+44, 369, width-253, 29, app.fonts.Medium, white)
+	button(hdc, "Choose modified", ir(x+width-190, 363, 160, 40), "b", 0, false)
+
+	textAt(hdc, "OUTPUT PATCH FORMAT", x+30, 416, width-50, 20, app.fonts.Micro, muted)
+	labels := []string{"JMP  ·  editable", "IPS  ·  classic", "Xdelta  ·  VCDIFF", "EIPS  ·  encrypted", "BPS  ·  CRC32-verified"}
+	cell := (width-85)/2
 	for i, s := range labels {
-		bx := x + 31 + int32(i%2)*248
-		by := int32(444 + int32(i/2)*51)
-		panel(hdc, ir(bx, by, 230, 43), map[bool]uint32{true: 0x32517B, false: surface2}[app.format == i], 12)
-		mark(hdc, ir(bx+12, by+13, 17, 17), app.format == i)
-		textAt(hdc, s, bx+39, by+7, 187, 27, app.fonts.Small, white)
-		addHit(ir(bx, by, 230, 43), "format", i)
+		bx := x + 28 + int32(i%2)*(cell+13)
+		by := int32(439 + (i/2)*41)
+		panel(hdc, ir(bx, by, cell, 35), map[bool]uint32{true: 0x32517B, false: surface2}[app.format == i], 10)
+		mark(hdc, ir(bx+10, by+9, 16, 16), app.format == i)
+		textAt(hdc, s, bx+34, by+4, cell-40, 28, app.fonts.Small, white)
+		addHit(ir(bx, by, cell, 35), "format", i)
 	}
-	textAt(hdc, "Encrypted IPS password  ·  minimum 8 characters", x+32, 552, width-50, 22, app.fonts.Micro, muted)
-	panel(hdc, ir(x+29, 583, width-58, 43), surface2, 11)
-	placeholder := "Enter a password for EIPS creation / decryption"
-	if app.password != "" {
-		placeholder = strings.Repeat("•", len([]rune(app.password)))
-	}
-	textAt(hdc, placeholder, x+45, 590, width-90, 27, app.fonts.Regular, white)
-	if app.passFocus {
-		fill(hdc, ir(x+29, 625, width-58, 2), blue)
-	}
-	addHit(ir(x+29, 583, width-58, 43), "password", 0)
-	button(hdc, "CREATE PATCH FILE", ir(x+width-276, 650, 245, 52), "convert", 0, true)
-	textAt(hdc, "File conversion is local. We never send game files to GitHub.", x+30, 704, width-310, 22, app.fonts.Small, muted)
+	textAt(hdc, "Password (EIPS encryption / decryption; 8+ characters to create)", x+30, 562, width-55, 21, app.fonts.Micro, muted)
+	panel(hdc, ir(x+28, 584, width-56, 37), surface2, 10)
+	placeholder := "Password for encrypted IPS"
+	if app.password != "" { placeholder = strings.Repeat("•", len([]rune(app.password))) }
+	textAt(hdc, placeholder, x+44, 590, width-90, 25, app.fonts.Regular, white)
+	if app.passFocus { fill(hdc, ir(x+28, 620, width-56, 2), blue) }
+	addHit(ir(x+28, 584, width-56, 37), "password", 0)
+
+	mark(hdc, ir(x+32, 631, 18, 18), app.ipsRLE)
+	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
+	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
+    if app.conversionBlocked {
+        panel(hdc, ir(x+width-277, 658, 244, 44), 0x3A4150, 12)
+        textAt(hdc, "CONVERSION BLOCKED", x+width-259, 665, 230, 29, app.fonts.Medium, 0xABB3BF)
+    } else {
+        button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
+    }
+	hint := app.conversionHint
+	if hint == "" { hint = "Choose a source patch to determine whether the original XBE is required." }
+	textAt(hdc, hint, x+30, 707, width-53, 25, app.fonts.Small, muted)
 	_ = h
 }
 
@@ -411,13 +483,13 @@ func drawSettings(hdc uintptr, w, h int32) {
 	width := w - 298
 	panel(hdc, ir(x, 129, width, 154), surface, 17)
 	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 153, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Threads for copying large ISO images and indexing JMP files (1–8).", x+29, 194, width-60, 24, app.fonts.Regular, muted)
+	textAt(hdc, "Saved automatically · Parallel workers for ISO copying and patch indexing (1–8).", x+29, 194, width-60, 24, app.fonts.Regular, muted)
 	button(hdc, "−", ir(x+width-217, 208, 48, 48), "workers", -1, false)
 	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 210, 50, 45, app.fonts.Title, white)
 	button(hdc, "+", ir(x+width-95, 208, 48, 48), "workers", 1, false)
 	panel(hdc, ir(x, 302, width, 122), surface, 17)
 	textAt(hdc, "VERIFICATION SAFEGUARDS", x+28, 319, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Require a JMP's CRC32 to match the original XBE (recommended).", x+29, 357, width-185, 28, app.fonts.Regular, muted)
+	textAt(hdc, "CRC32 and Title ID protection. Override resets OFF each launch.", x+29, 357, width-185, 28, app.fonts.Regular, muted)
 	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 353, 152, 43), "override", 0, app.override)
 	panel(hdc, ir(x, 443, width, 169), surface, 17)
 	textAt(hdc, "OFFLINE PATCHES", x+28, 462, width-45, 29, app.fonts.Title, white)
@@ -434,7 +506,7 @@ func drawAbout(hdc uintptr, w, h int32) {
 	width := w - 299
 	panel(hdc, ir(x, 130, width, 408), surface, 20)
 	textAt(hdc, "NATIVE. PORTABLE. MADE FOR XBOX.", x+34, 155, width-65, 40, app.fonts.Title, white)
-	lines := []string{"• Native Win32 application compiled with Go — no browser window or runtime installer.", "• Live GitHub collection checking, fully cached offline; add JMPs manually.", "• Original XBE inspection, Title IDs, regions and CRC32 comparison.", "• Group identical JMP comment labels into one switch, including [-] defaults.", "• XISO and Xbox full-disc ISO reading, with safe output copy and sector relocation.", "• Parallel file copying with bounded worker counts.", "• No original files overwritten; failed patches never produce a completed output."}
+	lines := []string{"• Native Win32 application compiled with Go — no browser window or runtime installer.", "• Live GitHub collection checking, fully cached offline; add JMPs manually.", "• Original XBE inspection, Title IDs, regions and CRC32 comparison.", "• Group identical JMP comments, expand to toggle individual records or mixed groups.", "• XISO and Xbox full-disc ISO reading, with safe output copy and sector relocation.", "• Parallel file copying with bounded worker counts.", "• Dry-run patch preview, confirmation before writing; safe settings saved locally."}
 	for i, v := range lines {
 		textAt(hdc, v, x+35, 220+int32(i)*38, width-62, 33, app.fonts.Regular, muted)
 	}

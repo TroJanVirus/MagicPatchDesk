@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 const GithubRepo = "JayYardley/Xbox-Magic-Patches-by-Jay"
@@ -54,6 +55,19 @@ type Catalog struct {
 }
 
 var idPattern = regexp.MustCompile(`(?i)^\s*(?:0x)?([0-9A-F]{8})\b`)
+
+// CoverMatchKey tolerates punctuation, spaces and common separators that
+// differ between the GitHub JMP title and the PatchHub game directory.
+// Ambiguous normalized matches are *never* merged automatically.
+func CoverMatchKey(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(strings.TrimSpace(name)) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 
 func TitleIDFromVersion(v string) string {
 	a := idPattern.FindStringSubmatch(v)
@@ -250,12 +264,33 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 			}
 		}
 	}
+	// Unique normalized titles allow matching "Halo: Combat Evolved" against
+	// "Halo - Combat Evolved" without guessing between near-identical games.
+	byNormalizedName := make(map[string]*Game)
+	ambiguousNames := make(map[string]bool)
+	for _, existing := range games {
+		key := CoverMatchKey(existing.Title)
+		if key == "" {
+			continue
+		}
+		if prior, ok := byNormalizedName[key]; ok && prior != existing {
+			ambiguousNames[key] = true
+		} else {
+			byNormalizedName[key] = existing
+		}
+	}
 	for _, hg := range hub.Games {
 		key := strings.ToLower(strings.TrimSpace(hg.Title))
 		if key == "" {
 			continue
 		}
 		g := games[key]
+		if g == nil {
+			keyNormalized := CoverMatchKey(hg.Title)
+			if !ambiguousNames[keyNormalized] {
+				g = byNormalizedName[keyNormalized]
+			}
+		}
 		if g == nil {
 			for _, v := range hg.Versions {
 				if v.TitleID != "00000000" {

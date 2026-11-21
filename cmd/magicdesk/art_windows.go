@@ -51,8 +51,8 @@ func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 	art, ok := artCache[path]
 	if !ok {
 		var loaded uintptr
-		result, _, _ := gdiLoad.Call(uintptr(unsafe.Pointer(ptr(path))), uintptr(unsafe.Pointer(&loaded)))
-		if result != 0 {
+		status, _, _ := gdiLoad.Call(uintptr(unsafe.Pointer(ptr(path))), uintptr(unsafe.Pointer(&loaded)))
+		if status != 0 {
 			loaded = 0
 		}
 		if loaded == 0 {
@@ -74,26 +74,62 @@ func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 	return v == 0
 }
 
-var coverQueue sync.Map
 var coverSlots = make(chan struct{}, 3)
+var coverMu sync.Mutex
+var coverAttempts = map[string]coverAttempt{}
 
-// Only visible covers are retrieved, with a strict three-download concurrency
-// limit. All artwork is cached locally for subsequent fully offline starts.
+type coverAttempt struct {
+	InFlight bool
+	Next     time.Time
+}
+
+// Downloads are asynchronous and rate-limited. A failed request gets a retry
+// window rather than being marked "downloaded" for the entire app session.
 func scheduleCover(source string) string {
 	path := core.CoverCachePath(app.root, source)
-	if _, err := os.Stat(path); err == nil {
+	if core.ValidCoverFile(path) {
 		return path
 	}
-	if _, loaded := coverQueue.LoadOrStore(path, true); !loaded {
-		go func() {
-			coverSlots <- struct{}{}
-			defer func() { <-coverSlots }()
-			ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-			defer cancel()
-			if _, err := core.DownloadCover(ctx, app.root, source); err == nil {
-				sysCall(postMsg, app.hwnd, WM_APP+1, 0, 0)
-			}
-		}()
+	// Older releases cached with .img and did not validate the bytes. Reuse only
+	// known-good files, otherwise redownload to a .jpg path GDI+ understands.
+	oldPath := path[:len(path)-4] + ".img"
+	if core.ValidCoverFile(oldPath) {
+		// Carry forward good offline artwork from earlier .img caches, but
+		// give GDI+ a conventional .jpg filename for reliable loading.
+		if err := os.Rename(oldPath, path); err == nil {
+			return path
+		}
+		return oldPath
 	}
-	return path
+	coverMu.Lock()
+	item := coverAttempts[path]
+	if item.InFlight || time.Now().Before(item.Next) {
+		coverMu.Unlock()
+		return ""
+	}
+	item.InFlight = true
+	item.Next = time.Now().Add(2 * time.Minute)
+	coverAttempts[path] = item
+	coverMu.Unlock()
+	go func() {
+		coverSlots <- struct{}{}
+		defer func() { <-coverSlots }()
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		result, err := core.DownloadCover(ctx, app.root, source)
+		coverMu.Lock()
+		item := coverAttempts[path]
+		item.InFlight = false
+		if err != nil {
+			item.Next = time.Now().Add(2 * time.Minute)
+		} else {
+			item.Next = time.Time{}
+		}
+		coverAttempts[path] = item
+		coverMu.Unlock()
+		if err == nil && result != "" && core.ValidCoverFile(result) {
+			sysCall(postMsg, app.hwnd, WM_APP+1, 0, 0)
+		}
+	}()
+	return ""
 }

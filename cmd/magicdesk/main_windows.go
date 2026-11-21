@@ -183,6 +183,7 @@ type appState struct {
 	cat           core.Catalog
 	selectedGame  int
 	selectedPatch int
+	expandedGroup int
 	parsed        *core.Patch
 	input         string
 	inputInfo     core.XBEInfo
@@ -202,7 +203,11 @@ type appState struct {
 	busy          bool
 	progress      float64
 	aFile, bFile  string
-	directFile    string
+	convertPatchFile string
+	conversionHint string
+	conversionBlocked bool
+	ipsRLE bool
+	directFile string
 	format        int
 	password      string
 	passFocus     bool
@@ -292,9 +297,14 @@ func notify(s string) {
 func initApp() {
 	runtime.LockOSThread()
 	app.workers = 4
+	app.ipsRLE = true
+	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
 	app.root, _ = core.GetLibraryDir()
+	if prefs, err := core.LoadPreferences(app.root); err == nil {
+		app.workers, app.filter = prefs.Workers, prefs.Filter
+	}
 	app.status = "Loading local patch library…"
 	app.syncStatus = "Connecting to GitHub…"
 	initArtwork()
@@ -524,6 +534,7 @@ func selectPatch(idx int) {
 	path := app.cat.Games[app.selectedGame].Patches[idx].File
 	app.selectedPatch = idx
 	app.groupScroll = 0
+	app.expandedGroup = -1
 	app.mu.Unlock()
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -578,6 +589,154 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 	return os.Rename(intermediate, dest)
 }
 
+// Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
+func savePreferences() {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter}); err != nil {
+		notify("Could not save interface preferences: " + err.Error())
+	}
+}
+
+var messageBox = user32.NewProc("MessageBoxW")
+
+// The preview is a dry run on the embedded XBE only, never a disc-image copy.
+func previewTarget(source string, selected *core.Patch, direct, password string, override bool) (core.PatchPreview, string, error) {
+	var input []byte
+	var err error
+	xbeName := filepath.Base(source)
+	var im *core.Image
+	if strings.EqualFold(filepath.Ext(source), ".xbe") {
+		input, err = os.ReadFile(source)
+	} else {
+		im, err = core.OpenXISO(source)
+		if err == nil {
+			var entry core.ImageFile
+			entry, err = im.DefaultXBE()
+			if err == nil {
+				xbeName = entry.Path
+				input, err = im.ReadFile(entry)
+			}
+		}
+	}
+	if err != nil {
+		return core.PatchPreview{}, "", err
+	}
+	if len(input) > 512<<20 {
+		return core.PatchPreview{}, "", fmt.Errorf("XBE larger than 512 MiB")
+	}
+	if _, err = core.InspectXBE(input); err != nil {
+		return core.PatchPreview{}, "", err
+	}
+	var result core.PatchPreview
+	if direct == "" {
+		if selected == nil {
+			return core.PatchPreview{}, "", fmt.Errorf("no patch selected")
+		}
+		result, err = selected.Preview(input, override)
+	} else if strings.EqualFold(filepath.Ext(direct), ".jmp") {
+		var data []byte
+		data, err = os.ReadFile(direct)
+		if err == nil {
+			var patch *core.Patch
+			patch, err = core.ParseJMP(filepath.Base(direct), data)
+			if err == nil {
+				result, err = patch.Preview(input, override)
+			}
+		}
+	} else {
+		var out []byte
+		out, err = core.ApplyPatchFile(input, direct, password, override)
+		if err == nil {
+			result = core.PreviewDifference(input, out)
+		}
+	}
+	if err != nil {
+		return core.PatchPreview{}, "", err
+	}
+	if im != nil {
+		entry, e := im.DefaultXBE()
+		if e != nil {
+			return core.PatchPreview{}, "", e
+		}
+		oldSectors := (int64(entry.Size) + 2047) / 2048
+		newSectors := (result.PatchedSize + 2047) / 2048
+		if newSectors > oldSectors && im.Base != 0 {
+			return core.PatchPreview{}, "", fmt.Errorf("full-disc ISO has insufficient XBE sectors; repack to game-partition XISO before patching")
+		}
+	}
+	return result, xbeName, nil
+}
+
+func previewMessage(p core.PatchPreview, filename string) string {
+	summary := fmt.Sprintf("Target: %s\n\nOriginal XBE: %d bytes  (CRC32 %s)\nPatched XBE: %d bytes  (CRC32 %s)\nChanged existing bytes: %d\nAppended bytes: %d\nEnabled JMP records: %d", filename, p.OriginalSize, p.OriginalCRC32, p.PatchedSize, p.PatchedCRC32, p.ModifiedBytes, p.AppendedBytes, p.SelectedRecords)
+	if len(p.Records) > 0 {
+		summary += "\n\nFirst selected records:"
+		for i, r := range p.Records {
+			if i >= 8 {
+				summary += fmt.Sprintf("\n... and %d more", len(p.Records)-8)
+				break
+			}
+			summary += fmt.Sprintf("\n%d. %s (%s) at 0x%X · %d bytes", r.Number, strLimit(r.Group, 33), r.Kind, r.Offset, r.Size)
+		}
+	}
+	if p.PatchedSize == p.OriginalSize && p.ModifiedBytes == 0 {
+		summary += "\n\nWARNING: The selected patch makes no byte changes."
+	}
+	return summary
+}
+
+func showPreviewMessage(body string, confirmation bool) bool {
+	flags := uintptr(0x40) // MB_ICONINFORMATION
+	if confirmation {
+		body += "\n\nApply this patch and save the output copy?"
+		flags = 0x24 | 0x100 // MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2
+	}
+	title := "Patch preview · Magic Patch Desk"
+	if confirmation {
+		title = "Confirm patch · Magic Patch Desk"
+	}
+	result := sysCall(messageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(body))), uintptr(unsafe.Pointer(ptr(title))), flags)
+	return !confirmation || result == 6 // IDYES
+}
+
+func startPreview() {
+	app.mu.Lock()
+	if app.busy {
+		app.mu.Unlock()
+		return
+	}
+	selected, source, direct, password, override := app.parsed, app.input, app.directFile, app.password, app.override
+	if source == "" || (selected == nil && direct == "") {
+		app.mu.Unlock()
+		notify("Choose an XBE/ISO and a patch before previewing.")
+		return
+	}
+	app.mu.Unlock()
+    if handled, e := maybeStartTargeted(true, selected, direct, source, app.workers, override); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
+    app.mu.Lock()
+	app.busy = true
+	app.status = "Analysing patch without writing anything…"
+	app.mu.Unlock()
+	redraw()
+	go func() {
+		report, xbeName, err := previewTarget(source, selected, direct, password, override)
+		if err == nil {
+			showPreviewMessage(previewMessage(report, xbeName), false)
+		}
+		app.mu.Lock()
+		app.busy = false
+		if err != nil {
+			app.status = "Preview failed: " + err.Error()
+		} else {
+			app.status = "Dry-run preview complete. No files modified."
+		}
+		app.mu.Unlock()
+		redraw()
+	}()
+}
+
 func startPatch() {
 	app.mu.Lock()
 	if app.busy {
@@ -599,6 +758,10 @@ func startPatch() {
 		notify("Choose an original XBE or Xbox ISO first.")
 		return
 	}
+    if handled, e := maybeStartTargeted(false, selected, direct, source, workers, override); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
 	ext := strings.ToLower(filepath.Ext(source))
 	base := strings.TrimSuffix(filepath.Base(source), filepath.Ext(source))
 	dest := pickFile(true, "Xbox executable or disc image\x00*.xbe;*.iso\x00All files\x00*.*\x00", "Save patched copy", base+"_patched"+ext)
@@ -623,7 +786,18 @@ func startPatch() {
 	redraw()
 	go func() {
 		var err error
-		if ext == ".xbe" {
+		var report core.PatchPreview
+		var target string
+		report, target, err = previewTarget(source, selected, direct, password, override)
+		if err == nil && !showPreviewMessage(previewMessage(report, target), true) {
+			app.mu.Lock()
+			app.busy = false
+			app.status = "Patch cancelled after preview; no files modified."
+			app.mu.Unlock()
+			redraw()
+			return
+		}
+		if err == nil && ext == ".xbe" {
 			var b []byte
 			b, err = os.ReadFile(source)
 			if err == nil {
@@ -633,7 +807,7 @@ func startPatch() {
 					err = atomicWrite(dest, output)
 				}
 			}
-		} else {
+		} else if err == nil {
 			err = atomicPatchISO(source, dest, apply, workers, func(done, total int64) {
 				if total > 0 {
 					app.mu.Lock()
@@ -659,61 +833,13 @@ func startPatch() {
 	}()
 }
 
-func convertFiles() {
-	if app.aFile == "" {
-		notify("Choose the original XBE before converting.")
-		return
-	}
-	if app.bFile == "" && app.parsed == nil && app.directFile == "" {
-		notify("Choose a modified XBE, or select a patch from the library.")
-		return
-	}
-	format := app.format
-	ext := []string{".jmp", ".ips", ".xdelta", ".eips"}[format]
-	output := pickFile(true, "Patch file\x00*.jmp;*.ips;*.eips;*.xdelta\x00All files\x00*.*\x00", "Save converted patch", "ConvertedPatch"+ext)
-	if output == "" {
-		return
-	}
-	app.mu.Lock()
-	app.busy = true
-	app.mu.Unlock()
-	redraw()
-	aPath, bPath, pass, direct, selected := app.aFile, app.bFile, app.password, app.directFile, app.parsed
-	go func() {
-		a, err := os.ReadFile(aPath)
-		if err == nil {
-			var b []byte
-			if bPath != "" {
-				b, err = os.ReadFile(bPath)
-			} else if direct != "" {
-				b, err = core.ApplyPatchFile(a, direct, pass, false)
-			} else {
-				b, err = selected.Apply(a, false)
-			}
-			if err == nil {
-				var out []byte
-				out, err = core.BuildPatch(a, b, format, pass, strings.TrimSuffix(filepath.Base(aPath), filepath.Ext(aPath)))
-				if err == nil {
-					err = atomicWrite(output, out)
-				}
-			}
-		}
-		app.mu.Lock()
-		app.busy = false
-		if err != nil {
-			app.status = "Conversion failed: " + err.Error()
-		} else {
-			app.status = "Saved " + strings.ToUpper(ext) + " patch: " + output
-		}
-		app.mu.Unlock()
-		redraw()
-	}()
-}
+func convertFiles() { runConversion() }
 
 func handle(action string, index int) {
 	switch action {
 	case "tab":
 		app.tab = index
+		if index == 1 { refreshConversionHint() }
 		app.gameScroll = 0
 	case "game":
 		app.directFile = ""
@@ -722,17 +848,29 @@ func handle(action string, index int) {
 		app.parsed = nil
 		app.patchScroll = 0
 		app.groupScroll = 0
+		app.expandedGroup = -1
 	case "patch":
 		app.directFile = ""
 		selectPatch(index)
 	case "group":
-		if app.parsed != nil && index < len(app.parsed.Groups) {
+		if !app.busy && app.parsed != nil && index >= 0 && index < len(app.parsed.Groups) {
 			g := app.parsed.Groups[index]
 			app.parsed.EnableGroup(g.Name, !g.Enabled)
 		}
+	case "expand":
+		if index == app.expandedGroup {
+			app.expandedGroup = -1
+		} else {
+			app.expandedGroup = index
+		}
+	case "record":
+		if !app.busy && app.parsed != nil && index >= 0 && index < len(app.parsed.Records) {
+			app.parsed.SetRecordEnabled(index, !app.parsed.Records[index].Enabled)
+		}
 	case "direct":
-		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.jmp\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
+		if path := pickFile(false, "Patch files\x00*.ips;*.eips;*.xdelta;*.vcdiff;*.bps;*.jmp\x00All files\x00*.*\x00", "Choose patch file", ""); path != "" {
 			app.directFile = path
+			refreshConversionHint()
 			app.status = "Custom patch loaded: " + filepath.Base(path)
 			redraw()
 		}
@@ -744,9 +882,12 @@ func handle(action string, index int) {
 		go reloadAndSync()
 	case "apply":
 		startPatch()
+	case "preview":
+		startPreview()
 	case "filter":
 		app.filter = index
 		app.gameScroll = 0
+		savePreferences()
 	case "search":
 		app.searchFocus = true
 		app.passFocus = false
@@ -773,18 +914,31 @@ func handle(action string, index int) {
 		if app.workers > 8 {
 			app.workers = 8
 		}
+		savePreferences()
 	case "override":
 		app.override = !app.override
 	case "a":
-		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose original XBE", ""); p != "" {
+		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose stock/original XBE", ""); p != "" {
 			app.aFile = p
+			refreshConversionHint()
+		}
+	case "cpatch":
+		if p := pickFile(false, "Patch files\x00*.jmp;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
+			app.convertPatchFile = p
+			app.bFile = "" // A source patch and a modified XBE are alternative inputs.
+			refreshConversionHint()
 		}
 	case "b":
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose modified XBE", ""); p != "" {
 			app.bFile = p
+			app.convertPatchFile = ""
+			refreshConversionHint()
 		}
+	case "ipsrle":
+		app.ipsRLE = !app.ipsRLE
 	case "format":
 		app.format = index
+		refreshConversionHint()
 	case "password":
 		app.passFocus = true
 		app.searchFocus = false
@@ -881,6 +1035,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 			} else if wp >= 32 && wp < 0x10000 && len([]rune(app.password)) < 100 {
 				app.password += string(rune(wp))
 			}
+			refreshConversionHint()
 			redraw()
 			return 0
 		}
@@ -922,6 +1077,11 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 						notify(fmt.Sprintf("Imported %d JMP files from %s", n, filepath.Base(path)))
 					}
 				}()
+			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps") {
+				app.convertPatchFile = path
+				app.bFile = ""
+				refreshConversionHint()
+			app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" {
 				if _, err := core.ImportJMP(app.root, path); err != nil {
 					notify(err.Error())

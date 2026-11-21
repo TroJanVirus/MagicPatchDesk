@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -8,6 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -36,7 +41,7 @@ type HubIndex struct {
 }
 
 var hubCard = regexp.MustCompile(`(?is)<div\s+class="game-card"[^>]*>`)
-var hubImage = regexp.MustCompile(`(?is)<img[^>]*\bdata-src="([^"]+)"`)
+var hubImage = regexp.MustCompile(`(?is)<img[^>]*\bdata-src\s*=\s*["']([^"']+)["']`)
 var hubTitle = regexp.MustCompile(`(?is)<div\s+class="game-title">([^<]+)</div>`)
 var hubVersion = regexp.MustCompile(`(?is)Title ID:\s*([A-Fa-f0-9]{8})\s*\|\s*Region:\s*([^|<]+)\|\s*Version:\s*([^<]+)`)
 
@@ -69,7 +74,7 @@ func ParsePatchHubHTML(doc []byte) (HubIndex, error) {
 			base, _ := url.Parse("https://www.jayxbox.com")
 			if e == nil {
 				abs := base.ResolveReference(ref)
-				if strings.EqualFold(abs.Hostname(), "www.jayxbox.com") && abs.Scheme == "https" {
+				if trustedPatchHubURL(abs) && !strings.HasSuffix(strings.ToLower(abs.Path), "/noart.jpg") {
 					g.Image = abs.String()
 				}
 			}
@@ -142,15 +147,45 @@ func SyncPatchHub(ctx context.Context, root string) (int, error) {
 }
 func CoverCachePath(root, urlString string) string {
 	digest := sha256.Sum256([]byte(urlString))
-	return filepath.Join(root, "Covers", hex.EncodeToString(digest[:])[:24]+".img")
+	return filepath.Join(root, "Covers", hex.EncodeToString(digest[:])[:24]+".jpg")
 }
+
+// A PatchHub URL can redirect between the apex domain and its www alias.
+// Never follow arbitrary redirects: remote URLs come from a parsed public page.
+func trustedPatchHubURL(u *url.URL) bool {
+	return u != nil && u.Scheme == "https" && u.User == nil && (strings.EqualFold(u.Hostname(), "www.jayxbox.com") || strings.EqualFold(u.Hostname(), "jayxbox.com"))
+}
+
+// Validate the actual downloaded image, not just HTTP status and byte count.
+// Otherwise an HTML error response can be cached forever and GDI+ cannot load it.
+func validateCoverBytes(data []byte) error {
+	if len(data) < 32 {
+		return errors.New("cover is empty or too small")
+	}
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || (format != "jpeg" && format != "png" && format != "gif") {
+		return errors.New("download was not a supported JPEG, PNG or GIF image")
+	}
+	if cfg.Width < 2 || cfg.Height < 2 || cfg.Width > 8192 || cfg.Height > 8192 {
+		return errors.New("invalid cover dimensions")
+	}
+	return nil
+}
+
+// ValidCoverFile also detects corrupt pre-existing cache entries created by older
+// builds (which did not verify the payload before writing).
+func ValidCoverFile(path string) bool {
+	data, err := os.ReadFile(path)
+	return err == nil && validateCoverBytes(data) == nil
+}
+
 func DownloadCover(ctx context.Context, root, source string) (string, error) {
-	u, e := url.Parse(source)
-	if e != nil || u.Scheme != "https" || !strings.EqualFold(u.Hostname(), "www.jayxbox.com") {
+	u, err := url.Parse(source)
+	if err != nil || !trustedPatchHubURL(u) {
 		return "", errors.New("untrusted cover URL")
 	}
 	path := CoverCachePath(root, source)
-	if st, err := os.Stat(path); err == nil && st.Size() > 0 {
+	if ValidCoverFile(path) {
 		return path, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -160,9 +195,11 @@ func DownloadCover(ctx context.Context, root, source string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Accept", "image/jpeg,image/png,image/gif;q=0.9")
+	req.Header.Set("User-Agent", "MagicPatchDesk/1.0 (PatchHub artwork cache)")
 	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if !strings.EqualFold(req.URL.Hostname(), "www.jayxbox.com") {
-			return errors.New("redirect to another host")
+		if len(via) > 5 || !trustedPatchHubURL(req.URL) {
+			return errors.New("untrusted cover redirect")
 		}
 		return nil
 	}}
@@ -171,27 +208,33 @@ func DownloadCover(ctx context.Context, root, source string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("cover download: %s", resp.Status)
 	}
 	if resp.ContentLength > 5<<20 {
 		return "", errors.New("cover too large")
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, (5<<20)+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) > 5<<20 {
+		return "", errors.New("cover exceeds 5 MiB")
+	}
+	if err = validateCoverBytes(data); err != nil {
+		return "", err
 	}
 	f, err := os.CreateTemp(filepath.Dir(path), "cover-*.tmp")
 	if err != nil {
 		return "", err
 	}
 	defer os.Remove(f.Name())
-	n, err := io.Copy(f, io.LimitReader(resp.Body, (5<<20)+1))
-	if err != nil {
+	if _, err = f.Write(data); err != nil {
 		f.Close()
 		return "", err
 	}
 	if err = f.Close(); err != nil {
 		return "", err
-	}
-	if n > (5<<20) || n < 16 {
-		return "", errors.New("invalid cover size")
 	}
 	return path, os.Rename(f.Name(), path)
 }
