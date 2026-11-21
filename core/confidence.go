@@ -199,9 +199,9 @@ func ConfidenceIssueBody(r ConfidenceReport)(string,error){
     if r.Environment=="hardware" {
         // Distinguish "not collected by older software" from an explicit
         // "I don't know" supplied by a tester today.
-        body+="Xbox revision: "+ConfidenceRevisionLabel(r.XboxRevision)+"\\n"+
-            "RAM modification: "+ConfidenceUpgradeLabel(r.RAMUpgrade)+"\\n"+
-            "CPU modification: "+ConfidenceUpgradeLabel(r.CPUUpgrade)+"\\n"
+        body+="Xbox revision: "+ConfidenceRevisionLabel(r.XboxRevision)+"\n"+
+            "RAM modification: "+ConfidenceUpgradeLabel(r.RAMUpgrade)+"\n"+
+            "CPU modification: "+ConfidenceUpgradeLabel(r.CPUUpgrade)+"\n"
     }
     if r.Note!=""{body+="Notes: "+r.Note+"\n"}
     return body+"\nOnly reviewed reports are imported into confidence/reports.v1.json. No game bytes, local paths or patch payloads are included.\n",nil
