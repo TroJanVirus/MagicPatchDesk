@@ -95,3 +95,43 @@ func TestGameXISORejectSymlinks(t *testing.T) {
         t.Fatal("unsafe symlink packed")
     }
 }
+
+
+func TestGameImageNamedFileOutput(t *testing.T) {
+    original:=gameFixture(t)
+    destination:=filepath.Join(t.TempDir(),"named")
+    changed:=[]byte("named asset was patched")
+    mask:=GameOutputFolder|GameOutputXISO|GameOutputCCI
+    if err:=ExportGameOutputs(original,destination,mask,map[string][]byte{"audio/music.bin":changed});err!=nil{
+        t.Fatal(err)
+    }
+    b,err:=os.ReadFile(filepath.Join(destination,"Extracted","audio","music.bin"))
+    if err!=nil{t.Fatal(err)}
+    if !bytes.Equal(b,changed){t.Fatal("named target missing in extracted result")}
+    if err:=VerifyGameXISO(filepath.Join(destination,"named.xiso.iso"),filepath.Join(destination,"Extracted"));err!=nil{t.Fatal(err)}
+}
+
+func TestGameImageLooseXBEOnly(t *testing.T) {
+    game:=filepath.Join(t.TempDir(),"original.xbe")
+    original:=[]byte("XBEH standalone file")
+    if err:=os.WriteFile(game,original,0644);err!=nil{t.Fatal(err)}
+    output:=filepath.Join(t.TempDir(),"single")
+    if err:=ExportGameOutputs(game,output,GameOutputXBE,nil);err!=nil{t.Fatal(err)}
+    content,err:=os.ReadFile(filepath.Join(output,"single.xbe"))
+    if err!=nil{t.Fatal(err)}
+    if !bytes.Equal(content,original){t.Fatal("XBE only changed executable")}
+    if err:=ExportGameOutputs(game,filepath.Join(t.TempDir(),"not-possible"),GameOutputCCI,nil);err==nil{
+        t.Fatal("standalone XBE should not become fake CCI game image")
+    }
+}
+
+func TestGameMemberCaseInsensitiveResolution(t *testing.T) {
+    root:=gameFixture(t)
+    if err:=os.Rename(filepath.Join(root,"default.xbe"),filepath.Join(root,"DEFAULT.XBE"));err!=nil{t.Fatal(err)}
+    if err:=os.Rename(filepath.Join(root,"audio","music.bin"),filepath.Join(root,"audio","MUSIC.BIN"));err!=nil{t.Fatal(err)}
+    output:=filepath.Join(t.TempDir(),"case-output")
+    if err:=ExportGameOutputs(root,output,GameOutputXBE|GameOutputFolder,map[string][]byte{"default.xbe":[]byte("XBEH patched")});err!=nil{t.Fatal(err)}
+    b,err:=os.ReadFile(filepath.Join(output,"case-output.xbe"))
+    if err!=nil{t.Fatal(err)}
+    if string(b)!="XBEH patched"{t.Fatalf("case-insensitive XBE replacement failed: %q",b)}
+}
