@@ -1,0 +1,38 @@
+name: One-shot headless build verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-verify.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: magicpatchdesk-one-shot-headless
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: github.event.head_commit.message == 'ci: one-time headless verification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Core and integration tests
+        run: go test ./...
+      - name: Race detector
+        run: go test -race ./core
+      - name: Go vet
+        run: go vet ./...
+      - name: Windows x64 cross-build
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-H windowsgui -s -w" -o /tmp/MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
