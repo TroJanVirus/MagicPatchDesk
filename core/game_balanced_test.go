@@ -62,3 +62,47 @@ func TestGameXISOUsesBalancedDirectoryTrees(t *testing.T) {
     }
     t.Fatal("missing files directory")
 }
+
+func TestGameXISOSectorAndEntryPadding(t *testing.T){
+    folder:=gameFixture(t)
+    image:=filepath.Join(t.TempDir(),"padding.iso")
+    if err:=BuildGameXISO(folder,image);err!=nil{t.Fatal(err)}
+    stat,err:=os.Stat(image)
+    if err!=nil{t.Fatal(err)}
+    if stat.Size()%0x10000!=0{
+        t.Fatalf("XDVDFS image size %d not 64KiB-aligned",stat.Size())
+    }
+    im,err:=OpenXISO(image)
+    if err!=nil{t.Fatal(err)}
+    f,err:=os.Open(image)
+    if err!=nil{t.Fatal(err)}
+    defer f.Close()
+    table:=make([]byte,im.RootSize)
+    if _,err:=f.ReadAt(table,im.Base+int64(im.RootSector)*sectorSize);err!=nil{t.Fatal(err)}
+    checked:=0
+    visited:=map[int]bool{}
+    var check func(int)
+    check=func(offset int){
+        if visited[offset]{
+            t.Fatalf("duplicate XDVDFS directory pointer %d",offset)
+        }
+        visited[offset]=true
+        if offset+14>len(table){t.Fatalf("entry outside table at %d",offset)}
+        b:=table[offset:]
+        n:=14+int(b[13])
+        aligned:=(n+3)&^3
+        if offset+aligned>len(table){t.Fatalf("invalid entry length at %d",offset)}
+        for i:=n;i<aligned;i++{
+            if b[i]!=0xFF{
+                t.Fatalf("entry padding at offset %d byte %d is %02X, expected FF",offset,i,b[i])
+            }
+            checked++
+        }
+        left:=int(binary.LittleEndian.Uint16(b[:2]))*4
+        right:=int(binary.LittleEndian.Uint16(b[2:4]))*4
+        if left!=0{check(left)}
+        if right!=0{check(right)}
+    }
+    check(0)
+    if checked==0{t.Fatal("fixture did not check any directory padding bytes")}
+}
