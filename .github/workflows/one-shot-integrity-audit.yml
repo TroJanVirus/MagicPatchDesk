@@ -51,3 +51,4 @@ jobs:
           $exe = Join-Path (Get-Location) 'MagicPatchDesk-Windows-x64.exe'
           $p = Start-Process -FilePath $exe -ArgumentList '--mpd-healthcheck-v1' -PassThru -Wait -ErrorAction Stop
           if ($p.ExitCode -ne 0) { throw "Healthcheck failed: $($p.ExitCode)" }
+# Rerun after fixing the split CCI scanner panic and clean-export toggle.
