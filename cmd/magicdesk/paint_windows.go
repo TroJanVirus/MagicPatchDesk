@@ -584,8 +584,12 @@ func drawGameOutputs(hdc uintptr, w, h int32) {
     if app.directFile!="" {patch=filepath.Base(app.directFile)
     }else if app.parsed!=nil {patch=app.parsed.Filename}
     panel(hdc,ir(x+28,545,width-56,44),surface2,11)
-    textAt(hdc,strLimit(patch,90),x+43,552,width-83,28,app.fonts.Regular,white)
-    textAt(hdc,"Choose patches and record groups in Patch Library. All named targets must be resolved.",x+32,604,width-60,25,app.fonts.Small,muted)
+    if gameOutputIgnorePatch {patch="Conversion only — selected patch will NOT be applied"}
+    textAt(hdc,strLimit(patch,90),x+43,552,width-230,28,app.fonts.Regular,white)
+    patchAction:="Skip patch"
+    if gameOutputIgnorePatch {patchAction="Include patch"}
+    button(hdc,patchAction,ir(x+width-181,549,142,35),"game-patch-toggle",0,false)
+    textAt(hdc,"Patch Library selects records; use Skip patch for clean image conversions.",x+32,604,width-60,25,app.fonts.Small,muted)
     textAt(hdc,"XISO uses .iso extension, but is NOT a full-disc ISO. Every output is verified.",x+32,630,width-60,25,app.fonts.Small,muted)
     button(hdc,"CREATE SELECTED OUTPUTS",ir(x+width-304,674,270,47),"game-export",0,true)
     textAt(hdc,outputNames(gameOutputMask),x+31,685,width-345,26,app.fonts.Small,mint)
