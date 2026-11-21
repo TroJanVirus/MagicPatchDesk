@@ -1000,8 +1000,13 @@ func startPatch() {
 			app.progress = 1
 		}
 		app.mu.Unlock()
-		if err == nil {rememberRecent("output",dest)}
-		if err != nil {recordFailure("patch.apply",err,source,direct,ext)}
+        if err==nil {
+            manager.log.Add("pass","Patch","Patched copy saved; original input preserved")
+            rememberRecent("output",dest)
+        }else{
+            manager.log.Add("error","Patch","Patch preview or write failed: "+err.Error())
+            recordFailure("patch.apply",err,source,direct,ext)
+        }
 		redraw()
 	}()
 }
@@ -1012,8 +1017,10 @@ func handle(action string, index int) {
 	switch action {
 	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
 		maintenanceAction(action)
-	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-export", "game-credits":
+	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
+	case "manager-scan", "manager-mode", "manager-select", "manager-patch-prev", "manager-patch-next", "manager-auto", "manager-review", "manager-skip", "manager-all-safe", "manager-run", "manager-format", "manager-open", "manager-image-choose", "manager-image-current", "manager-image-select", "manager-image-extract", "manager-log-clear", "manager-log-prev", "manager-log-next", "manager-confidence-refresh", "manager-confidence-result", "manager-confidence-xemu", "manager-confidence-hardware", "manager-merge":
+        managerAction(action,index)
 	case "tab":
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
@@ -1248,6 +1255,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		return 0
 	case WM_MOUSEWHEEL:
 		delta := hi(wp)
+        if app.tab==8 {managerWheel(int(delta));redraw();return 0}
 		if app.tab == 3 {
 			app.mu.Lock()
 			app.dashboardSelected -= int(delta / 120) * 2

@@ -1,6 +1,6 @@
 # Magic Patch Desk — Native Windows edition
 
-A portable, self-contained Windows x64 application for patching **Original Xbox `.xbe` executables and uncompressed XDVDFS `.iso`/XISO game images**. This is an actual native Win32 GUI — **not HTML, Electron, WebView, .NET, or an installer**. End users only need `MagicPatchDesk-Windows-x64.exe` on Windows 10/11 (64-bit).
+A portable, self-contained Windows x64 application for patching **Original Xbox `.xbe` executables, XDVDFS ISO/XISO game images and Cerbios CCI images**. This is an actual native Win32 GUI — **not HTML, Electron, WebView, .NET, or an installer**. End users only need `MagicPatchDesk-Windows-x64.exe` on Windows 10/11 (64-bit).
 
 ## Get started
 
@@ -29,7 +29,7 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 - Handles original Xbox XDVDFS filesystems in common **game-partition XISO** and **full-disc ISO** layouts. Finds `default.xbe` in the image, applies the patch to that XBE in memory, and writes an independent ISO image with the updated XDVDFS directory entry.
 - For an XBE that grows due to an `APPEND:` record, relocates it to the end of a game-partition-only XISO and updates the directory pointer. For a full-disc/redump style image, refuses growth past allocated sectors rather than writing an unsafe image. Extract/repack the game partition as XISO first in that case.
 - Copies large disc images using 1–8 independent I/O workers; also uses workers to index local JMPs. The copy is bounded-memory and gives progress updates. Actual performance varies by disk and controller; multi-worker I/O is not guaranteed to be faster on every drive.
-- **Unsupported:** compressed `.cci`/`.chd` or archive formats; Xbox 360 executable patching; arbitrary non-XDVDFS/ISO9660 images; rebuilding the disc layout after arbitrary file growth. Disc images are not re-signed, and modified full-disc images should not be treated as pristine verified disc dumps.
+- **CCI is supported:** Cerbios compressed `.cci` images, including split sets, can be decoded, patched and generated through the Game Outputs workflow. **Not supported:** `.chd` or arbitrary archives, Xbox 360 executables, non-XDVDFS filesystems, and unrestricted full-disc rebuilding after file growth. Disc images are not re-signed; modified full-disc images are not pristine verified dumps.
 
 ## Patch conversion
 
@@ -151,3 +151,13 @@ The [v0.13.0-test.1 preview](https://github.com/TroJanVirus/MagicPatchDesk/relea
 The follow-up preview fixes a reproducible CCI split-name crash; detects missing intermediate CCI parts; verifies all extracted XDVDFS directories, member SHA-256 and exact sizes; emits balanced XDVDFS directory trees with 0xFF entry alignment and 64KiB image padding; rejects Windows-reserved filename aliases; and prevents incomplete case-sensitive folder patch routing. The Game Outputs interface can now **Skip patch** when converting an original image without modifying it, supports `.xiso` in the picker, and adapts to typical 720p Windows desktop height so its export button is usable. Credits were expanded to include Andrew de Quincey and purelogiccode's technical XDVDFS documentation.
 
 A private `--mpd-ui-smoke-v1` CLI paints all Win32 workspaces without network access or writing user files, checks the Game Outputs button visibility in a 1024×720 window and exits. It is **not** an alternative updater protocol. Headless tests are not a substitute for manual Win10/11 or original Xbox/Cerbios boot testing; do not mark the release stable based on those checks alone.
+
+## v0.14 preview — Game Manager, compatibility logs and batch review
+
+**Game Manager** scans an extracted-game/XISO/CCI library without touching the originals, finds exact Title ID/CRC verified JMP matches, and sorts uncertain games for manual review. Select **Auto**, **Review** or **Skip** per game, pick its independent output format and run only the explicitly approved batch. Exact candidates are rehashed before use, and any existing output package is preserved.
+
+The same workspace adds a scrollable **verification log**, read-only **XISO image file browser** with verified single-file extraction, and **hexadecimal byte-overlap inspection** for JMPs. A new, attribution-preserving combined JMP can be exported only with explicit conflict approval and independent source/result verification.
+
+**Field Reports** show individual reviewed **xemu** versus **original Xbox hardware** results with a matching patch SHA256 + game Title ID/CRC32, not percentages. Users may explicitly report working, partial or failed results via GitHub Issues after a consent dialogue; maintainers curate `confidence/reports.v1.json` into the publicly downloadable log. The normal app-update check also checks this public confidence index, preserving the local cache on errors. See [Library Manager and Confidence](docs/LIBRARY_MANAGER_AND_CONFIDENCE.md).
+
+**Remaining testing:** native Windows GUI interaction, real console/game boots, and large retail images. New features are developer preview until verified against representative games.

@@ -156,6 +156,9 @@ func checkForNewRelease(silent bool) {
 		}
 		app.mu.Unlock()
 		redraw()
+        // Confidence metadata updates are independent of EXE updates. Never
+        // silently upload a user report while checking the public index.
+        refreshConfidenceOnUpdate()
 	}()
 }
 func updateNow() {

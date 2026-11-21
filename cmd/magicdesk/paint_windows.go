@@ -78,6 +78,8 @@ func paint(hdc uintptr) {
 		drawMaintenance(hdc,w,h)
 	case 7:
 		drawGameOutputs(hdc,w,h)
+    case 8:
+        drawManager(hdc,w,h)
 	}
 	app.mu.Lock()
 	status := app.status
@@ -90,7 +92,7 @@ func paint(hdc uintptr) {
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
 	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
-	textAt(hdc, "v0.13", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
+	textAt(hdc, "v0.14", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
 	fill(hdc, ir(0, 0, 232, h), sidebar)
@@ -102,9 +104,9 @@ func drawSidebar(hdc uintptr, w, h int32) {
 	nav := []struct {
 		label  string
 		symbol string
-	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}, {"Maintenance", "⚒"}, {"Game Outputs", "◫"}}
+	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}, {"Maintenance", "⚒"}, {"Game Outputs", "◫"}, {"Game Manager", "▤"}}
 	for i, item := range nav {
-		y := int32(145 + i*57)
+		y := int32(145 + i*49)
 		if app.tab == i {
 			panel(hdc, ir(13, y, 206, 47), 0x283F65, 12)
 			fill(hdc, ir(13, y+8, 4, 31), blue)

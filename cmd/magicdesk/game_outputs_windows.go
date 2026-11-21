@@ -271,6 +271,7 @@ func startGameOutput(){
     app.progress=0
     app.status="Verifying original game and preparing requested output formats..."
     app.mu.Unlock()
+    manager.log.Add("info","Game Outputs","Preflight: verifying source and preserving the original")
     redraw()
     go func(){
         var err error
@@ -301,8 +302,13 @@ func startGameOutput(){
             app.progress=1
         }
         app.mu.Unlock()
-        if err!=nil{recordFailure("game.export",err,source,direct,dest)
-        } else {rememberRecent("output",dest)}
+        if err!=nil{
+            manager.log.Add("error","Game Outputs","Image conversion or verification failed: "+err.Error())
+            recordFailure("game.export",err,source,direct,dest)
+        }else{
+            manager.log.Add("pass","Game Outputs","All requested outputs verified; original game preserved")
+            rememberRecent("output",dest)
+        }
         redraw()
     }()
 }
