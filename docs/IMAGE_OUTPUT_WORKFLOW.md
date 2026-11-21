@@ -1,7 +1,7 @@
-# Unified game-image outputs (source implemented; QA pending)
+# Unified game-image outputs (headless build/tests passed; Windows/console QA pending)
 
 
-> **Development status — 2026-11-22:** Native source for extraction, XISO writing, CCI export, source-aware multi-output staging, and patch-aware Windows controls has been committed. Synthetic tests have been authored but not executed; no cross-build, native Windows 10/11 GUI smoke test, xemu test, or physical Xbox/Cerbios boot has been performed. This is not a verified release. Full credits and licences: [CREDITS.md](../CREDITS.md).
+> **Development status — 2026-11-22:** Native source for extraction, XISO writing, CCI export, source-aware multi-output staging, and patch-aware Windows controls has been committed. Synthetic tests, race detector, vet and Windows x64 cross-build have passed in [headless verification run #44913720896](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44913720896). Native Windows 10/11 GUI smoke tests, xemu testing and physical Xbox/Cerbios boot testing have not been performed. This is not a verified release. Full credits and licences: [CREDITS.md](../CREDITS.md).
 
 ## User requirement
 
@@ -33,7 +33,7 @@ Reference implementation for supported operations, CLI surface, safety considera
 
 `Source reader (XBE / XDVDFS / CCI / directory)` -> `verified virtual member tree` -> `patch plan` -> `staged patched member tree` -> independent `Folder / XISO writer / CCI writer / single XBE / safe full-disc ISO preservation`.
 
-Current building blocks: `core/xiso.go` (XDVDFS index and file access), `core/xiso_multi.go` (named file patches), `core/cci.go` (native CCIM/LZ4), `cmd/magicdesk/cci_patch_windows.go`, and `cmd/magicdesk/{targeted,pack_apply,pf}_windows.go`. Current development changes: extraction and game-partition XISO construction now exist in `core/game_outputs.go`, and a multi-select output workspace exists in the native Windows UI. They remain **unverified** until Go tests and console/Windows validation run. The earlier CCI direct-patch workflow remains intact; the new Game Outputs workspace uses extraction for complete multi-target outputs.
+Current building blocks: `core/xiso.go` (XDVDFS index and file access), `core/xiso_multi.go` (named file patches), `core/cci.go` (native CCIM/LZ4), `cmd/magicdesk/cci_patch_windows.go`, and `cmd/magicdesk/{targeted,pack_apply,pf}_windows.go`. Current development changes: extraction and game-partition XISO construction now exist in `core/game_outputs.go`, and a multi-select output workspace exists in the native Windows UI. The automated Go tests and Windows cross-build pass, but real Windows GUI and console compatibility remain **unverified**. The earlier CCI direct-patch workflow remains intact; the new Game Outputs workspace uses extraction for complete multi-target outputs.
 
 The XISO extraction/writer layer must reject traversal and symlinks/reparse-point escapes; enforce XDVDFS names, relative paths, sector alignment, size limits, ambiguous default-XBE selection and duplicate/case-insensitive names; use streaming I/O for large assets. Preserve nonpatched assets byte-for-byte. The writer must correctly construct XDVDFS directory trees, volume descriptors and offsets, including nested directories; validate the result using an independent reopened reader. Never fake full-disc sector structures; do not call a generated game XISO a pristine Redump ISO.
 
