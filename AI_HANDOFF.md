@@ -78,3 +78,16 @@ See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is di
 ## v0.9: local diagnostic grouping / GitHub duplicate discovery
 
 `core/diagnostic_groups.go` makes stable `MPD-...` group IDs from class+operation+Title ID and groups up to 1000 recent local event reports without rewriting older v0.8 records. `core/diagnostics.go` still stores one privacy-redacted JSON per event. `cmd/magicdesk/diagnostics_windows.go` and Settings expose group navigation, count, safe summaries, and opt-in GitHub issue search / new issue. The issue title contains the stable ID so later reports are searchable together. No issue/Actions automation or telemetry is introduced. Do not describe the grouping ID as anonymized; anyone who knows a Title ID and classification can reproduce it. Windows smoke tests remain outstanding.
+
+
+## v0.10 — developer dashboard
+
+`core/developer_dashboard.go` parses *public* diagnostic GitHub issues as a
+read-only, explicitly refreshed snapshot, combines local grouped reports,
+links related groups through `Root cause: #N` / `Related groups:` issue-body
+markers, tracks a referenced `Fix PR: #N`, and sorts cases without mixing local
+occurrences with public issue counts. The UI `cmd/magicdesk/developer_dashboard_windows.go`
+adds the fifth workspace tab (**Diagnostics**) and prepares manual browser
+workflows rather than making privileged changes. No cached auth or automatic
+issue posting. Run Go tests, race/vet and Windows build; Windows GUI smoke test
+is outstanding. Full user workflow: docs/DEVELOPER_DASHBOARD.md.

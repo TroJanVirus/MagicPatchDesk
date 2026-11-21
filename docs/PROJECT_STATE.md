@@ -52,3 +52,13 @@ Implemented local classified error and PF warning reports (no raw private paths,
 ## 2026-11-21 — v0.9 local diagnostic groups
 
 Added deterministic group IDs by error type + operation + Title ID, backward-compatible aggregation of old reports, grouped Settings navigation, and user-initiated GitHub issue matching/search before issue creation. Local Go tests, race checks, vet and Windows cross-build pass; real Windows and GitHub UI verification still pending. No recurring or issue-triggered CI.
+
+
+## 2026-11-21: v0.10 developer diagnostic triage
+
+Native Diagnostics workspace indexes local failure groups and an opt-in
+read-only GitHub issue snapshot; prioritizes public report frequency, recency
+or open status; links a root issue and a fix PR by explicit body markers;
+flags contradictory root-cause references instead of silently merging cases.
+Local issue data is never automatically transmitted. Tests and Win32
+cross-build passed locally; actual desktop/network testing remains pending.

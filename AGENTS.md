@@ -50,3 +50,13 @@ When modifying patch/conversion code, wire failures through `recordFailure` or `
 ## v0.9 group IDs
 
 `core/diagnostic_groups.go` computes deterministic IDs from allowlisted error code + operation + validated Title ID. Never include raw error messages, local file paths or game bytes in the group-key inputs or in GitHub issue URLs. Preserve prior JSON reports; recompute missing IDs when grouping. `cmd/magicdesk/diagnostics_windows.go` supplies opt-in GitHub issue search and drafting from the native Settings screen; no background API calls or issue-triggered Actions. Cross-build and run tests after changes.
+
+
+## v0.10 developer triage dashboard
+
+See `docs/DEVELOPER_DASHBOARD.md`. Keep GitHub API access opt-in and strictly
+read-only in `core/developer_dashboard.go`. Avoid telemetry, automatic reporting,
+privileged tokens and recurring GitHub Actions. Do not merge groups with
+contradictory root-cause references or count issue comments as distinct people.
+Maintain safe issue-body marker parsing, bounded pagination, and Windows UI
+state locking. Tests are in `core/developer_dashboard_test.go`.
