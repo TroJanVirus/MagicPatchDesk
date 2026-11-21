@@ -119,4 +119,4 @@ jobs:
           verified="$(gh release view v0.14.0-test.2 --repo "${GITHUB_REPOSITORY}" --json tagName,isPrerelease,assets \
             --jq '(.tagName=="v0.14.0-test.2") and .isPrerelease and (any(.assets[]; .name=="MagicPatchDesk-Windows-x64.exe")) and (any(.assets[]; .name=="SHA256SUMS.txt"))')"
           test "$verified" = true
-# Publish only the exact native-Windows-tested EXE; remove this workflow after release.
+# Retry only after adjusting GUI smoke row bounds for confirmation vs selectors; remove after verified release.
