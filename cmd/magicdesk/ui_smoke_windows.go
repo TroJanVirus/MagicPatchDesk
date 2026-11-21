@@ -50,6 +50,41 @@ func smokePaintAndExit() {
         if !scanAvailable||!modeAvailable{
             panic(fmt.Sprintf("Game manager mode %d missing native controls (scan=%t tabs=%t)",mode,scanAvailable,modeAvailable))
         }
+        if mode==4 {
+            controls:=map[string]bool{
+                "manager-confidence-revision":false,
+                "manager-confidence-ram":false,
+                "manager-confidence-cpu":false,
+                "manager-confidence-hardware":false,
+                "manager-confidence-xemu":false,
+            }
+            for _,hit:=range app.hits{
+                if _,ok:=controls[hit.Action];ok{
+                    controls[hit.Action]=true
+                    if hit.R.T<340||hit.R.B>app.h-42{
+                        panic(fmt.Sprintf("Field-report choice %s clipped at 1024x720",hit.Action))
+                    }
+                }
+            }
+            for name,exists:=range controls{
+                if !exists{panic(fmt.Sprintf("Field-report choice %s missing or unclickable",name))}
+            }
+            // The same renderer must accommodate known upgraded hardware and
+            // an explicit "I don't know" default, without relying on a game.
+            manager.mu.Lock()
+            manager.xboxRevision="1.6b"
+            manager.ramUpgrade="upgraded"
+            manager.cpuUpgrade="upgraded"
+            manager.mu.Unlock()
+            redraw()
+            sysCall(updateWindow,app.hwnd)
+            manager.mu.Lock()
+            manager.xboxRevision="unknown"
+            manager.ramUpgrade="unknown"
+            manager.cpuUpgrade="unknown"
+            manager.mu.Unlock()
+        }
+
     }
     manager.mu.Lock();manager.mode=0;manager.mu.Unlock()
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
