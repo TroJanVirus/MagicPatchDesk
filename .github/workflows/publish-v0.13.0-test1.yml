@@ -1,0 +1,115 @@
+name: Publish v0.13.0 Game Outputs preview (one-shot)
+on:
+  push:
+    branches: [release/v0.13.0-test.1]
+    paths:
+      - '.github/workflows/publish-v0.13.0-test1.yml'
+permissions:
+  contents: write
+concurrency:
+  group: magicpatchdesk-publish-v0.13.0-test1
+  cancel-in-progress: false
+jobs:
+  verify_linux:
+    if: github.repository == 'TroJanVirus/MagicPatchDesk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Verify updater protocol and exact release version
+        run: |
+          bash scripts/verify_release_contract.sh
+          grep -q 'const AppVersion = "v0.13.0-test.1"' core/update.go
+          test -f CREDITS.md
+          test -f docs/RELEASE_NOTES_v0.13.0-test.1.md
+      - name: Run entire Go unit and conversion suite
+        run: go test ./...
+      - name: Core race detector
+        run: go test -race ./core
+      - name: Vet all Go code
+        run: go vet ./...
+      - name: Build canonical Windows x64 EXE
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags='-H windowsgui -s -w' -o MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
+      - name: Create official updater checksum manifest
+        run: |
+          sha256sum MagicPatchDesk-Windows-x64.exe > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          test "$(stat -c%s MagicPatchDesk-Windows-x64.exe)" -gt 1000000
+          grep -q 'MagicPatchDesk-Windows-x64.exe' SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpd-v0.13.0-test1-verified-windows
+          path: |
+            MagicPatchDesk-Windows-x64.exe
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+  verify_windows:
+    needs: verify_linux
+    runs-on: windows-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Native Windows core tests and file-system checks
+        run: go test ./...
+      - uses: actions/download-artifact@v4
+        with:
+          name: mpd-v0.13.0-test1-verified-windows
+      - name: Validate EXACT release candidate SHA256 on Windows
+        shell: pwsh
+        run: |
+          $line = (Get-Content SHA256SUMS.txt).Trim()
+          $expected = ($line -split '\s+')[0].ToUpperInvariant()
+          $actual = (Get-FileHash -Path .\MagicPatchDesk-Windows-x64.exe -Algorithm SHA256).Hash.ToUpperInvariant()
+          if ($expected -ne $actual) { throw "SHA256 mismatch for candidate executable" }
+      - name: Execute Windows application updater healthcheck headlessly
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Get-Location) 'MagicPatchDesk-Windows-x64.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--mpd-healthcheck-v1' -PassThru -Wait -ErrorAction Stop
+          if ($p.ExitCode -ne 0) { throw "Win32 healthcheck exited $($p.ExitCode)" }
+          Write-Output 'Native Windows healthcheck exited 0'
+  publish_preview:
+    needs: [verify_linux, verify_windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mpd-v0.13.0-test1-verified-windows
+      - name: Recheck immutable release asset and protocol
+        run: |
+          sha256sum -c SHA256SUMS.txt
+          bash scripts/verify_release_contract.sh
+      - name: Publish NEW prerelease only after all Linux and Windows checks pass
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v0.13.0-test.1 \
+            MagicPatchDesk-Windows-x64.exe \
+            SHA256SUMS.txt \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "Magic Patch Desk v0.13 — Game Outputs (TEST PREVIEW)" \
+            --notes-file docs/RELEASE_NOTES_v0.13.0-test.1.md \
+            --prerelease
+      - name: Confirm published updater assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v0.13.0-test.1 --repo "${GITHUB_REPOSITORY}" --json tagName,assets,prerelease \
+            --jq 'select(.tagName=="v0.13.0-test.1" and .prerelease==true and ([.assets[].name] | index("MagicPatchDesk-Windows-x64.exe") != null) and ([.assets[].name] | index("SHA256SUMS.txt") != null)) | .tagName'
