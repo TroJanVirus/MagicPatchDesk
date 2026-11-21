@@ -13,6 +13,7 @@ import (
 type Preferences struct {
 	Workers int `json:"workers"`
 	Filter  int `json:"catalog_filter"`
+	GameOutputFormats map[string]uint32 `json:"game_output_formats,omitempty"`
 }
 
 func DefaultPreferences() Preferences { return Preferences{Workers: 4, Filter: 0} }
@@ -24,6 +25,13 @@ func (p Preferences) Validate() Preferences {
 	if p.Filter < 0 || p.Filter > 4 {
 		p.Filter = 0
 	}
+	for kind,mask := range p.GameOutputFormats {
+        switch kind {
+        case "xbe","folder","xiso","fulliso","cci":
+            if mask==0 || mask&^GameOutputAll!=0 {delete(p.GameOutputFormats,kind)}
+        default:delete(p.GameOutputFormats,kind)
+        }
+    }
 	return p
 }
 
