@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"magicpatchdesk/core"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -93,6 +94,11 @@ func scheduleCover(source string) string {
 	// known-good files, otherwise redownload to a .jpg path GDI+ understands.
 	oldPath := path[:len(path)-4] + ".img"
 	if core.ValidCoverFile(oldPath) {
+		// Carry forward good offline artwork from earlier .img caches, but
+		// give GDI+ a conventional .jpg filename for reliable loading.
+		if err := os.Rename(oldPath, path); err == nil {
+			return path
+		}
 		return oldPath
 	}
 	coverMu.Lock()

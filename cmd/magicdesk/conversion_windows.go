@@ -51,6 +51,16 @@ func refreshConversionHint() {
 		app.conversionHint = "Select a source patch to see whether the stock XBE is needed"
 		return
 	}
+	// Password KDF on encrypted IPS is deliberately expensive. Avoid executing
+	// it on the Win32 message thread after each password keystroke.
+	if strings.EqualFold(filepath.Ext(name), ".eips") {
+		if app.format == 2 || app.format == 4 {
+			app.conversionHint = "ORIGINAL REQUIRED · BPS/Xdelta needs source bytes; EIPS also needs its password"
+		} else {
+			app.conversionHint = "EIPS password required · original may be optional; exact check runs on Convert"
+		}
+		return
+	}
 	plan, err := core.PlanPatchConversion(name, b, app.format, app.password)
 	if err != nil {
 		app.conversionHint = "Cannot inspect source patch: " + err.Error()
