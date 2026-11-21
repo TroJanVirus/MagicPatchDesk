@@ -289,26 +289,59 @@ func assignXDV(root *xdvNode) (uint64,error) {
     if next>uint64(^uint32(0)) {return 0,errors.New("XISO too large")}
     return next,nil
 }
+// fillXDVTables emits a balanced binary-search tree with the root at offset 0.
+// XDVDFS directory lookups follow left/right pointers; a right-only linked
+// chain degrades to O(N) depth for folders containing thousands of files.
 func fillXDVTables(root *xdvNode) error {
-    if root.folder {
+    if root.folder && len(root.children)>0 {
+        order:=make([]*xdvNode,0,len(root.children))
+        var appendBalanced func(int,int)
+        appendBalanced=func(start,end int){
+            if start>=end{return}
+            middle:=start+(end-start)/2
+            order=append(order,root.children[middle])
+            appendBalanced(start,middle)
+            appendBalanced(middle+1,end)
+        }
+        appendBalanced(0,len(root.children))
+        positions:=make(map[*xdvNode]int,len(order))
         offset:=0
-        for i,n:=range root.children {
-            entry:=root.table[offset:]
-            if i+1<len(root.children) {
-                next:=offset+((14+len(n.name)+3)&^3)
-                if next/4>65535 {return errors.New("XDVDFS sibling pointer overflow")}
-                binary.LittleEndian.PutUint16(entry[2:],uint16(next/4))
+        for _,n:=range order {
+            positions[n]=offset
+            offset+=(14+len(n.name)+3)&^3
+        }
+        if offset!=len(root.table){return errors.New("internal XDVDFS directory table size mismatch")}
+        var emit func(int,int)(*xdvNode,error)
+        emit=func(start,end int)(*xdvNode,error){
+            if start>=end{return nil,nil}
+            middle:=start+(end-start)/2
+            n:=root.children[middle]
+            left,e:=emit(start,middle)
+            if e!=nil{return nil,e}
+            right,e:=emit(middle+1,end)
+            if e!=nil{return nil,e}
+            entry:=root.table[positions[n]:]
+            if left!=nil {
+                pos:=positions[left]/4
+                if pos==0||pos>65535{return nil,errors.New("XDVDFS left pointer overflow")}
+                binary.LittleEndian.PutUint16(entry[0:],uint16(pos))
+            }
+            if right!=nil {
+                pos:=positions[right]/4
+                if pos==0||pos>65535{return nil,errors.New("XDVDFS right pointer overflow")}
+                binary.LittleEndian.PutUint16(entry[2:],uint16(pos))
             }
             binary.LittleEndian.PutUint32(entry[4:],n.sector)
             binary.LittleEndian.PutUint32(entry[8:],n.size)
-            if n.folder {entry[12]=0x10} else {entry[12]=0x20}
+            if n.folder {entry[12]=0x10}else{entry[12]=0x20}
             entry[13]=byte(len(n.name))
             copy(entry[14:],n.name)
-            offset += (14+len(n.name)+3)&^3
+            return n,nil
         }
+        if _,err:=emit(0,len(root.children));err!=nil{return err}
     }
     for _,n:=range root.children {
-        if err:=fillXDVTables(n); err!=nil{return err}
+        if err:=fillXDVTables(n);err!=nil{return err}
     }
     return nil
 }
