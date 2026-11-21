@@ -183,3 +183,107 @@ func TestBatchRejectsJMPModifiedAfterScan(t *testing.T){
     if summary.Completed!=0||summary.Failed!=1{t.Fatal("changed JMP was incorrectly approved for unattended use")}
 }
 func mustReadQA(t *testing.T,p string)[]byte{t.Helper();b,e:=os.ReadFile(p);if e!=nil{t.Fatal(e)};return b}
+
+
+func TestHardwareConfidenceRevisionAndUpgradeChoices(t *testing.T){
+    base:=ConfidenceReport{
+        ID:"hardware_23456",PatchSHA256:strings.Repeat("b",64),
+        TitleID:"4A580001",SourceCRC32:"AE1234BC",
+        Environment:"hardware",Result:"working",Hardware:"Original Xbox",
+        ReportedUTC:time.Now().UTC().Format(time.RFC3339),
+    }
+    // v0.14.0-test.1 legacy reports omitted structured hardware fields;
+    // these must continue to load without being mislabeled as user-selected unknown.
+    if e:=validateConfidenceReport(base);e!=nil{t.Fatal("legacy hardware report invalid:",e)}
+    if !strings.Contains(ConfidenceHardwareSummary(base),"Not recorded"){
+        t.Fatal("legacy missing hardware data not distinguished from I don't know")
+    }
+    for _,revision:=range ConfidenceXboxRevisions(){
+        for _,ram:=range ConfidenceUpgradeStatuses(){
+            for _,cpu:=range ConfidenceUpgradeStatuses(){
+                report:=base
+                report.XboxRevision=revision
+                report.RAMUpgrade=ram
+                report.CPUUpgrade=cpu
+                if e:=validateConfidenceReport(report);e!=nil{
+                    t.Fatalf("revision=%s RAM=%s CPU=%s rejected: %v",revision,ram,cpu,e)
+                }
+                encoded,e:=json.Marshal(ConfidenceDatabase{
+                    Schema:ConfidenceSchema,Revision:2,
+                    Reports:[]ConfidenceReport{report},
+                })
+                if e!=nil{t.Fatal(e)}
+                decoded,e:=ParseConfidenceDatabase(encoded)
+                if e!=nil{t.Fatal(e)}
+                got:=decoded.Reports[0]
+                if got.XboxRevision!=revision||got.RAMUpgrade!=ram||got.CPUUpgrade!=cpu{
+                    t.Fatal("structured hardware details changed during JSON roundtrip")
+                }
+            }
+        }
+    }
+    base.XboxRevision="unknown"
+    base.RAMUpgrade="upgraded"
+    base.CPUUpgrade="stock"
+    body,e:=ConfidenceIssueBody(base)
+    if e!=nil{t.Fatal(e)}
+    for _,want:=range []string{
+        "Xbox revision: I don't know",
+        "RAM modification: Upgraded",
+        "CPU modification: No upgrade",
+    }{
+        if !strings.Contains(body,want+"\n"){t.Fatalf("public issue missing line %q: %q",want,body)}
+    }
+    if !strings.Contains(ConfidenceHardwareSummary(base),"RAM: Upgraded"){
+        t.Fatal("individual log did not display RAM upgrade")
+    }
+    if !strings.Contains(ConfidenceHardwareSummary(base),"CPU: No upgrade"){
+        t.Fatal("individual log did not display CPU modification state")
+    }
+}
+func TestConfidenceHardwareFieldValidationAndXemuIsolation(t *testing.T){
+    record:=ConfidenceReport{
+        ID:"hardware_23456",PatchSHA256:strings.Repeat("b",64),
+        TitleID:"4A580001",SourceCRC32:"AE1234BC",
+        Environment:"hardware",Result:"failed",Hardware:"Original Xbox",
+        ReportedUTC:time.Now().UTC().Format(time.RFC3339),
+        XboxRevision:"unknown",RAMUpgrade:"unknown",CPUUpgrade:"unknown",
+    }
+    if e:=validateConfidenceReport(record);e!=nil{t.Fatal(e)}
+    for _,test:=range []struct{name string;set func(*ConfidenceReport)}{
+        {"invalid revision",func(r *ConfidenceReport){r.XboxRevision="2.0"}},
+        {"invalid revision formatting",func(r *ConfidenceReport){r.XboxRevision="<script>"}},
+        {"invalid RAM status",func(r *ConfidenceReport){r.RAMUpgrade="yes"}},
+        {"invalid CPU status",func(r *ConfidenceReport){r.CPUUpgrade="1400MHz"}},
+        {"incomplete fields",func(r *ConfidenceReport){r.CPUUpgrade=""}},
+        {"xemu with Xbox revision",func(r *ConfidenceReport){r.Environment="xemu";r.Hardware="";r.RAMUpgrade="";r.CPUUpgrade=""}},
+        {"xemu with upgrade flags",func(r *ConfidenceReport){r.Environment="xemu";r.Hardware="";r.XboxRevision=""}},
+    }{
+        t.Run(test.name,func(t *testing.T){
+            malformed:=record
+            test.set(&malformed)
+            if e:=validateConfidenceReport(malformed);e==nil{
+                t.Fatal("malformed or emulator hardware claim was accepted")
+            }
+        })
+    }
+    xemu:=record
+    xemu.Environment="xemu"
+    xemu.Hardware=""
+    xemu.XboxRevision=""
+    xemu.RAMUpgrade=""
+    xemu.CPUUpgrade=""
+    body,e:=ConfidenceIssueBody(xemu)
+    if e!=nil{t.Fatal(e)}
+    if strings.Contains(body,"Xbox revision:")||strings.Contains(body,"RAM modification:")||strings.Contains(body,"CPU modification:"){
+        t.Fatal("emulator-only report was misrepresented as physical Xbox data")
+    }
+    // Do not reinterpret missing fields on old, curated revision-1 JSON.
+    legacy:=record
+    legacy.XboxRevision=""
+    legacy.RAMUpgrade=""
+    legacy.CPUUpgrade=""
+    b,_:=json.Marshal(ConfidenceDatabase{Schema:ConfidenceSchema,Revision:1,Reports:[]ConfidenceReport{legacy}})
+    parsed,e:=ParseConfidenceDatabase(b)
+    if e!=nil||len(parsed.Reports)!=1{t.Fatalf("legacy reviewed index rejected: %v",e)}
+}
