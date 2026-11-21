@@ -61,8 +61,14 @@ func smokePaintAndExit() {
             for _,hit:=range app.hits{
                 if _,ok:=controls[hit.Action];ok{
                     controls[hit.Action]=true
-                    if hit.R.T<340||hit.R.B>app.h-42{
-                        panic(fmt.Sprintf("Field-report choice %s clipped at 1024x720",hit.Action))
+                    minimumTop:=int32(310)
+                    if hit.Action=="manager-confidence-revision"||
+                        hit.Action=="manager-confidence-ram"||
+                        hit.Action=="manager-confidence-cpu"{
+                        minimumTop=380
+                    }
+                    if hit.R.T<minimumTop||hit.R.B>app.h-42{
+                        panic(fmt.Sprintf("Field-report choice %s clipped at 1024x720 (top=%d bottom=%d)",hit.Action,hit.R.T,hit.R.B))
                     }
                 }
             }
