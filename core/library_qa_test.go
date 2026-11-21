@@ -160,7 +160,7 @@ func TestJMPCombiningWarnsOnConflictingHexAndVerifiesOutput(t *testing.T){
     if r.Total!=1{t.Fatalf("missing overlap evidence: %+v",r)}
     combined,e:=ParseJMP("combined.jmp",merged)
     if e!=nil{t.Fatal(e)}
-    if !strings.Contains(combined.Headers["notes"],"Alpha.jmp")||!strings.Contains(combined.Headers["notes"],"Beta.jmp")||!strings.Contains(combined.Headers["author"],"Tester"){
+    if !strings.Contains(combined.Headers["notes"],"Alpha[dot]jmp")||!strings.Contains(combined.Headers["notes"],"Beta[dot]jmp")||!strings.Contains(combined.Headers["author"],"Tester"){
         t.Fatal("combined JMP lost source and author credits")
     }
     output,e:=combined.Apply(original,false)
