@@ -121,3 +121,22 @@ Use **Maintenance → Install app** to place a managed executable at `%LOCALAPPD
 **Maintenance → Connect token / Auto-report** (off by default) uploads ONLY privacy-redacted diagnostic JSON to GitHub Issues, grouping repeated failures. Offline errors remain locally queued and can be re-sent with **Sync now**. A GitHub token with issue-write permission is required; users can disconnect it at any time. See [Auto reports](docs/AUTO_REPORTS.md). ChatGPT can then inspect repository Issues through the connected GitHub app, with no need to upload the reports into chat.
 
 **Cerbios `.cci`** is supported with native CCIM v1/LZ4 read/write, split parts, extraction, ISO recompression and direct single-default-XBE patching to a new CCI. More complex PF/multi-file/pack CCI workflows require extraction to XISO first rather than dropping records. See [CCI format and safety](docs/CCI_SUPPORT.md).
+
+
+## Next development: selectable game outputs and source attribution (2026-11-22; unverified build)
+
+The new **Game Outputs** workspace accepts an Original Xbox \`.iso\` (full-disc or game-partition XISO), Cerbios \`.cci\`, standalone \`.xbe\`, or an extracted folder (choose its **root default.xbe**). The chosen input no longer locks the output. Select one or more independent products:
+
+- **Patched original game XBE only** (\`.xbe\`, not an ISO-attacher/stub).
+- **Extracted game folder**, including original assets and optional file-specific patches.
+- **Rebuilt game-partition XISO** (\`.xiso.iso\` for explicit format distinction).
+- **Cerbios CCI** (\`.cci\` or automatic FATX-sized split parts).
+- **Layout-preserving full-disc ISO**, only when the input is already a suitable full-disc ISO and its patch can safely fit without expanding its allocated sectors.
+
+Use **Patch Library** to select a JMP/IPS/BPS/Xdelta/EIPS/PF/\`.mpdpack\` if wanted, then choose the source and outputs in **Game Outputs**. Or select no patch and use it as an image extractor/converter. A source \`.xbe\` alone lacks other game files and therefore cannot generate a complete XISO/CCI/folder. A multi-file JMP/pack/PF cannot silently be exported as an XBE-only complete patch; the operation is blocked. PF is processed as a full staged game-folder operation when supported.
+
+Each run saves products inside one new \`<chosen-name>/\` directory and refuses to overwrite existing files. Repack outputs are verified by reopening XDVDFS and comparing the contents; compressed CCI is decoded and checked after writing. Game-partition XISO is **not** a byte-equivalent recreation of a Redump ISO. Intermediate storage must be sufficient for extraction and rebuilt images. The native writer intentionally rejects invalid/ambiguous/case-conflicting XDVDFS filenames and symlinks.
+
+**Status: source implemented, synthetic regression tests added, automated tests/cross-build and Windows 10/11/Xbox/Cerbios device boot tests have NOT been run for this change. Not yet a verified downloadable release.** See [implementation/design details](docs/IMAGE_OUTPUT_WORKFLOW.md), [reference attribution](CREDITS.md), and [work tracker](https://github.com/TroJanVirus/MagicPatchDesk/issues/9).
+
+The **About** screen now lists the reference projects (Repackinator, Team Cerbios/libCCI/CCISharp, Rocky5/XBMC4Gamers, and the JMP catalogue) and links to detailed credits. Repackinator's GPL-3.0 source is not bundled or copied. Future contributions must record exactly which reference work was used and its licensing details in \`CREDITS.md\`.
