@@ -106,3 +106,7 @@ prefilled **unsent** tracking issue in your browser. The original local reports
 remain private. `docs/DEVELOPER_DASHBOARD.md` documents the workflow, security
 limits, and issue-body markers. GitHub report issue counts are not unique
 reporter counts, and neither closed issues nor closed PRs imply a verified fix.
+
+## v0.11 — Recent Files and shortcuts
+
+The Windows sidebar now includes a **Recent** workspace. Reopen previously selected game XBE/ISO inputs and custom patch files, return to conversion sources or inspect output folders, and forget/clear the history without deleting game files. Output files are not automatically used as new originals. Keyboard shortcuts: Ctrl+O (game), Ctrl+P (patch), Ctrl+F (search), Ctrl+R (recent), Ctrl+1–6 (workspaces), F5 (local patch rescan), Esc (leave text entry). The local-only history file is kept separately from all diagnostic reports; full local paths are never uploaded. See `docs/RECENT_WORKSPACE.md`.

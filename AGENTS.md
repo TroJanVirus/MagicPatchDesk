@@ -60,3 +60,7 @@ privileged tokens and recurring GitHub Actions. Do not merge groups with
 contradictory root-cause references or count issue comments as distinct people.
 Maintain safe issue-body marker parsing, bounded pagination, and Windows UI
 state locking. Tests are in `core/developer_dashboard_test.go`.
+
+## v0.11: local Recent Files workspace and UI keyboard controls
+
+`core/recent.go` stores the last 18 selected file paths, kinds and UTC usage times in a private `recent-files.json` within the application's data root. It is **not diagnostic data**; do not send full paths to GitHub/issues or include this history in `.mpdpack`. `cmd/magicdesk/recent_windows.go` adds native Recent navigation and keyboard shortcuts. After successful patch writes, conversion writes and PF/pack outputs, call `rememberRecent("output",path)` **outside `app.mu`**, only once files exist. On selecting an output, open its folder instead of automatically treating it as the stock original. Forget/Clear do not delete source files. Keep history writes serialized and check on Windows 10/11. See `docs/RECENT_WORKSPACE.md`.

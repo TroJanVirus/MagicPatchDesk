@@ -62,3 +62,7 @@ or open status; links a root issue and a fix PR by explicit body markers;
 flags contradictory root-cause references instead of silently merging cases.
 Local issue data is never automatically transmitted. Tests and Win32
 cross-build passed locally; actual desktop/network testing remains pending.
+
+## 2026-11-21 — v0.11 recent files and keyboard QoL
+
+Added local-only MRU history for game source/patch/conversion inputs/output directories, no automatic submission of paths. New Recent tab with open, folder, copy, forget, clear and pagination. Cross-workspace shortcuts include Ctrl+O/P/F/R, Ctrl+1–6 and F5. All generated outputs are registered after successful writes, never when previewing or failing. Unit tests, race check, vet and Windows compilation passed locally; Windows GUI/Explorer workflows still need manual testing.

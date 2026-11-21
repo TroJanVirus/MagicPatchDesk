@@ -161,6 +161,7 @@ func maybeStartTargeted(previewOnly bool, selected *core.Patch, direct, source s
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if errorResult == nil && !previewOnly {rememberRecent("output",dest)}
 		if errorResult != nil {recordFailure("jmp.targeted",errorResult,source,direct,dest)}
 		redraw()
 	}()
