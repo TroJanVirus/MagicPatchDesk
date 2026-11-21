@@ -1,7 +1,7 @@
-# Unified game-image outputs (headless build/tests passed; Windows/console QA pending)
+# Unified game-image outputs — historical design and current constraints
 
 
-> **Development status — 2026-11-22:** Native source for extraction, XISO writing, CCI export, source-aware multi-output staging, and patch-aware Windows controls has been committed. Synthetic tests, race detector, vet and Windows x64 cross-build have passed in [headless verification run #44913720896](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44913720896). Native Windows 10/11 GUI smoke tests, xemu testing and physical Xbox/Cerbios boot testing have not been performed. This is not a verified release. Full credits and licences: [CREDITS.md](../CREDITS.md).
+> **Status clarification (2026-11-22):** This file began as an implementation specification and preserves some *historical* acceptance checkboxes. Source-aware game outputs and the Windows Game Outputs workspace have since shipped in preview builds. The most recent published [v0.14.0-test.2](https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.2) passed Linux Go unit/race/vet, native Windows Go tests, actual EXE checksum/healthcheck, and Win32 UI paint smoke ([run #44923406249](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44923406249)). **Actual Windows user interaction, retail image round-trips and physical Xbox/Cerbios boot remain unverified.** For current state and next steps see [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) and [STATUS.md](STATUS.md); for reference licences see [CREDITS.md](../CREDITS.md). Do not treat an unchecked design item as proof the feature is absent from the current source.
 
 ## User requirement
 
