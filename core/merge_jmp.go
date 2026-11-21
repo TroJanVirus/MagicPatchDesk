@@ -45,7 +45,10 @@ func CombineJMPs(original []byte,patches []*Patch,approveConflicts bool)([]byte,
         a:=strings.TrimSpace(p.Headers["author"])
         if a==""{a="Unknown"}
         authors=append(authors,a)
-        names=append(names,p.Filename)
+        // Target discovery parses filename-like tokens in notes. Escape
+        // the dot in original JMP names to preserve source provenance
+        // without accidentally rerouting new offset records.
+        names=append(names,strings.ReplaceAll(p.Filename,".","[dot]"))
     }
     jmpText,e:=DiffToJMP(original,current,info.Title)
     if e!=nil{return nil,report,e}
