@@ -153,6 +153,8 @@ The follow-up preview fixes a reproducible CCI split-name crash; detects missing
 A private `--mpd-ui-smoke-v1` CLI paints all Win32 workspaces without network access or writing user files, checks the Game Outputs button visibility in a 1024×720 window and exits. It is **not** an alternative updater protocol. Headless tests are not a substitute for manual Win10/11 or original Xbox/Cerbios boot testing; do not mark the release stable based on those checks alone.
 
 ## v0.14 preview — Game Manager, compatibility logs and batch review
+**More precise real-hardware reports (v0.14 test 2):** when confirming a patch on an actual Xbox, select the motherboard revision (or **I don't know**) and separately identify whether RAM and CPU are stock, upgraded, or unknown. These self-reported details appear in the public GitHub Issues review and in the individual patch report log. They are not requested for xemu results. Historical reports without details remain readable as **Not recorded**.
+
 
 **Game Manager** scans an extracted-game/XISO/CCI library without touching the originals, finds exact Title ID/CRC verified JMP matches, and sorts uncertain games for manual review. Select **Auto**, **Review** or **Skip** per game, pick its independent output format and run only the explicitly approved batch. Exact candidates are rehashed before use, and any existing output package is preserved.
 

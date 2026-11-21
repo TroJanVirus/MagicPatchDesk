@@ -37,6 +37,7 @@ func drawManager(hdc uintptr,w,h int32){
     confidence:=append([]core.ConfidenceReport(nil),manager.confidence...)
     confidenceScroll:=manager.confidenceScroll
     reportResult:=manager.reportResult
+    revision,ram,cpu:=manager.xboxRevision,manager.ramUpgrade,manager.cpuUpgrade
     manager.mu.Unlock()
     panel(hdc,ir(x,122,width,55),surface,13)
     rootLabel:="No library folder selected"
@@ -60,7 +61,7 @@ func drawManager(hdc uintptr,w,h int32){
     case 1:drawManagerImage(hdc,x,width,h,browse,browseSelected,browseScroll,browsePath)
     case 2:drawManagerOverlap(hdc,x,width,h,conflicts,conflictText,overlapScroll)
     case 3:drawManagerLog(hdc,x,width,h,logScroll)
-    case 4:drawManagerConfidence(hdc,x,width,h,jobs,selected,patchIndex,confidence,confidenceScroll,reportResult)
+    case 4:drawManagerConfidence(hdc,x,width,h,jobs,selected,patchIndex,confidence,confidenceScroll,reportResult,revision,ram,cpu)
     }
 }
 
@@ -206,26 +207,37 @@ func drawManagerLog(hdc uintptr,x,width,h int32,scroll int){
     }
     if len(entries)==0{textAt(hdc,"Verification and conversion events appear here as you scan or patch games.",x+16,345,width-35,30,app.fonts.Regular,muted)}
 }
-func drawManagerConfidence(hdc uintptr,x,width,h int32,jobs []core.BatchJob,selected,choice int,reports []core.ConfidenceReport,scroll int,result string){
-    textAt(hdc,"No percentage score: individual exact-patch confirmations, separated by test environment.",x+11,262,width-20,26,app.fonts.Small,muted)
+func drawManagerConfidence(hdc uintptr,x,width,h int32,jobs []core.BatchJob,selected,choice int,reports []core.ConfidenceReport,scroll int,result,revision,ram,cpu string){
+    textAt(hdc,"Individual patch confirmations: emulation and real Xbox reports remain separate.",x+11,262,width-20,26,app.fonts.Small,muted)
     selectedLabel:="Select a scanned game and patch in GAMES first"
     if selected>=0&&selected<len(jobs){
         g:=jobs[selected].Game
         selectedLabel=g.Title+" · "+g.TitleID+" · CRC "+g.CRC32
         if choice>=0&&choice<len(g.Patches){selectedLabel+=" · "+g.Patches[choice].Name}
     }
-    textAt(hdc,strLimit(selectedLabel,125),x+11,292,width-19,29,app.fonts.Medium,white)
+    textAt(hdc,strLimit(selectedLabel,115),x+11,292,width-19,29,app.fonts.Medium,white)
     buttonWidth:=(width-52)/4
     button(hdc,"Refresh",ir(x+12,328,buttonWidth,33),"manager-confidence-refresh",0,false)
     button(hdc,"Result: "+result,ir(x+20+buttonWidth,328,buttonWidth,33),"manager-confidence-result",0,false)
     button(hdc,"Confirm xemu",ir(x+28+2*buttonWidth,328,buttonWidth,33),"manager-confidence-xemu",0,false)
     button(hdc,"Confirm real Xbox",ir(x+36+3*buttonWidth,328,buttonWidth,33),"manager-confidence-hardware",0,true)
-    panel(hdc,ir(x,370,width,h-460),surface,13)
-    visible:=int((h-464)/58)
+
+    textAt(hdc,"REAL XBOX DETAILS · click each field to change · I don't know is allowed",x+13,372,width-26,20,app.fonts.Micro,muted)
+    third:=(width-44)/3
+    button(hdc,"Revision: "+core.ConfidenceRevisionLabel(revision),ir(x+12,393,third,32),"manager-confidence-revision",0,false)
+    button(hdc,"RAM: "+core.ConfidenceUpgradeLabel(ram),ir(x+22+third,393,third,32),"manager-confidence-ram",0,false)
+    button(hdc,"CPU: "+core.ConfidenceUpgradeLabel(cpu),ir(x+32+2*third,393,third,32),"manager-confidence-cpu",0,false)
+    textAt(hdc,"RAM / CPU: No upgrade, Upgraded or I don't know. These choices are not sent for xemu.",x+13,429,width-25,27,app.fonts.Micro,muted)
+
+    listY:=int32(464)
+    listHeight:=h-575
+    if listHeight<64{listHeight=64}
+    panel(hdc,ir(x,listY,width,listHeight),surface,13)
+    visible:=int((listHeight-8)/58)
     if visible<1{visible=1}
     for i:=scroll;i<len(reports)&&i<scroll+visible;i++{
         r:=reports[i]
-        ry:=int32(380+(i-scroll)*58)
+        ry:=listY+int32(7+(i-scroll)*58)
         color:=uint32(surface2)
         if r.Result=="working"{color=0x23433E}
         if r.Result=="failed"{color=0x603E40}
@@ -234,9 +246,10 @@ func drawManagerConfidence(hdc uintptr,x,width,h int32,jobs []core.BatchJob,sele
         if r.SourceIssue>0{line+=fmt.Sprintf(" · GitHub issue #%d",r.SourceIssue)}
         textAt(hdc,strLimit(line,130),x+22,ry+4,width-45,22,app.fonts.Medium,white)
         detail:=r.Hardware
+        if r.Environment=="hardware"{detail=core.ConfidenceHardwareSummary(r)}
         if r.Note!=""{detail+=" · "+r.Note}
         textAt(hdc,strLimit(detail,155),x+22,ry+26,width-45,20,app.fonts.Small,muted)
     }
-    if len(reports)==0{textAt(hdc,"No reviewed compatibility reports for this exact patch SHA256 / original XBE combination.",x+20,401,width-40,50,app.fonts.Regular,muted)}
-    textAt(hdc,"Report buttons ask for consent before creating a public review issue; no auto-upload.",x+11,h-110,width-20,24,app.fonts.Micro,amber)
+    if len(reports)==0{textAt(hdc,"No reviewed reports for this exact patch SHA256 and original XBE.",x+20,listY+24,width-40,40,app.fonts.Regular,muted)}
+    textAt(hdc,"Confirm buttons request consent before creating a public review issue; nothing uploads automatically.",x+11,h-103,width-24,24,app.fonts.Micro,amber)
 }

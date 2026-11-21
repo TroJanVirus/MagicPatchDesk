@@ -34,6 +34,11 @@ type ConfidenceReport struct {
     Environment string `json:"environment"` // xemu or hardware
     Result string `json:"result"` // working, partial or failed
     Hardware string `json:"hardware,omitempty"`
+    // Structured original-Xbox details. Omitted fields mean a legacy report
+    // that predates hardware detail collection, NOT an "unknown" response.
+    XboxRevision string `json:"xbox_revision,omitempty"`
+    RAMUpgrade string `json:"ram_upgrade,omitempty"` // unknown, stock, upgraded
+    CPUUpgrade string `json:"cpu_upgrade,omitempty"` // unknown, stock, upgraded
     Note string `json:"note,omitempty"`
     ReportedUTC string `json:"reported_utc"`
     SourceIssue int `json:"source_issue,omitempty"`
@@ -43,6 +48,42 @@ type ConfidenceDatabase struct {
     Revision int `json:"revision"`
     Reports []ConfidenceReport `json:"reports"`
 }
+// The choices are intentionally restricted to well-established Xbox board
+// revisions. "unknown" is the explicit I-don't-know answer, while "" means
+// the information was not collected by an older Magic Patch Desk version.
+var confidenceXboxRevisions=[]string{"unknown","1.0","1.1","1.2","1.3","1.4","1.6","1.6b"}
+var confidenceUpgradeStatuses=[]string{"unknown","stock","upgraded"}
+
+func ConfidenceXboxRevisions()[]string{return append([]string(nil),confidenceXboxRevisions...)}
+func ConfidenceUpgradeStatuses()[]string{return append([]string(nil),confidenceUpgradeStatuses...)}
+func confidenceChoiceIn(value string,choices []string)bool{
+    for _,s:=range choices{if value==s{return true}}
+    return false
+}
+func ConfidenceRevisionLabel(value string)string{
+    switch value{
+    case "":return "Not recorded"
+    case "unknown":return "I don't know"
+    default:return "v"+value
+    }
+}
+func ConfidenceUpgradeLabel(value string)string{
+    switch value{
+    case "":return "Not recorded"
+    case "unknown":return "I don't know"
+    case "stock":return "No upgrade"
+    case "upgraded":return "Upgraded"
+    default:return "Invalid"
+    }
+}
+// ConfidenceHardwareSummary displays the separately recorded hardware facts
+// in a concise, readable individual compatibility report (no percentages).
+func ConfidenceHardwareSummary(r ConfidenceReport)string{
+    if r.Environment!="hardware"{return ""}
+    return "Revision: "+ConfidenceRevisionLabel(r.XboxRevision)+
+        " | RAM: "+ConfidenceUpgradeLabel(r.RAMUpgrade)+
+        " | CPU: "+ConfidenceUpgradeLabel(r.CPUUpgrade)
+}
 func validateConfidenceReport(r ConfidenceReport)error{
     if !confidenceID.MatchString(r.ID){return errors.New("invalid confidence report ID")}
     if !confidenceSHA.MatchString(r.PatchSHA256){return errors.New("confidence report patch SHA256 must be 64 lowercase hexadecimal digits")}
@@ -51,6 +92,18 @@ func validateConfidenceReport(r ConfidenceReport)error{
     if r.Result!="working" && r.Result!="partial" && r.Result!="failed"{return errors.New("invalid confidence result")}
     if len(r.Hardware)>80||len(r.Note)>300||strings.ContainsAny(r.Note,"\r\n\x00")||strings.ContainsAny(r.Hardware,"\r\n\x00"){return errors.New("confidence text contains unsupported characters or exceeds limit")}
     if r.Environment=="hardware" && strings.TrimSpace(r.Hardware)==""{return errors.New("hardware test must identify original Xbox console type")}
+    hasRevision:=r.XboxRevision!=""
+    hasRAM:=r.RAMUpgrade!=""
+    hasCPU:=r.CPUUpgrade!=""
+    if r.Environment=="xemu" {
+        if hasRevision||hasRAM||hasCPU{return errors.New("xemu reports cannot claim physical Xbox revision, RAM or CPU modifications")}
+    }else if hasRevision||hasRAM||hasCPU{
+        // Only legacy reports may omit all hardware-detail fields.
+        if !hasRevision||!hasRAM||!hasCPU{return errors.New("physical Xbox revision, RAM and CPU choices must all be supplied")}
+        if !confidenceChoiceIn(r.XboxRevision,confidenceXboxRevisions){return errors.New("invalid Xbox revision")}
+        if !confidenceChoiceIn(r.RAMUpgrade,confidenceUpgradeStatuses){return errors.New("invalid Xbox RAM upgrade status")}
+        if !confidenceChoiceIn(r.CPUUpgrade,confidenceUpgradeStatuses){return errors.New("invalid Xbox CPU upgrade status")}
+    }
     t,e:=time.Parse(time.RFC3339,r.ReportedUTC)
     if e!=nil||t.After(time.Now().UTC().Add(48*time.Hour)){return errors.New("invalid confidence report timestamp")}
     if r.SourceIssue<0{return errors.New("invalid confidence source issue number")}
@@ -143,6 +196,13 @@ func SyncConfidenceCache(ctx context.Context,root string,client *http.Client,end
 func ConfidenceIssueBody(r ConfidenceReport)(string,error){
     if e:=validateConfidenceReport(r);e!=nil{return "",e}
     body:=fmt.Sprintf("### Patch compatibility field report (awaiting review)\n\nPatch SHA256: %s\nTitle ID: %s\nOriginal XBE CRC32: %s\nEnvironment: %s\nResult: %s\nHardware: %s\nReported UTC: %s\n",r.PatchSHA256,r.TitleID,r.SourceCRC32,r.Environment,r.Result,r.Hardware,r.ReportedUTC)
+    if r.Environment=="hardware" {
+        // Distinguish "not collected by older software" from an explicit
+        // "I don't know" supplied by a tester today.
+        body+="Xbox revision: "+ConfidenceRevisionLabel(r.XboxRevision)+"\n"+
+            "RAM modification: "+ConfidenceUpgradeLabel(r.RAMUpgrade)+"\n"+
+            "CPU modification: "+ConfidenceUpgradeLabel(r.CPUUpgrade)+"\n"
+    }
     if r.Note!=""{body+="Notes: "+r.Note+"\n"}
     return body+"\nOnly reviewed reports are imported into confidence/reports.v1.json. No game bytes, local paths or patch payloads are included.\n",nil
 }

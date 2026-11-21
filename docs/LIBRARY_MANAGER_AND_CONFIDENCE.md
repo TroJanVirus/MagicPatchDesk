@@ -1,6 +1,6 @@
 # Library Manager, verification log, hex conflict explorer, confidence reports
 
-Status: v0.14 feature branch; not an Xbox hardware compatibility certification. Original files and prior output packages remain untouched.
+Status: v0.14 developer preview; not an Xbox hardware compatibility certification. Original files and prior output packages remain untouched.
 
 ## Game library management
 
@@ -40,6 +40,8 @@ The confidence database is **`confidence/reports.v1.json`**, with a strict, vers
 1. The user selects a scanned game and JMP/PF, opens **Game Manager → FIELD REPORTS** and chooses Result (Working / Partial / Failed).
 2. They choose **Confirm in xemu** or **Confirm real Xbox**. The app requires a connected GitHub Issues token and displays an explicit public-submission consent dialog; **no automatic submission** is triggered by installing, updating, scanning or patching.
 3. After consent, the app creates a reviewable `[Compatibility]` GitHub Issue containing ONLY known-safe patch SHA256, source Title ID/CRC32, environment, result and chosen hardware label. No full local path, executable, source patch, game binary or user password is uploaded.
+3a. For **real Original Xbox** results, the native form additionally asks for the motherboard revision (v1.0, 1.1, 1.2, 1.3, 1.4, 1.6, 1.6b, or **I don't know**), whether the **RAM** is stock or upgraded, and whether the **CPU** is stock or upgraded. RAM and CPU each also offer **I don't know**. The three choices are included in the consent preview, the GitHub Issue's structured lines, and each individual reviewed log entry. xemu-only reports do not collect or submit physical-hardware details. These are self-reported modifications, not automatically detected; the tool does not claim to know RAM size or CPU clock speed.
+3b. The original `magicpatchdesk-confidence-v1` JSON database remains readable: older reports without these three fields display **Not recorded**. By contrast, a reporter selecting **I don't know** is stored explicitly as `unknown`. The revision field is `xbox_revision`; upgrade fields are `ram_upgrade` and `cpu_upgrade`, restricted to `unknown`, `stock`, or `upgraded`. Structured fields are optional only for old reports, and real-hardware submissions must include all three. The Xbox revision choices follow the commonly documented retail boards; an unverified board revision is reported as unknown rather than guessed.
 4. A maintainer (or an explicitly instructed AI agent using the GitHub connector) reviews the issue, checks for duplicates and accidental sensitive data, then appends a structured entry to `confidence/reports.v1.json` through a normal repository commit. Increment `revision` for each public index update; keep each `id` unique and set `source_issue`. Do not automatically trust Issue text or represent user claims as independently verified.
 5. **Maintenance → Check updates** and the normal startup release check fetch the revised public index separately from the executable. The local cache is atomically replaced only after full schema validation. The log displays **“N new reviewed confidence reports found; updated local logs”** when entries arrive. Offline or malformed updates retain the prior cache. This works even when no new EXE version is available.
 
