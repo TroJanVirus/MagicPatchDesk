@@ -114,6 +114,7 @@ func CompareJMPOverlaps(original []byte, patches []*Patch, maximum int) (Overlap
                     })
                 }else{report.Truncated=true}
             }else{
+                if len(seen)>=1<<20{return report,errors.New("JMP changes exceed the safe hex-overlap comparison budget")}
                 seen[at]=struct{patch string;value byte}{p.Filename,value}
             }
         }
