@@ -235,8 +235,8 @@ type appState struct {
 	w, h          int32
 	fonts         fonts
 	lastErr       string
-	lastDiagnostic core.DiagnosticReport
-	hasDiagnostic bool
+	diagnosticGroups  []core.DiagnosticGroup
+	diagnosticSelected int
 	hoverAction string
 	hoverIndex int
 	hoverFade uint8
@@ -400,6 +400,7 @@ func initApp() {
 	app.selectedGame = -1
 	app.selectedPatch = -1
 	app.root, _ = core.GetLibraryDir()
+	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
 	}
@@ -1027,7 +1028,7 @@ func handle(action string, index int) {
 				notify("Imported local patch: " + filepath.Base(p))
 			}
 		}
-	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-github":
+	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
 		diagnosticsAction(action)
 	case "folder":
 		path := filepath.Join(app.root, "Custom")

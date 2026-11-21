@@ -4,7 +4,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"magicpatchdesk/core"
 	"net/url"
 	"os"
@@ -14,7 +13,7 @@ import (
 	"unsafe"
 )
 
-const diagnosticAppVersion = "v0.8.0-test.1"
+const diagnosticAppVersion = "v0.9.0-test.1"
 
 var (
 	openClipboard        = user32.NewProc("OpenClipboard")
@@ -74,10 +73,7 @@ func recordDiagnostic(operation string, cause error, source, patch, output strin
 		if _, err = core.SaveFailureReport(root, report); err != nil {
 			return
 		}
-		app.mu.Lock()
-		app.lastDiagnostic = report
-		app.hasDiagnostic = true
-		app.mu.Unlock()
+		refreshDiagnosticGroups()
 		redraw()
 	}()
 }
@@ -94,19 +90,48 @@ func reportNotifyError(s string) {
 	}
 }
 
-func latestDiagnostic() (core.DiagnosticReport, bool) {
+// refreshDiagnosticGroups rebuilds a local index; it never reads GitHub or
+// sends telemetry. Called at startup and after a new report is saved.
+func refreshDiagnosticGroups() {
 	app.mu.Lock()
-	r, has := app.lastDiagnostic, app.hasDiagnostic
 	root := app.root
 	app.mu.Unlock()
-	if has {
-		return r, true
+	if root == "" {
+		return
 	}
-	reports, err := core.RecentFailureReports(root, 1)
-	if err != nil || len(reports) == 0 {
-		return core.DiagnosticReport{}, false
+	groups, err := core.RecentDiagnosticGroups(root)
+	if err != nil {
+		return
 	}
-	return reports[0], true
+	app.mu.Lock()
+	app.diagnosticGroups = groups
+	app.diagnosticSelected = 0
+	app.mu.Unlock()
+}
+
+func selectedDiagnosticGroup() (core.DiagnosticGroup, bool) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	i := app.diagnosticSelected
+	if len(app.diagnosticGroups) == 0 || i < 0 || i >= len(app.diagnosticGroups) {
+		return core.DiagnosticGroup{}, false
+	}
+	return app.diagnosticGroups[i], true
+}
+
+func openDiagnosticURL(address string) {
+	sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(address))), 0, 0, SW_SHOW)
+}
+
+func findMatchingDiagnosticIssues(g core.DiagnosticGroup) {
+	prompt := "Search GitHub for this diagnostic group?\n\nThe category, operation and Title ID are represented by a group ID in the search URL. No game files, patches, local paths or passwords are sent.\n\nContinue?"
+	title := "Find matching issue reports"
+	if sysCall(diagnosticMessageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(prompt))), uintptr(unsafe.Pointer(ptr(title))), 0x24|0x100) != 6 {
+		return
+	}
+	query := url.Values{}
+	query.Set("q", "is:issue in:title "+g.ID)
+	openDiagnosticURL("https://github.com/TroJanVirus/MagicPatchDesk/issues?" + query.Encode())
 }
 
 func diagnosticFolder() (string, error) {
@@ -124,6 +149,20 @@ func diagnosticFolder() (string, error) {
 }
 
 func diagnosticsAction(action string) {
+	if action == "diagnostics-prev" || action == "diagnostics-next" {
+		app.mu.Lock()
+		size := len(app.diagnosticGroups)
+		if size > 0 {
+			if action == "diagnostics-next" {
+				app.diagnosticSelected = (app.diagnosticSelected + 1) % size
+			} else {
+				app.diagnosticSelected = (app.diagnosticSelected + size - 1) % size
+			}
+		}
+		app.mu.Unlock()
+		redraw()
+		return
+	}
 	switch action {
 	case "diagnostics-folder":
 		path, err := diagnosticFolder()
@@ -131,43 +170,54 @@ func diagnosticsAction(action string) {
 			notify(err.Error())
 			return
 		}
-		sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(path))), 0, 0, SW_SHOW)
+		openDiagnosticURL(path)
 	case "diagnostics-view":
-		report, ok := latestDiagnostic()
+		group, ok := selectedDiagnosticGroup()
 		if !ok {
 			notify("No failures have been recorded yet.")
 			return
 		}
-		body := report.Summary() + "\n\nThe full local JSON report is in Settings > Open reports folder.\nReview it before sharing."
-		title := "Diagnostic report · " + report.ID
+		body := group.Summary() + "\n\nAll original reports remain in the local Reports folder. Review before sharing."
+		title := "Diagnostic group · " + group.ID
 		sysCall(diagnosticMessageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(body))), uintptr(unsafe.Pointer(ptr(title))), 0x40)
 	case "diagnostics-copy":
-		report, ok := latestDiagnostic()
+		group, ok := selectedDiagnosticGroup()
 		if !ok {
-			notify("No failure report to copy.")
+			notify("No diagnostic group to copy.")
 			return
 		}
-		if err := copyDiagnosticText(report.Summary()); err != nil {
+		if err := copyDiagnosticText(group.Summary()); err != nil {
 			notify("Clipboard unavailable: " + err.Error())
 			return
 		}
-		notify("Safe diagnostic summary copied to clipboard. No data transmitted.")
-	case "diagnostics-github":
-		report, ok := latestDiagnostic()
+		notify("Group summary copied. Nothing transmitted.")
+	case "diagnostics-find":
+		group, ok := selectedDiagnosticGroup()
 		if !ok {
-			notify("No failure report to share.")
+			notify("No diagnostic group to search.")
 			return
 		}
-		prompt := "This will open a NEW GitHub issue in your browser with a safe diagnostic summary prefilled.\n\nNothing is posted unless you submit the issue. GitHub issues may be public. Please review the text and any attachments before sharing.\n\nContinue?"
-		title := "Review diagnostic sharing"
-		if sysCall(diagnosticMessageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(prompt))), uintptr(unsafe.Pointer(ptr(title))), 0x24|0x100) != 6 {
+		findMatchingDiagnosticIssues(group)
+	case "diagnostics-github":
+		group, ok := selectedDiagnosticGroup()
+		if !ok {
+			notify("No diagnostic group to share.")
 			return
 		}
-		query := url.Values{}
-		query.Set("title", fmt.Sprintf("[Diagnostic] %s in %s", report.ErrorCode, report.Operation))
-		query.Set("body", report.Summary()+"\n\nSteps to reproduce:\n1. \n2. \n\nExpected behaviour:\n\nActual behaviour:\n\nOptional: attach the reviewed JSON from the local Reports folder. Do not attach game binaries, source files, passwords, or private paths.")
-		address := "https://github.com/TroJanVirus/MagicPatchDesk/issues/new?" + query.Encode()
-		sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(address))), 0, 0, SW_SHOW)
+		prompt := "This group may already have a GitHub issue.\n\nYES = Search matching issues first (recommended)\nNO = Compose a new issue (review before submitting)\nCANCEL = Do nothing\n\nNo files, passwords or full local paths are automatically shared. GitHub issues may be public."
+		title := "Diagnostic report · " + group.ID
+		switch sysCall(diagnosticMessageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(prompt))), uintptr(unsafe.Pointer(ptr(title))), 0x03|0x30|0x100) {
+		case 6:
+			// Copy so the person can add the group summary as a comment to an
+			// existing issue. A failed clipboard operation must not block search.
+			_ = copyDiagnosticText(group.Summary())
+			findMatchingDiagnosticIssues(group)
+		case 7:
+			query := url.Values{}
+			query.Set("title", group.IssueTitle())
+			query.Set("body", group.Summary()+"\n\nSteps to reproduce:\n1. \n2. \n\nExpected behaviour:\n\nActual behaviour:\n\nIf an issue with this group ID exists, add a comment to it instead.\n\nOptional: attach a REVIEWED JSON from the Reports folder. Do not attach game binaries, patches, credentials or private paths.")
+			openDiagnosticURL("https://github.com/TroJanVirus/MagicPatchDesk/issues/new?" + query.Encode())
+		}
 	}
 }
 
