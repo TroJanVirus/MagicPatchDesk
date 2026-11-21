@@ -120,3 +120,4 @@ jobs:
             --jq '(.tagName=="v0.13.0-test.2") and .isPrerelease and (any(.assets[]; .name=="MagicPatchDesk-Windows-x64.exe")) and (any(.assets[]; .name=="SHA256SUMS.txt"))')"
           test "$verified" = true
           echo "Preview release exists with canonical EXE and checksums."
+# Retry after fixing Win32 GDI color type mismatch.
