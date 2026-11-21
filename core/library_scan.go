@@ -2,6 +2,7 @@ package core
 
 import (
     "context"
+    "crypto/sha256"
     "errors"
     "fmt"
     "os"
@@ -28,6 +29,7 @@ type LibraryPatch struct {
     File string
     Name string
     Author string
+    SHA256 string
     Status string // exact, review, incompatible
     Reason string
 }
@@ -53,6 +55,11 @@ func loadLibraryIdentity(game *LibraryGame)error {
     }
     var content []byte
     if game.Kind=="folder" {
+        target,e:=resolveGameMember(game.Path,"default.xbe")
+        if e!=nil{return e}
+        stat,e:=os.Lstat(target)
+        if e!=nil{return e}
+        if !stat.Mode().IsRegular()||stat.Size()>64<<20{return errors.New("game XBE exceeds safe 64MiB scan limit")}
         data,e:=ReadGameMember(game.Path,"default.xbe")
         if e!=nil{return e}
         content=data
@@ -94,6 +101,8 @@ func matchingLibraryPatches(game *LibraryGame,catalog Catalog) {
                     // approved after reading the actual patch.
                     b,e:=os.ReadFile(patch.File)
                     if e==nil{
+                        sum:=sha256.Sum256(b)
+                        item.SHA256=fmt.Sprintf("%x",sum)
                         p,e:=ParseJMP(filepath.Base(patch.File),b)
                         if e==nil && p.CheckSingleFileOnly()==nil {
                             item.Status="exact"
