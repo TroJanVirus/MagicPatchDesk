@@ -122,7 +122,7 @@ func installToFolder() {
 		notify("Could not launch installed app: " + e.Error())
 		return
 	}
-	sysCall(destroyWindow, app.hwnd)
+	sysCall(postMsg, app.hwnd, WM_CLOSE, 0, 0)
 }
 func checkForNewRelease(silent bool) {
 	app.mu.Lock()
@@ -223,7 +223,7 @@ func updateNow() {
 				maintenanceUpdateDone(e)
 				return
 			}
-			sysCall(destroyWindow, app.hwnd)
+			sysCall(postMsg, app.hwnd, WM_CLOSE, 0, 0)
 			return
 		}
 		helper := filepath.Join(dir, "MagicPatchDeskUpdater.exe")
@@ -247,7 +247,7 @@ func updateNow() {
 			maintenanceUpdateDone(e)
 			return
 		}
-		sysCall(destroyWindow, app.hwnd)
+		sysCall(postMsg, app.hwnd, WM_CLOSE, 0, 0)
 	}()
 }
 func maintenanceUpdateDone(e error) {
@@ -291,9 +291,13 @@ func updateHelper(args []string) error {
 	close := kernel.NewProc("CloseHandle")
 	handle, _, _ := openProcess.Call(0x00100000, 0, uintptr(parent))
 	if handle != 0 {
-		wait.Call(handle, 30000)
+		result, _, callErr := wait.Call(handle, 30000)
 		close.Call(handle)
+		if result != 0 { // WAIT_OBJECT_0: old executable has exited.
+			return fmt.Errorf("old application has not exited safely (wait result %d: %v)", result, callErr)
+		}
 	} else {
+		// The parent may have exited before OpenProcess was called.
 		time.Sleep(1300 * time.Millisecond)
 	}
 	backup := filepath.Join(filepath.Dir(target), "MagicPatchDesk.previous.exe")

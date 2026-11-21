@@ -1,4 +1,4 @@
-# Magic Patch Desk v0.12.0-test.1 — Self-updates, managed install, automated issue reports and Cerbios CCI
+# Magic Patch Desk v0.12.0-test.2 — Self-updates, managed install, automated issue reports and Cerbios CCI
 
 ## New
 

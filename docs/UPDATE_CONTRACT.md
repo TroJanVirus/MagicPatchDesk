@@ -1,6 +1,6 @@
 # Magic Patch Desk — permanent self-update contract (protocol v1)
 
-**Never break existing update clients.** This contract was introduced in v0.12.0-test.1. A pre-v0.12 portable EXE does not have the updater; users install v0.12 once and can update from the new Maintenance tab thereafter.
+**Never break existing update clients.** This contract was introduced in v0.12.0-test.2. A pre-v0.12 portable EXE does not have the updater; users install v0.12 once and can update from the new Maintenance tab thereafter.
 
 ## Program and data directories
 
