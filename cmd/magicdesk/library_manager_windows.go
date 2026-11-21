@@ -10,6 +10,7 @@ import (
     "magicpatchdesk/core"
     "os"
     "path/filepath"
+    "sort"
     "strings"
     "sync"
     "syscall"
@@ -117,8 +118,13 @@ func managerScan(){
             manager.jobs=make([]core.BatchJob,len(scan.Games))
             for i,g:=range scan.Games{
                 manager.jobs[i]=core.BatchJob{Game:g,Decision:core.BatchReview,OutputMask:defaultBatchMask(g)}
-                for _,p:=range g.Patches{if p.Status=="exact"{manager.jobs[i].PatchFile=p.File;break}}
+                for _,p:=range g.Patches{if p.Status=="exact"{manager.jobs[i].PatchFile=p.File;manager.jobs[i].PatchSHA256=p.SHA256;break}}
             }
+            // Leave ambiguous and complex games at the end of the queue.
+            sort.SliceStable(manager.jobs,func(i,j int)bool{
+                priority:=func(status string)int{switch status{case "ready":return 0;case "review":return 1;case "unmatched":return 2;default:return 3}}
+                return priority(manager.jobs[i].Game.Status)<priority(manager.jobs[j].Game.Status)
+            })
             manager.selected=-1
             manager.scroll=0
             manager.status=fmt.Sprintf("%d games scanned; no files modified",len(scan.Games))
@@ -134,6 +140,7 @@ func managerSelectPatchOffset(delta int){
         if count>0{
             manager.patchIndex=(manager.patchIndex+delta+count)%count
             manager.jobs[manager.selected].PatchFile=chosenManagerPatch(manager.jobs[manager.selected].Game,manager.patchIndex)
+            manager.jobs[manager.selected].PatchSHA256=manager.jobs[manager.selected].Game.Patches[manager.patchIndex].SHA256
         }
     }
     manager.mu.Unlock()
