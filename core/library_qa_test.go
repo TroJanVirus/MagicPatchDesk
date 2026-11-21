@@ -53,7 +53,7 @@ func TestLibraryScanAndCautiousBatch(t *testing.T){
     g:=scan.Games[0]
     if g.Status!="ready"||len(g.Patches)!=1||g.Patches[0].Status!="exact"{t.Fatalf("unexpected game match: %+v",g)}
     output:=filepath.Join(t.TempDir(),"patched")
-    jobs:=[]BatchJob{{Game:g,Decision:BatchAuto,PatchFile:pf,OutputMask:GameOutputFolder|GameOutputXBE}}
+    jobs:=[]BatchJob{{Game:g,Decision:BatchAuto,PatchFile:pf,PatchSHA256:g.Patches[0].SHA256,OutputMask:GameOutputFolder|GameOutputXBE}}
     summary,e:=RunBatchJobs(context.Background(),filepath.Dir(folder),output,jobs,log)
     if e!=nil{t.Fatal(e)}
     if summary.Completed!=1||summary.Failed!=0{t.Fatalf("unexpected batch summary: %+v",summary)}
