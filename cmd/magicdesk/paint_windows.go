@@ -76,6 +76,8 @@ func paint(hdc uintptr) {
 		drawRecent(hdc, w, h)
 	case 6:
 		drawMaintenance(hdc,w,h)
+	case 7:
+		drawGameOutputs(hdc,w,h)
 	}
 	app.mu.Lock()
 	status := app.status
@@ -100,7 +102,7 @@ func drawSidebar(hdc uintptr, w, h int32) {
 	nav := []struct {
 		label  string
 		symbol string
-	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}, {"Maintenance", "⚒"}}
+	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}, {"Maintenance", "⚒"}, {"Game Outputs", "◫"}}
 	for i, item := range nav {
 		y := int32(145 + i*57)
 		if app.tab == i {
@@ -113,7 +115,7 @@ func drawSidebar(hdc uintptr, w, h int32) {
 		textAt(hdc, item.label, 61, y+8, 145, 30, app.fonts.Medium, map[bool]uint32{true: white, false: muted}[app.tab == i])
 		addHit(ir(10, y, 211, 49), "tab", i)
 	}
-	if h < 690 {return} // avoid overlapping sidebar entries on compact windows
+	if h < 795 {return} // avoid overlapping sidebar entries on compact windows
 	panel(hdc, ir(17, h-202, 198, 122), 0x1E2A3E, 14)
 	textAt(hdc, "PATCH COLLECTION", 31, h-192, 167, 21, app.fonts.Micro, muted)
 	app.mu.Lock()
@@ -551,16 +553,67 @@ func drawSettings(hdc uintptr, w, h int32) {
 	}
 	_ = h
 }
+func drawGameOutputs(hdc uintptr, w, h int32) {
+    drawPageHeader(hdc, "Game image outputs", "Choose exactly which game files and image formats to generate.", w)
+    x:=int32(265)
+    width:=w-294
+    panel(hdc,ir(x,125,width,624),surface,19)
+    textAt(hdc,"01   GAME SOURCE",x+31,150,width-55,25,app.fonts.Micro,muted)
+    source:=chosenGameSource()
+    description:="Use a loaded game, select an ISO/XISO/CCI/XBE, or locate an extracted folder"
+    if source!="" {description=source}
+    panel(hdc,ir(x+28,179,width-56,43),surface2,12)
+    textAt(hdc,strLimit(description,92),x+42,186,width-84,28,app.fonts.Medium,white)
+    third:=(width-81)/3
+    button(hdc,"Choose image/XBE",ir(x+28,232,third,38),"game-source",0,false)
+    button(hdc,"Choose extracted folder",ir(x+40+third,232,third,38),"game-folder",0,false)
+    button(hdc,"Use loaded game",ir(x+52+2*third,232,third,38),"game-use-loaded",0,false)
+    textAt(hdc,"02   GAME OUTPUT FORMATS  ·  SELECT ONE OR MORE",x+31,297,width-55,27,app.fonts.Micro,muted)
+    labels:=[]string{"Patched game XBE only","Extracted game folder","Game-partition XISO","Cerbios compressed CCI","Preserve full-disc ISO"}
+    cell:=(width-84)/2
+    for i,v:=range labels {
+        cx:=x+28+int32(i%2)*(cell+15)
+        cy:=int32(330+(i/2)*59)
+        panel(hdc,ir(cx,cy,cell,49),map[bool]uint32{true:0x2E4E78,false:surface2}[gameOutputMask&(uint32(1)<<uint(i))!=0],12)
+        mark(hdc,ir(cx+13,cy+16,18,18),gameOutputMask&(uint32(1)<<uint(i))!=0)
+        textAt(hdc,v,cx+43,cy+9,cell-49,32,app.fonts.Medium,white)
+        addHit(ir(cx,cy,cell,49),"game-format",i)
+    }
+    textAt(hdc,"03   PATCH SOURCE  ·  OPTIONAL",x+31,518,width-55,28,app.fonts.Micro,muted)
+    patch:="No patch: convert/extract original game without modification"
+    if app.directFile!="" {patch=filepath.Base(app.directFile)
+    }else if app.parsed!=nil {patch=app.parsed.Filename}
+    panel(hdc,ir(x+28,545,width-56,44),surface2,11)
+    textAt(hdc,strLimit(patch,90),x+43,552,width-83,28,app.fonts.Regular,white)
+    textAt(hdc,"Choose patches and record groups in Patch Library. All named targets must be resolved.",x+32,604,width-60,25,app.fonts.Small,muted)
+    textAt(hdc,"XISO uses .iso extension, but is NOT a full-disc ISO. Every output is verified.",x+32,630,width-60,25,app.fonts.Small,muted)
+    button(hdc,"CREATE SELECTED OUTPUTS",ir(x+width-304,674,270,47),"game-export",0,true)
+    textAt(hdc,outputNames(gameOutputMask),x+31,685,width-345,26,app.fonts.Small,mint)
+    _=h
+}
+
 func drawAbout(hdc uintptr, w, h int32) {
-	drawPageHeader(hdc, "About Magic Patch Desk", "A native Windows workbench for Original Xbox game modifications.", w)
-	x := int32(266)
-	width := w - 299
-	panel(hdc, ir(x, 130, width, 408), surface, 20)
-	textAt(hdc, "NATIVE. PORTABLE. MADE FOR XBOX.", x+34, 155, width-65, 40, app.fonts.Title, white)
-	lines := []string{"• Native Win32 application compiled with Go — no browser window or runtime installer.", "• Live GitHub collection checking, fully cached offline; add JMPs manually.", "• Original XBE inspection, Title IDs, regions and CRC32 comparison.", "• Group identical JMP comments, expand to toggle individual records or mixed groups.", "• XISO and Xbox full-disc ISO reading, with safe output copy and sector relocation.", "• Parallel file copying with bounded worker counts.", "• Dry-run patch preview, confirmation before writing; safe settings saved locally."}
-	for i, v := range lines {
-		textAt(hdc, v, x+35, 220+int32(i)*38, width-62, 33, app.fonts.Regular, muted)
-	}
-	textAt(hdc, "Important: recompiled and altered full-disc images cannot retain original disc signatures.", x+35, 503, width-67, 28, app.fonts.Small, amber)
-	_ = h
+    drawPageHeader(hdc, "About Magic Patch Desk", "Native Windows Original Xbox patching and image conversion.", w)
+    x:=int32(266)
+    width:=w-299
+    panel(hdc,ir(x,130,width,605),surface,20)
+    textAt(hdc,"NATIVE. PORTABLE. MADE FOR XBOX.",x+34,149,width-65,39,app.fonts.Title,white)
+    lines:=[]string{
+        "Independent native Go/XDVDFS/CCI implementation — no bundled external tooling.",
+        "Games and original executables remain on your computer; originals are preserved.",
+        "Image outputs: extracted game folder, game XBE, XISO, CCI and safe full-disc ISO.",
+        "Patch support: JMP, IPS, BPS, Xdelta, EIPS, MPD pack and Rocky5 PF.",
+    }
+    for i,v:=range lines {textAt(hdc,v,x+35,207+int32(i)*34,width-62,29,app.fonts.Regular,muted)}
+    textAt(hdc,"REFERENCES AND ACKNOWLEDGEMENTS",x+35,370,width-60,32,app.fonts.Title,white)
+    refs:=[]string{
+        "Team Resurgent / Repackinator (GPL-3.0): Xbox disc-image workflow reference",
+        "Team Cerbios; Team Resurgent / libCCI; purelogiccode / CCISharp: CCI format",
+        "Rocky5 / XBMC4Gamers (GPL-3.0): PF patch format and workflow",
+        "JayYardley / Xbox Magic Patches and PatchHub: JMP catalogue/source",
+    }
+    for i,v:=range refs{textAt(hdc,v,x+35,417+int32(i)*37,width-63,30,app.fonts.Regular,muted)}
+    textAt(hdc,"References are credited, not bundled. No Repackinator source has been copied.",x+35,579,width-67,28,app.fonts.Small,amber)
+    button(hdc,"VIEW FULL CREDITS + SOURCE LINKS",ir(x+35,635,323,45),"game-credits",0,false)
+    _=h
 }
