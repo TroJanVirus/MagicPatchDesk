@@ -38,12 +38,15 @@ type managerModel struct {
     confidence []core.ConfidenceReport
     confidenceScroll int
     reportResult string
+    xboxRevision string
+    ramUpgrade string
+    cpuUpgrade string
     scanning bool
     running bool
     status string
     log *core.VerificationLog
 }
-var manager = managerModel{selected:-1,browseSelected:-1,reportResult:"working",log:core.NewVerificationLog(700)}
+var manager = managerModel{selected:-1,browseSelected:-1,reportResult:"working",xboxRevision:"unknown",ramUpgrade:"unknown",cpuUpgrade:"unknown",log:core.NewVerificationLog(700)}
 
 type browseInfo struct {
     Owner uintptr
@@ -382,9 +385,12 @@ func managerConfirm(environment string){
     choicePatch:=job.Game.Patches[choice]
     digest,e:=core.ConfidenceFileHash(choicePatch.File)
     if e!=nil{notify(e.Error());return}
-    manager.mu.Lock();result:=manager.reportResult;manager.mu.Unlock()
+    manager.mu.Lock()
+    result:=manager.reportResult
+    revision,ram,cpu:=manager.xboxRevision,manager.ramUpgrade,manager.cpuUpgrade
+    manager.mu.Unlock()
     hardware:=""
-    if environment=="hardware"{hardware="Original Xbox (details not supplied)"}
+    if environment=="hardware"{hardware="Original Xbox"}
     var random [12]byte
     if _,e=rand.Read(random[:]);e!=nil{notify(e.Error());return}
     report:=core.ConfidenceReport{
@@ -392,7 +398,21 @@ func managerConfirm(environment string){
         SourceCRC32:job.Game.CRC32,Environment:environment,Result:result,
         Hardware:hardware,ReportedUTC:time.Now().UTC().Format(time.RFC3339),
     }
-    msg:=fmt.Sprintf("Publish a PUBLIC field-test report to GitHub Issues?\n\nPatch: %s\nTitle ID: %s\nOriginal XBE CRC: %s\nTest environment: %s\nResult: %s\n\nOnly patch SHA256 and source identity are shared. No game bytes or local path. A maintainer must review it before it appears in the public confidence log.",choicePatch.Name,report.TitleID,report.SourceCRC32,environment,result)
+    if environment=="hardware"{
+        report.XboxRevision=revision
+        report.RAMUpgrade=ram
+        report.CPUUpgrade=cpu
+    }
+    // Validation happens before requesting public-submission consent, so
+    // incomplete/invalid hardware metadata cannot be silently uploaded.
+    if _,e=core.ConfidenceIssueBody(report);e!=nil{notify("Invalid hardware report: "+e.Error());return}
+    hardwareDetails:=""
+    if environment=="hardware"{
+        hardwareDetails="\\nRevision: "+core.ConfidenceRevisionLabel(revision)+
+            "\\nRAM upgrade: "+core.ConfidenceUpgradeLabel(ram)+
+            "\\nCPU upgrade: "+core.ConfidenceUpgradeLabel(cpu)+"\\n"
+    }
+    msg:=fmt.Sprintf("Publish a PUBLIC field-test report to GitHub Issues?\\n\\nPatch: %s\\nTitle ID: %s\\nOriginal XBE CRC: %s\\nTest environment: %s\\nResult: %s%s\\nOnly patch SHA256, source identity and the displayed hardware choices are shared. No game bytes or local path. A maintainer must review it before it appears in the public confidence log.",choicePatch.Name,report.TitleID,report.SourceCRC32,environment,result,hardwareDetails)
     if maintenanceDialog("Confirm compatibility report",msg,0x24|0x100)!=6{return}
     manager.log.Add("info","Confidence submission","Submitting user-confirmed "+environment+" report for review")
     go func(){
@@ -420,7 +440,16 @@ func managerAction(action string,index int){
         if index==4{refreshManagerConfidence()}
     case "manager-select":
         manager.mu.Lock()
-        if index>=0&&index<len(manager.jobs){manager.selected=index;manager.patchIndex=0}
+        if index>=0&&index<len(manager.jobs){
+            if index!=manager.selected {
+                // Avoid accidentally attributing another user's / console's
+                // hardware modifications to the next game report.
+                manager.xboxRevision="unknown"
+                manager.ramUpgrade="unknown"
+                manager.cpuUpgrade="unknown"
+            }
+            manager.selected=index;manager.patchIndex=0
+        }
         manager.mu.Unlock()
         refreshManagerConfidence()
     case "manager-patch-prev":managerSelectPatchOffset(-1)
@@ -450,6 +479,21 @@ func managerAction(action string,index int){
     case "manager-confidence-result":
         manager.mu.Lock()
         switch manager.reportResult{case "working":manager.reportResult="partial";case "partial":manager.reportResult="failed";default:manager.reportResult="working"}
+        manager.mu.Unlock()
+    case "manager-confidence-revision":
+        manager.mu.Lock()
+        values:=core.ConfidenceXboxRevisions()
+        for i,v:=range values{if v==manager.xboxRevision {manager.xboxRevision=values[(i+1)%len(values)];break}}
+        manager.mu.Unlock()
+    case "manager-confidence-ram":
+        manager.mu.Lock()
+        values:=core.ConfidenceUpgradeStatuses()
+        for i,v:=range values{if v==manager.ramUpgrade{manager.ramUpgrade=values[(i+1)%len(values)];break}}
+        manager.mu.Unlock()
+    case "manager-confidence-cpu":
+        manager.mu.Lock()
+        values:=core.ConfidenceUpgradeStatuses()
+        for i,v:=range values{if v==manager.cpuUpgrade{manager.cpuUpgrade=values[(i+1)%len(values)];break}}
         manager.mu.Unlock()
     case "manager-confidence-xemu":managerConfirm("xemu")
     case "manager-confidence-hardware":managerConfirm("hardware")
