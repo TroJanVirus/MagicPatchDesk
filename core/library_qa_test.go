@@ -141,3 +141,45 @@ func TestConfidenceIndexVersioningAndUpdates(t *testing.T){
     digest:=sha256.Sum256([]byte("x"))
     if len(hex.EncodeToString(digest[:]))!=64{t.Fatal("unexpected digest size")}
 }
+
+func TestJMPCombiningWarnsOnConflictingHexAndVerifiesOutput(t *testing.T){
+    _,original:=qaGame(t)
+    tmp:=t.TempDir()
+    a:=qaPatch(t,original,tmp,"Alpha","300","AA")
+    b:=qaPatch(t,original,tmp,"Beta","300","BB")
+    x,_:=os.ReadFile(a)
+    y,_:=os.ReadFile(b)
+    first,e:=ParseJMP("Alpha.jmp",x)
+    if e!=nil{t.Fatal(e)}
+    second,e:=ParseJMP("Beta.jmp",y)
+    if e!=nil{t.Fatal(e)}
+    _,r,e:=CombineJMPs(original,[]*Patch{first,second},false)
+    if e==nil||r.Different!=1{t.Fatalf("a conflicting overwrite must demand approval: %+v %v",r,e)}
+    merged,r,e:=CombineJMPs(original,[]*Patch{first,second},true)
+    if e!=nil{t.Fatal(e)}
+    if r.Total!=1{t.Fatalf("missing overlap evidence: %+v",r)}
+    combined,e:=ParseJMP("combined.jmp",merged)
+    if e!=nil{t.Fatal(e)}
+    if !strings.Contains(combined.Headers["notes"],"Alpha.jmp")||!strings.Contains(combined.Headers["notes"],"Beta.jmp")||!strings.Contains(combined.Headers["author"],"Tester"){
+        t.Fatal("combined JMP lost source and author credits")
+    }
+    output,e:=combined.Apply(original,false)
+    if e!=nil{t.Fatal(e)}
+    if output[0x300]!=0xBB{t.Fatal("combined JMP did not preserve user-approved sequential overwrite order")}
+}
+func TestBatchRejectsJMPModifiedAfterScan(t *testing.T){
+    folder,original:=qaGame(t)
+    patch:=qaPatch(t,original,t.TempDir(),"original","300","A1")
+    crc:=fmt.Sprintf("%08X",crc32.ChecksumIEEE(original))
+    scan,e:=ScanGameLibrary(context.Background(),filepath.Dir(folder),Catalog{Games:[]Game{{Title:"QA",Patches:[]CatalogPatch{{File:patch,TitleID:"4A580001",CRC:crc}}}}},nil)
+    if e!=nil{t.Fatal(e)}
+    g:=scan.Games[0]
+    if g.Status!="ready"{t.Fatalf("expected exact candidate: %+v",g)}
+    if e:=os.WriteFile(patch,[]byte(strings.ReplaceAll(string(mustReadQA(t,patch)),"300:A1","300:BB")),0644);e!=nil{t.Fatal(e)}
+    job:=BatchJob{Game:g,Decision:BatchAuto,PatchFile:patch,PatchSHA256:g.Patches[0].SHA256,OutputMask:GameOutputXBE}
+    outputs:=filepath.Join(t.TempDir(),"output")
+    summary,e:=RunBatchJobs(context.Background(),filepath.Dir(folder),outputs,[]BatchJob{job},nil)
+    if e!=nil{t.Fatal(e)}
+    if summary.Completed!=0||summary.Failed!=1{t.Fatal("changed JMP was incorrectly approved for unattended use")}
+}
+func mustReadQA(t *testing.T,p string)[]byte{t.Helper();b,e:=os.ReadFile(p);if e!=nil{t.Fatal(e)};return b}
