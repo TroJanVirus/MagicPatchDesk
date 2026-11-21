@@ -19,6 +19,7 @@ import (
 var gameOutputSource string
 var gameOutputMask uint32 = core.GameOutputXISO
 var gameOutputFormats = map[string]uint32{}
+var gameOutputIgnorePatch bool
 
 func chosenGameSource() string {
     if gameOutputSource!="" {return gameOutputSource}
@@ -61,7 +62,7 @@ func outputNames(mask uint32) string {
 func gameOutputAction(action string,index int) {
     switch action {
     case "game-source":
-        if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.cci\x00All files\x00*.*\x00","Choose original game image or XBE","");p!="" {
+        if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.xiso;*.cci\x00All files\x00*.*\x00","Choose original game image or XBE","");p!="" {
             selectGameSource(p)
             app.status="Game output source: "+filepath.Base(p)
         }
@@ -91,6 +92,8 @@ func gameOutputAction(action string,index int) {
             gameOutputFormats[gameSourceCategory(chosenGameSource())]=gameOutputMask
             savePreferences()
         }
+    case "game-patch-toggle":
+        gameOutputIgnorePatch=!gameOutputIgnorePatch
     case "game-export":
         startGameOutput()
     case "game-credits":
@@ -249,6 +252,7 @@ func startGameOutput(){
     if app.busy{app.mu.Unlock();return}
     source,selected,direct:=chosenGameSource(),app.parsed,app.directFile
     mask,password,override:=gameOutputMask,app.password,app.override
+    if gameOutputIgnorePatch {selected=nil;direct=""}
     app.mu.Unlock()
     if source=="" {notify("Choose a game image, extracted folder or XBE first.");return}
     if mask==0 {notify("Select at least one output format.");return}
