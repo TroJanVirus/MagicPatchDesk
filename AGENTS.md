@@ -41,3 +41,7 @@ Read `docs/PATCH_PACK_FORMAT.md`. A JMP is always one file, even if its records 
 ## 2026-11-21 — v0.7 Rocky5 PF and all-variants pack
 
 See docs/PF_FORMAT.md and docs/PATCH_PACK_V2.md. The PF parser/interpreter is distinct from JMP, and includes CP/HR/OF/SM/SR/MV/RN/RM. Its full-folder application stages a separate tree; ISO file operation changes are refused. New pack schema magicpatchdesk-pack-v2 includes original JMP plus all representable IPS/BPS/Xdelta/EIPS alternatives per named target and source/result checksums; v1 remains supported. Test go test ./..., race, vet and cross-build before releases.
+
+## Diagnostic reporting v0.8
+
+When modifying patch/conversion code, wire failures through `recordFailure` or `recordWarning` in the native UI, and extend `core/diagnostics.go` with stable error categories rather than raw error telemetry. Do not include absolute paths, usernames, game binaries, patch patterns, passwords, arbitrary comments or unfiltered errors in shareable reports. Reports remain local until a user expressly submits a GitHub issue. Tests and Windows cross-build are mandatory.

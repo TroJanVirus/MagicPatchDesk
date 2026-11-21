@@ -108,6 +108,7 @@ func maybeStartPF(previewOnly bool, direct, source string, workers int) (bool, e
 				})
 			}
 		}
+		if e == nil && len(result.Warnings)>0 {recordWarning("pf.apply",len(result.Warnings),source,direct)}
 		if e == nil {
 			message := fmt.Sprintf("PF: %s\n\nActions: %d\nModified: %s\nCreated: %s\nRemoved: %s", pf.Description(), result.Actions, strings.Join(result.Modified, ", "), strings.Join(result.Created, ", "), strings.Join(result.Removed, ", "))
 			if len(result.Warnings) > 0 {
@@ -132,6 +133,7 @@ func maybeStartPF(previewOnly bool, direct, source string, workers int) (bool, e
 			app.progress = 1
 		}
 		app.mu.Unlock()
+		if e != nil {recordFailure("pf.apply",e,source,direct,dest)}
 		redraw()
 	}()
 	return true, nil

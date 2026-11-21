@@ -241,6 +241,7 @@ func runPackConversion() {
 			app.status = "Saved patch pack: " + output
 		}
 		app.mu.Unlock()
+		if jobErr != nil {recordFailure("pack.create",jobErr,sourceISO,name,output)}
 		redraw()
 	}()
 }
