@@ -123,7 +123,7 @@ Use **Maintenance → Install app** to place a managed executable at `%LOCALAPPD
 **Cerbios `.cci`** is supported with native CCIM v1/LZ4 read/write, split parts, extraction, ISO recompression and direct single-default-XBE patching to a new CCI. More complex PF/multi-file/pack CCI workflows require extraction to XISO first rather than dropping records. See [CCI format and safety](docs/CCI_SUPPORT.md).
 
 
-## Next development: selectable game outputs and source attribution (2026-11-22; unverified build)
+## Next development: selectable game outputs and source attribution (2026-11-22; headless checks passed, device QA pending)
 
 The new **Game Outputs** workspace accepts an Original Xbox \`.iso\` (full-disc or game-partition XISO), Cerbios \`.cci\`, standalone \`.xbe\`, or an extracted folder (choose its **root default.xbe**). The chosen input no longer locks the output. Select one or more independent products:
 
@@ -137,6 +137,6 @@ Use **Patch Library** to select a JMP/IPS/BPS/Xdelta/EIPS/PF/\`.mpdpack\` if wan
 
 Each run saves products inside one new \`<chosen-name>/\` directory and refuses to overwrite existing files. Repack outputs are verified by reopening XDVDFS and comparing the contents; compressed CCI is decoded and checked after writing. Game-partition XISO is **not** a byte-equivalent recreation of a Redump ISO. Intermediate storage must be sufficient for extraction and rebuilt images. The native writer intentionally rejects invalid/ambiguous/case-conflicting XDVDFS filenames and symlinks.
 
-**Status: source implemented, synthetic regression tests added, automated tests/cross-build and Windows 10/11/Xbox/Cerbios device boot tests have NOT been run for this change. Not yet a verified downloadable release.** See [implementation/design details](docs/IMAGE_OUTPUT_WORKFLOW.md), [reference attribution](CREDITS.md), and [work tracker](https://github.com/TroJanVirus/MagicPatchDesk/issues/9).
+**Headless validation passed:** `go test ./...`, `go test -race ./core`, `go vet ./...`, and Windows x64 `CGO_ENABLED=0` cross-build (Go 1.23.12). Exact run: [headless verification run #44913720896](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44913720896). **Not yet validated:** native Windows 10/11 GUI, real Xbox/Cerbios boot, or a signed/published installer/release. A successful cross-build does not guarantee runtime compatibility.** See [implementation/design details](docs/IMAGE_OUTPUT_WORKFLOW.md), [reference attribution](CREDITS.md), and [work tracker](https://github.com/TroJanVirus/MagicPatchDesk/issues/9).
 
 The **About** screen now lists the reference projects (Repackinator, Team Cerbios/libCCI/CCISharp, Rocky5/XBMC4Gamers, and the JMP catalogue) and links to detailed credits. Repackinator's GPL-3.0 source is not bundled or copied. Future contributions must record exactly which reference work was used and its licensing details in \`CREDITS.md\`.
