@@ -1,6 +1,7 @@
 package core
 
 import (
+    "bytes"
     "crypto/sha256"
     "errors"
     "fmt"
@@ -59,7 +60,7 @@ func ExtractImageMember(image,member,destination string)error{
     closeErr:=target.Close()
     if e!=nil{return e}
     if closeErr!=nil{return closeErr}
-    if verified!=int64(match.Size) || sha256.Sum256(a.Sum(nil))!=sha256.Sum256(b.Sum(nil)){
+    if verified!=int64(match.Size) || !bytes.Equal(a.Sum(nil),b.Sum(nil)){
         return errors.New("image extraction hash or size mismatch")
     }
     good=true
