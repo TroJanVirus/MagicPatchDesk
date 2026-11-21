@@ -62,3 +62,8 @@ Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, option
 - `core/patchhub.go` validates real image payloads, filters noart fallback and supports apex/www trusted redirects; `cmd/magicdesk/art_windows.go` retries cover requests and ignores old invalid caches.
 - `core/catalog.go` maps punctuation-normalized unique titles without guessing ambiguous ones. App code in `cmd/magicdesk/conversion_windows.go` presents required/recommended/optional source hints and explicit prompts.
 - Run `go test ./...`, `go test -race ./core`, `go vet ./...`, and cross-compile with Go 1.23. Windows UI and console testing remain outstanding.
+
+
+## 2026-11-21: v0.5 named-file records and conversion interlocks
+
+Use `core/targets.go` for filename.ext comment detection, path safety, per-file ApplyToTarget and PreviewTarget. Single-file p.Apply and p.Preview reject enabled named-file records. For Windows, `cmd/magicdesk/targeted_windows.go` intercepts multi-target JMPs, prompts to locate/skip/cancel each target, checks XBE CRC32/Title ID against the original default.xbe, previews per-file patches and writes separate output copies only. `core/xiso_multi.go` can update multiple uniquely resolved existing XDVDFS files, with growth relocation limited to game-partition XISOs. See `docs/RELEASE_NOTES_v0.5.0-test.md`; do not overclaim Windows GUI/hardware QA. GUI disabled Convert button enforces PlanPatchConversion source requirements. No automatic CI workflows.

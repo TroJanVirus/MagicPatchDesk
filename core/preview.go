@@ -30,6 +30,7 @@ type PatchPreview struct {
 // Preview applies a patch exclusively to an in-memory copy and reports its
 // intended writes. It does not modify any source file.
 func (p *Patch) Preview(input []byte, overrideCRC bool) (PatchPreview, error) {
+	if err := p.CheckSingleFileOnly(); err != nil { return PatchPreview{}, err }
 	_, report, err := p.applyWithTrace(input, overrideCRC)
 	return report, err
 }

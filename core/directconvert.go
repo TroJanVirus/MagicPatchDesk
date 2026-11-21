@@ -31,6 +31,16 @@ func PlanPatchConversion(name string, data []byte, outputFormat int, password st
 		if err != nil {
 			return ConversionPlan{}, err
 		}
+		external, err := p.ExternalTargets()
+		if err != nil {
+			return ConversionPlan{}, err
+		}
+		if len(external) > 0 {
+			if outputFormat == 0 {
+				return ConversionPlan{Reason: "Multi-file JMP can be copied without an original; verifying its different file targets requires the original for each target."}, nil
+			}
+			return ConversionPlan{}, fmt.Errorf("this JMP targets additional file(s) (%s): a single-file patch format cannot represent multiple target files; split records into a per-file JMP before converting", strings.Join(external, ", "))
+		}
 		switch outputFormat {
 		case 0:
 			return ConversionPlan{SourceRecommended: true, Reason: "A source XBE is optional for JMP-to-JMP. Supply one to verify Title ID, CRC32 and resulting bytes."}, nil
@@ -199,6 +209,17 @@ func ConvertPatchBytes(sourceName string, patchBytes []byte, sourceXBE []byte, o
 	plan, err := PlanPatchConversion(sourceName, patchBytes, outputFormat, password)
 	if err != nil {
 		return nil, plan, err
+	}
+	if outputFormat == 0 && strings.EqualFold(filepath.Ext(sourceName), ".jmp") {
+		if p, e := ParseJMP(sourceName, patchBytes); e == nil {
+			if special, e := p.ExternalTargets(); e != nil {
+				return nil, plan, e
+			} else if len(special) > 0 {
+				// Copying a JMP keeps all targets and per-record metadata. One
+				// original XBE cannot verify the other files; don't pretend it did.
+				return SerializeJMP(p), plan, nil
+			}
+		}
 	}
 	if sourceXBE == nil && plan.RequiresSource {
 		return nil, plan, errors.New("original XBE required: " + plan.Reason)

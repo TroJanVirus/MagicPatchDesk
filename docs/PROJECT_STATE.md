@@ -47,3 +47,8 @@ Version v0.3.0-test.1 adds BPS1 codec and source/target/patch CRC checks, option
 
 ## 2026-11-21: v0.4.0-test source-aware converter and cover recovery
 Patch-to-patch conversion checks patch semantics; JMP offset-only → IPS/EIPS, IPS/EIPS → IPS/EIPS, and IPS/EIPS → JMP without final-size field work without original (verification caveat). Source-dependent JMP records, BPS and Xdelta need the original; supplied originals enable apply-and-verify comparisons. Covers now use validated image downloads, retry-on-error, apex/www redirects and collision-safe normalized title matching. Source Go tests, race checks, vet, Windows cross-build passed locally. Real desktop/hardware testing unverified.
+
+
+## 2026-11-21 — v0.5 file-aware JMP handling
+
+Added special-file comment detection and routing, explicit locate/skip/cancel dialogs, loose sidecar output copies, multi-member XISO patching, and a disabled Convert button when source data is required. Synthetic target-routing, path traversal, multi-target conversion, and full-disc growth refusal tests pass; GUI and real Xbox verification outstanding.

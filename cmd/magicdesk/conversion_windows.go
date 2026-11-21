@@ -42,38 +42,66 @@ func readConversionPatch(path string) (string, []byte, error) {
 }
 
 func refreshConversionHint() {
+	app.conversionBlocked = true
 	if app.bFile != "" {
-		app.conversionHint = "ORIGINAL REQUIRED · Comparing stock and modified XBEs"
+		if app.aFile == "" {
+			app.conversionHint = "This patch conversion requires the source file for the context to create it · Choose stock/original XBE"
+		} else {
+			app.conversionHint = "Source ready · Comparing stock and modified XBEs"
+			app.conversionBlocked = false
+		}
 		return
 	}
 	name, b, err := selectedConversionInput()
 	if err != nil {
-		app.conversionHint = "Select a source patch to see whether the stock XBE is needed"
+		app.conversionHint = "Choose a source patch or modified XBE"
 		return
 	}
-	// Password KDF on encrypted IPS is deliberately expensive. Avoid executing
-	// it on the Win32 message thread after each password keystroke.
-	if strings.EqualFold(filepath.Ext(name), ".eips") {
-		if app.format == 2 || app.format == 4 {
-			app.conversionHint = "ORIGINAL REQUIRED · BPS/Xdelta needs source bytes; EIPS also needs its password"
-		} else {
-			app.conversionHint = "EIPS password required · original may be optional; exact check runs on Convert"
+	ext := strings.ToLower(filepath.Ext(name))
+	// Encrypted IPS costs 210k PBKDF2 rounds. Never derive keys on each
+	// keystroke or on every Win32 UI repaint.
+	if ext == ".eips" {
+		if app.password == "" {
+			app.conversionHint = "Enter the encrypted IPS password before converting"
+			return
+		}
+		if app.format == 2 || app.format == 4 || app.format == 0 {
+			if app.aFile == "" {
+				app.conversionHint = "This patch conversion requires the source file for the context to create it"
+			} else {
+				app.conversionHint = "Source selected; encrypted IPS structure will be verified on Convert"
+				app.conversionBlocked = false
+			}
+			return
+		}
+		app.conversionHint = "IPS and encrypted IPS can be re-encoded without the original"
+		app.conversionBlocked = app.format == 3 && len([]rune(app.password)) < 8
+		if app.conversionBlocked {
+			app.conversionHint = "Encryption password must be at least 8 characters"
 		}
 		return
 	}
+
 	plan, err := core.PlanPatchConversion(name, b, app.format, app.password)
 	if err != nil {
-		app.conversionHint = "Cannot inspect source patch: " + err.Error()
+		app.conversionHint = "Cannot convert this patch: " + err.Error()
 		return
 	}
+	if plan.RequiresSource && app.aFile == "" {
+		app.conversionHint = "This patch conversion requires the source file for the context to create it"
+		return
+	}
+	if app.format == 3 && len([]rune(app.password)) < 8 {
+		app.conversionHint = "Encryption password must be at least 8 characters"
+		return
+	}
+	app.conversionBlocked = false
 	if plan.RequiresSource {
-		app.conversionHint = "ORIGINAL REQUIRED · " + plan.Reason
+		app.conversionHint = "Original source selected · " + plan.Reason
+	} else if plan.SourceRecommended {
+		app.conversionHint = "Original optional — recommended for verification · " + plan.Reason
 	} else {
-		if plan.SourceRecommended {
-			app.conversionHint = "ORIGINAL OPTIONAL (recommended for verification) · " + plan.Reason
-		} else {
-			app.conversionHint = "NO ORIGINAL NEEDED · " + plan.Reason
-		}
+		app.conversionHint = "No original needed · " + plan.Reason
 	}
 }
 
@@ -88,6 +116,11 @@ func confirmWithoutOriginal(plan core.ConversionPlan) bool {
 
 func runConversion() {
 	if app.busy {
+		return
+	}
+	refreshConversionHint()
+	if app.conversionBlocked {
+		notify(app.conversionHint)
 		return
 	}
 	if app.bFile == "" && app.convertPatchFile == "" && app.directFile == "" && app.parsed == nil {

@@ -205,6 +205,7 @@ type appState struct {
 	aFile, bFile  string
 	convertPatchFile string
 	conversionHint string
+	conversionBlocked bool
 	ipsRLE bool
 	directFile string
 	format        int
@@ -709,6 +710,12 @@ func startPreview() {
 		notify("Choose an XBE/ISO and a patch before previewing.")
 		return
 	}
+	app.mu.Unlock()
+    if handled, e := maybeStartTargeted(true, selected, direct, source, app.workers, override); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
+    app.mu.Lock()
 	app.busy = true
 	app.status = "Analysing patch without writing anything…"
 	app.mu.Unlock()
@@ -751,6 +758,10 @@ func startPatch() {
 		notify("Choose an original XBE or Xbox ISO first.")
 		return
 	}
+    if handled, e := maybeStartTargeted(false, selected, direct, source, workers, override); handled {
+        if e != nil { notify(e.Error()) }
+        return
+    }
 	ext := strings.ToLower(filepath.Ext(source))
 	base := strings.TrimSuffix(filepath.Base(source), filepath.Ext(source))
 	dest := pickFile(true, "Xbox executable or disc image\x00*.xbe;*.iso\x00All files\x00*.*\x00", "Save patched copy", base+"_patched"+ext)

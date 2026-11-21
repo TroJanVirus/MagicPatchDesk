@@ -362,6 +362,9 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			panel(hdc, ir(x+34, y, width-52, 34), 0x1F2F45, 8)
 			mark(hdc, ir(x+47, y+8, 18, 18), rec.Enabled)
 			label := fmt.Sprintf("#%d  %s", r.record+1, rec.Kind)
+            if target, targetErr := core.TargetFromComment(rec.Comment); targetErr == nil && target != "default.xbe" {
+                label += " → " + target
+            }
 			if rec.Kind == core.Offset {
 				label += fmt.Sprintf("  ·  0x%X", rec.Offset)
 			}
@@ -462,7 +465,12 @@ func drawConvert(hdc uintptr, w, h int32) {
 	mark(hdc, ir(x+32, 631, 18, 18), app.ipsRLE)
 	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
 	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
-	button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
+    if app.conversionBlocked {
+        panel(hdc, ir(x+width-277, 658, 244, 44), 0x3A4150, 12)
+        textAt(hdc, "CONVERSION BLOCKED", x+width-259, 665, 230, 29, app.fonts.Medium, 0xABB3BF)
+    } else {
+        button(hdc, "CONVERT / CREATE PATCH", ir(x+width-277, 658, 244, 44), "convert", 0, true)
+    }
 	hint := app.conversionHint
 	if hint == "" { hint = "Choose a source patch to determine whether the original XBE is required." }
 	textAt(hdc, hint, x+30, 707, width-53, 25, app.fonts.Small, muted)

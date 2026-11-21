@@ -255,6 +255,7 @@ func (p *Patch) VerifyCRC(input []byte) error {
 // Apply produces an independent patched copy. All selected records execute in
 // the sequence they appear in the JMP, including records in mixed groups.
 func (p *Patch) Apply(input []byte, overrideCRC bool) ([]byte, error) {
+	if err := p.CheckSingleFileOnly(); err != nil { return nil, err }
 	out, _, err := p.applyWithTrace(input, overrideCRC)
 	return out, err
 }
