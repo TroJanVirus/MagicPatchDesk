@@ -88,7 +88,7 @@ func knownFileType(s string) string {
 	}
 	ext := strings.ToLower(filepath.Ext(s))
 	switch ext {
-	case ".xbe", ".iso", ".xiso", ".cfg", ".ini", ".bin", ".dat", ".pak", ".img", ".jmp", ".pf", ".ips", ".eips", ".bps", ".xdelta", ".vcdiff", ".mpdpack":
+	case ".xbe", ".iso", ".xiso", ".cci", ".cfg", ".ini", ".bin", ".dat", ".pak", ".img", ".jmp", ".pf", ".ips", ".eips", ".bps", ".xdelta", ".vcdiff", ".mpdpack":
 		return ext
 	default:
 		return "other" // Do not disclose arbitrary filename parts.
@@ -110,7 +110,7 @@ func categorizeFailure(e error) (string, string) {
 		{[]string{"missing source", "original file", "requires the source", "requires original", "source file required"}, "missing_original", "The conversion or patch requires original input bytes."},
 		{[]string{"ambiguous", "multiple matches", "multiple possible"}, "ambiguous_target", "More than one possible target file matched."},
 		{[]string{"path traversal", "unsafe path", "unsafe target", "reserved device"}, "unsafe_target", "An unsafe or invalid target path was rejected."},
-		{[]string{"unsupported", "cannot represent", "not supported", "invalid format"}, "unsupported_format", "The requested operation is not supported by that format."},
+		{[]string{"unsupported", "cannot represent", "not supported", "invalid format", "full-disc iso output requires", "only xbe output is possible", "would be incomplete"}, "unsupported_format", "The requested operation is not supported by that format."},
 		{[]string{"outside", "out of bounds", "offset", "exceeds", "too large", "sector"}, "out_of_bounds", "The patch refers to unavailable space or exceeds a file-size safety limit."},
 		{[]string{"permission denied", "access is denied"}, "access_denied", "Windows denied access to a source or output location."},
 		{[]string{"not exist", "not found", "no such file"}, "missing_file", "A required file could not be located."},
@@ -154,6 +154,8 @@ func NewFailureReport(ctx FailureContext, failure error) (DiagnosticReport, erro
 	switch report.TargetExtension {
 	case ".iso", ".xiso":
 		report.SourceKind = "disc-image"
+    case ".cci":
+        report.SourceKind = "cerbios-cci"
 	case ".xbe":
 		report.SourceKind = "loose-executable"
 	case "":
