@@ -29,6 +29,10 @@
 
 **Not established:** whether the current public PatchHub PHP page emits screenshot URLs for every patch. The public JMP GitHub corpus does not contain the screenshots. Locally imported PatchHub `titles/` screenshots are supported. Do not fabricate image links or claim complete remote gallery coverage.
 
+## Pending verification — v0.14.0-test.4 reliability work
+
+The current feature branch adds durable abnormal-exit report recovery and private crash logs, stronger duplicate JMP recognition across imports and pre-existing library entries, HTML-aware full notes, separate Patch Library scrollbars and conditional IPS/EIPS controls. Go and Windows smoke regression tests were added, including simulated forced-exit recovery, stack privacy and two independently scrollable lists. **These changes are not yet a verified public release**; use current GitHub Actions and release evidence before updating this status. The past Phantom Crash failure cannot be attributed to a specific panic or corrupt JMP without a crash trace. See docs/CRASH_RECOVERY_AND_UI.md.
+
 ## Manual QA still outstanding — do not claim completed
 
 1. **Real Windows 10/11 interactive test** of game folder picker, drag/drop, patch controls, wheel/scroll handling, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
