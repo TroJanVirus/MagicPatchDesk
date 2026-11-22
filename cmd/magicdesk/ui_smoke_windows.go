@@ -4,6 +4,7 @@ package main
 
 import (
     "fmt"
+    "magicpatchdesk/core"
 )
 
 // smokePaintAndExit exercises all native workspaces and the common 720p-height
@@ -93,5 +94,48 @@ func smokePaintAndExit() {
 
     }
     manager.mu.Lock();manager.mode=0;manager.mu.Unlock()
+    // Test a multi-image PatchHub patch at the same 1024x720 bounds without
+    // performing any network fetch or using copyrighted game/screenshot data.
+    app.cat=core.Catalog{Games:[]core.Game{{Title:"Synthetic PatchHub Game",
+        Patches:[]core.CatalogPatch{{Name:"Synthetic 720p JMP",
+            Gallery:[]core.PatchGalleryImage{
+                {Kind:"before",Local:"C:\\missing-gallery-before.png"},
+                {Kind:"after",Local:"C:\\missing-gallery-after.png"},
+                {Kind:"before",Local:"C:\\missing-gallery-before2.png"},
+            },
+        }},
+    }}}
+    app.selectedGame=0
+    app.selectedPatch=0
+    app.parsed=&core.Patch{Headers:map[string]string{"author":"Test"}}
+    app.tab=0
+    app.galleryOpen=false
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    foundButton:=false
+    for _,hit:=range app.hits{
+        if hit.Action=="gallery-open"{
+            foundButton=true
+            if hit.R.B>app.h-42{panic("Patch Library gallery button clipped")}
+        }
+    }
+    if !foundButton{panic("Patch Library screenshot viewer button missing")}
+    app.galleryOpen=true
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    modal:=map[string]bool{"gallery-close":false,"gallery-prev":false,"gallery-next":false}
+    for _,hit:=range app.hits{
+        if _,ok:=modal[hit.Action];ok{
+            modal[hit.Action]=true
+            if hit.R.B>app.h-42{panic("Patch gallery navigation clipped below app footer")}
+        }
+    }
+    for action,present:=range modal{
+        if !present{panic("Patch gallery missing action "+action)}
+    }
+    handle("gallery-next",0)
+    if app.galleryPage!=1{panic("Multi-image gallery cannot page to the second image pair")}
+    handle("gallery-close",0)
+    if app.galleryOpen{panic("Patch gallery did not close")}
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
 }
