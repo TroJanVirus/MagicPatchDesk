@@ -56,8 +56,10 @@ func drawHome(hdc uintptr,w,h int32) {
         }
     }
 
+    featuresBottom:=featuresY+int32(134)
+    if contentW<610{featuresBottom=featuresY+3*69+2*7}
     linkY:=h-120
-    if linkY<featuresY+146 {linkY=featuresY+150}
+    if linkY<featuresBottom+12{linkY=featuresBottom+12}
     // Keep the trusted website visible and clickable without implying that
     // the app itself is the Patch Hub website or an official upstream client.
     if linkY+58<h-45 {
