@@ -1,3 +1,10 @@
+## 2026-11-22 — v0.14.0-test.9 image fix candidate
+
+- Owner uploaded the true `patchhub-media-v1.json`: inspected locally, 477 JPG/PNG image URLs under 253 distinct PatchHub patch directories; filenames may be arbitrary. Owner clarified that the **patch folder owns all nested images**; region/revision/TitleID checks should not filter the presentation gallery when the game/patch folder matches.
+- Root causes found: `MatchPatchHubMedia` and `AttachHubGallery` reject media by region/version/TitleID; `AppendPatchHubMedia` requires exact HTML revision match; `SyncPatchHub` skips media refresh for 24h when game-list cache fresh. Corrected all four paths, preserving unambiguous shortened patch folder matching, HTTPS image verification and offline cached galleries.
+- Release notes: `docs/RELEASE_NOTES_v0.14.0-test.9.md`. v0.14.0-test.9 AppVersion is incremented and updater protocol v1 preserved. Release requires clean Go tests, race detector, vet, native Windows x64 cross-build, release contract and SHA manifest.
+- Live website responses, image bytes, native Windows GUI and Xbox hardware cannot yet be claimed validated; the **uploaded file's contents** were examined. Site-only image folders without matching JMP do not create patch payloads.
+
 ## v0.14.0-test.8 release evidence — 2026-11-22
 
 Preview published successfully at https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.8 (canonical `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` present). The scoped GitHub Actions verification completed **success**: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44985163278. Verified updater protocol, PatchHub media-index generator fixture, native JMP icon embedding, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, native Windows x64 cross-build, PE header, `core.AppVersion`, SHA256SUMS and publication. No new always-on Actions workflow was introduced.

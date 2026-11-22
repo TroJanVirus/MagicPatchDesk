@@ -100,11 +100,47 @@ func ReadHubCache(root string) HubIndex {
 	}
 	return c
 }
+// saveHubIndex atomically; keep existing valid metadata on failures.
+func saveHubIndex(root string,hub HubIndex)error{
+    b,e:=json.Marshal(hub)
+    if e!=nil{return e}
+    f,e:=os.CreateTemp(root,"hub-index-*.json")
+    if e!=nil{return e}
+    defer os.Remove(f.Name())
+    if _,e=f.Write(b);e!=nil{f.Close();return e}
+    if e=f.Close();e!=nil{return e}
+    return os.Rename(f.Name(),filepath.Join(root,"patchhub-index.json"))
+}
+
+// RefreshCachedPatchHubMedia fetches the lightweight JPG/PNG file inventory
+// independently of the HTML game index. A fresh upload becomes visible on
+// Check + sync without waiting for the 24-hour card-cache expiry. The HTTP
+// client can be injected for deterministic offline regression tests.
+func RefreshCachedPatchHubMedia(ctx context.Context, root string, client *http.Client)(int,error){
+    cache:=ReadHubCache(root)
+    if len(cache.Games)==0{return 0,errors.New("PatchHub game index is empty")}
+    shots,e:=ReadPatchHubMediaManifest(ctx,client)
+    if e!=nil{return 0,e}
+    for i:=range cache.Games{cache.Games[i].Screenshots=nil}
+    AppendPatchHubMedia(&cache,shots)
+    count:=0
+    for _,g:=range cache.Games{count+=len(g.Screenshots)}
+    if e=saveHubIndex(root,cache);e!=nil{return 0,e}
+    return count,nil
+}
+
+// Media refresh is independent of the 24-hour game-card cache. A published
+// JPG/PNG index must become visible as soon as the user selects Check + sync.
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
-	cache := ReadHubCache(root)
-	if len(cache.Games) > 0 && cache.GalleryScanVersion>=2 && time.Since(cache.Updated) < 24*time.Hour {
-		return len(cache.Games), nil
-	}
+    cache:=ReadHubCache(root)
+    if len(cache.Games)>0 && cache.GalleryScanVersion>=2 &&
+        time.Since(cache.Updated)<24*time.Hour {
+        // Missing internet/media index must not make the offline game list
+        // unusable. Preserve the previous photo cache on request failure.
+        _,_ = RefreshCachedPatchHubMedia(ctx,root,nil)
+        // Offline mode still uses the previous game and image metadata.
+        return len(cache.Games),nil
+    }
 	req, err := http.NewRequestWithContext(ctx, "GET", PatchHubURL, nil)
 	if err != nil {
 		return 0, err
@@ -133,25 +169,7 @@ func SyncPatchHub(ctx context.Context, root string) (int, error) {
     if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil{
         AppendPatchHubMedia(&hub,listed)
     }
-	j, err := json.Marshal(hub)
-	if err != nil {
-		return 0, err
-	}
-	tmp, err := os.CreateTemp(root, "hub-index-*.json")
-	if err != nil {
-		return 0, err
-	}
-	defer os.Remove(tmp.Name())
-	if _, err = tmp.Write(j); err != nil {
-		tmp.Close()
-		return 0, err
-	}
-	if err = tmp.Close(); err != nil {
-		return 0, err
-	}
-	if err = os.Rename(tmp.Name(), filepath.Join(root, "patchhub-index.json")); err != nil {
-		return 0, err
-	}
+    if err=saveHubIndex(root,hub);err!=nil{return 0,err}
 	return len(hub.Games), nil
 }
 func CoverCachePath(root, urlString string) string {

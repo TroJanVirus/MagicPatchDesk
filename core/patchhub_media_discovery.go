@@ -43,30 +43,34 @@ func ParsePatchHubMediaManifest(body []byte)([]HubScreenshot,error){
     return out,nil
 }
 
-func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot){
+// AppendPatchHubMedia merges the website's actual patch-folder image inventory
+// into the cached game index. Neither an exact HTML revision record nor the
+// image's region is needed: the directory already establishes image ownership.
+// Choose a single game by exact title first, then safe alias/known Title ID.
+func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot) {
     if hub==nil{return}
     byTitle:=map[string][]int{}
-    for i:=range hub.Games{
-        key:=CoverMatchKey(hub.Games[i].Title)
-        if key!=""{byTitle[key]=append(byTitle[key],i)}
+    for i:=range hub.Games {
+        k:=CoverMatchKey(hub.Games[i].Title)
+        if k!="" {byTitle[k]=append(byTitle[k],i)}
     }
-    for _,shot:=range urls{
-        gameMatch:=byTitle[CoverMatchKey(shot.Game)]
-        if len(gameMatch)!=1{continue}
-        g:=&hub.Games[gameMatch[0]]
-        matchVersion:=false
-        for _,v:=range g.Versions{
-            if strings.EqualFold(v.TitleID,shot.TitleID)&&strings.EqualFold(v.Region,shot.Region)&&normalizeHubVersion(v.Version)==shot.Version{
-                matchVersion=true
-                break
+    for _,shot:=range urls {
+        matches:=byTitle[CoverMatchKey(shot.Game)]
+        if len(matches)==0 {
+            for i:=range hub.Games {
+                g:=Game{Title:hub.Games[i].Title,Versions:hub.Games[i].Versions}
+                if MediaGameMatches(g,shot){matches=append(matches,i)}
             }
         }
-        if !matchVersion{continue}
-        found:=false
-        for _,old:=range g.Screenshots{if old.URL==shot.URL{found=true;break}}
-        if !found {g.Screenshots=append(g.Screenshots,shot)}
+        if len(matches)!=1{continue}
+        g:=&hub.Games[matches[0]]
+        exists:=false
+        for _,old:=range g.Screenshots {
+            if old.URL==shot.URL{exists=true;break}
+        }
+        if !exists {g.Screenshots=append(g.Screenshots,shot)}
     }
-    for i:=range hub.Games{
+    for i:=range hub.Games {
         sort.SliceStable(hub.Games[i].Screenshots,func(a,b int)bool{
             x,y:=hub.Games[i].Screenshots[a],hub.Games[i].Screenshots[b]
             if x.Patch!=y.Patch{return x.Patch<y.Patch}
@@ -167,45 +171,70 @@ func CommonPatchHubMediaNames()[]string{
     for _,n:=range names{out=append(out,n+".jpg",n+".png")}
     return out
 }
-// MatchPatchHubMedia resolves the selected GitHub JMP to real image paths from
-// the *website's* media index, instead of assuming its filename is also the
-// website directory name. Title ID, region, version (when known), game, and
-// patch name must agree. Unrelated patches are never handed each other's art.
+// PatchFolderMatches ties media to the exact patch-directory label. Filenames
+// of JPG/PNG images are irrelevant and the intermediate website release
+// directory is NOT an identity check for gallery art.
+func PatchFolderMatches(patchName,folderName string) bool {
+    a,b:=CoverMatchKey(patchName),CoverMatchKey(folderName)
+    return a!="" && a==b
+}
+
+// Some website patch-folder titles are abbreviated (e.g. "720p Patch"
+// instead of "Halo 2 720p Patch"). A partial match may only be used when it
+// identifies a single patch in that game; never attach on ambiguous guesses.
+func patchFolderCandidate(patchName,folderName string) bool {
+    if PatchFolderMatches(patchName,folderName){return true}
+    a,b:=CoverMatchKey(patchName),CoverMatchKey(folderName)
+    return len(b)>=5&&strings.Contains(a,b)
+}
+func matchingPatchFolderCount(patches []CatalogPatch,folderName string)int{
+    exact:=0
+    for _,p:=range patches {if PatchFolderMatches(p.Name,folderName){exact++}}
+    if exact>0{return exact}
+    candidate:=0
+    for _,p:=range patches {if patchFolderCandidate(p.Name,folderName){candidate++}}
+    return candidate
+}
+
+// A website game title may include a parenthetical subtitle not present in a
+// JMP game header. Use a conservative title alias or an already-known Title ID
+// for the game, without requiring region/version equality.
+func MediaGameMatches(g Game,shot HubScreenshot)bool{
+    a,b:=CoverMatchKey(g.Title),CoverMatchKey(shot.Game)
+    if a==""||b==""{return false}
+    if a==b{return true}
+    if len(a)>=6 && len(b)>=6 && (strings.HasPrefix(a,b)||strings.HasPrefix(b,a)){
+        return true
+    }
+    if shot.TitleID!="" {
+        for _,v:=range g.Versions {
+            if strings.EqualFold(v.TitleID,shot.TitleID){return true}
+        }
+        for _,p:=range g.Patches {
+            if strings.EqualFold(p.TitleID,shot.TitleID){return true}
+        }
+    }
+    return false
+}
+
+// MatchPatchHubMedia finds ALL JPG/PNG images inside the selected website
+// patch folder, including repeated folders under different region/revisions.
+// The image filename is only used to offer optional Before/After labels.
 func MatchPatchHubMedia(game Game, patch CatalogPatch, all []HubScreenshot) []HubScreenshot {
-    if patch.TitleID==""||CoverMatchKey(patch.Name)=="" {return nil}
-    version:=normalizeHubVersion(patch.Version)
-    // Only interpret a numeric patch version as a revision. A JMP header's
-    // "version" field may instead hold an XBE Title ID or arbitrary text.
+    if CoverMatchKey(patch.Name)==""{return nil}
     result:=make([]HubScreenshot,0,8)
     seen:=map[string]bool{}
     for _,shot:=range all {
-        if CoverMatchKey(game.Title)!=CoverMatchKey(shot.Game)||
-            !strings.EqualFold(patch.TitleID,shot.TitleID)||
-            !patchRegionEquivalent(patch.Region,shot.Region)||
-            CoverMatchKey(patch.Name)!=CoverMatchKey(shot.Patch) {continue}
-        if version!="" && version!=shot.Version {continue}
-        // Only indexed versions known to belong to this game are valid.
-        valid:=false
-        for _,v:=range game.Versions {
-            if strings.EqualFold(v.TitleID,shot.TitleID)&&
-                strings.EqualFold(v.Region,shot.Region)&&
-                normalizeHubVersion(v.Version)==shot.Version {valid=true;break}
+        if !MediaGameMatches(game,shot)||seen[shot.URL]{continue}
+        if !PatchFolderMatches(patch.Name,shot.Patch) {
+            // Only accept an abbreviated folder when this is the ONE patch
+            // with that candidate name in the currently selected game.
+            if !patchFolderCandidate(patch.Name,shot.Patch)||len(game.Patches)==0||
+                matchingPatchFolderCount(game.Patches,shot.Patch)!=1 {continue}
         }
-        if !valid||seen[shot.URL] {continue}
         seen[shot.URL]=true
         result=append(result,shot)
-        if len(result)>=32 {break}
-    }
-    if version=="" {
-        // If a title has several compatible revisions and the JMP does not
-        // specify one, an image from one revision may be wrong for another.
-        revisions:=map[string]bool{}
-        for _,v:=range game.Versions {
-            if strings.EqualFold(v.TitleID,patch.TitleID)&&patchRegionEquivalent(patch.Region,v.Region) {
-                revisions[strings.ToUpper(v.Region)+"_"+normalizeHubVersion(v.Version)]=true
-            }
-        }
-        if len(revisions)>1{return nil}
+        if len(result)>=128{break}
     }
     sort.SliceStable(result,func(i,j int)bool{
         if result[i].Set!=result[j].Set{return result[i].Set<result[j].Set}
@@ -230,6 +259,8 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
     if indexErr==nil {
         matched:=MatchPatchHubMedia(game,patch,indexed)
         if len(matched)>0{return matched,nil}
+        // A complete, authoritative folder inventory obsoletes URL guessing.
+        return nil,errors.New("media index contains no images for this exact game/patch folder")
     }
     folder,folderErr:=PatchHubPatchDirectory(game,patch)
     if folderErr!=nil {

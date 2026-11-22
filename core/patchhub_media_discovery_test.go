@@ -8,6 +8,7 @@ import (
     "net/url"
     "strings"
     "testing"
+    "time"
 )
 
 const ProvidedPhantomCrashImage = "https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
@@ -200,28 +201,71 @@ func TestOwnerProvidedAMFBowlingMediaIdentity(t *testing.T) {
     }
 }
 
-func TestManifestFirstMatchesRenamedWebsiteFolderAndRejectsWrongRevision(t *testing.T){
+func TestManifestFirstMatchesPatchFolderAcrossRevisions(t *testing.T) {
     g,p:=samplePhantomMediaGame()
-    // Two USA revisions make a filename-derived folder ambiguous. The media
-    // index should still identify the exact revision, even when the website
-    // directory and the GitHub filename differ in punctuation and spacing.
     g.Versions=append(g.Versions,HubVersion{TitleID:"504C0001",Region:"USA",Version:"6"})
     p.Version="5"
     filename:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20-%20Widescreen%20NTSC%20%5BJay%5D/Random%20comparison.PNG"
-    other:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000006_504C0001/Phantom%20Crash%20-%20Widescreen%20NTSC%20%5BJay%5D/Random%20comparison.PNG"
-    fake:=&patchMediaTransport{manifest:fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q]}`,filename,other)}
+    other:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000006_504C0001/Phantom%20Crash%20-%20Widescreen%20NTSC%20%5BJay%5D/Another%20picture.jpg"
+    unrelated:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000006_504C0001/Phantom%20Crash%20-%20720p%20NTSC%20%5BJay%5D/Another%20picture.jpg"
+    fake:=&patchMediaTransport{manifest:fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q,%q]}`,filename,other,unrelated)}
     shots,err:=DiscoverPatchHubMedia(context.Background(),&http.Client{Transport:fake},g,p)
-    if err!=nil||len(shots)!=1||shots[0].URL!=filename||shots[0].Kind!="screenshot" {
-        t.Fatalf("index-first lookup failed: %+v, %v",shots,err)
+    if err!=nil||len(shots)!=2||!(shots[0].URL==filename&&shots[1].URL==other || shots[0].URL==other&&shots[1].URL==filename) {
+        t.Fatalf("folder-first lookup did not return all patch-folder images: %+v %v",shots,err)
     }
-    if fake.requests!=1 {t.Fatalf("index should preempt guessed-path HTTP probes; got %d requests",fake.requests)}
-    p.Version=""
+    if fake.requests!=1 {t.Fatalf("index must prevent speculative URL probes, got %d",fake.requests)}
+    p.Region="PAL"
+    p.Version="7"
+    p.TitleID="different"
+    if got:=MatchPatchHubMedia(g,p,shots);len(got)!=2 {
+        t.Fatalf("image gallery should not filter by metadata outside patch folder: %+v",got)
+    }
+    p.Name="Phantom Crash {720p} (NTSC) [Jay]"
     if got:=MatchPatchHubMedia(g,p,shots);len(got)!=0 {
-        t.Fatalf("unknown revision must not use ambiguous revision images: %+v",got)
+        t.Fatalf("images from a different patch folder attached: %+v",got)
     }
-    p.Version="5"
-    p.TitleID="12345678"
-    if got:=MatchPatchHubMedia(g,p,shots);len(got)!=0 {
-        t.Fatalf("wrong Title ID accepted: %+v",got)
+}
+
+func TestWebsiteManifestMediaIsNotFilteredByRegionAndAttachesToPatchFolder(t *testing.T){
+    before:=ProvidedAMFBowlingImage
+    after:=strings.Replace(before,"1.%20Before.jpg","2.%20After.jpg",1)
+    variant:="https://www.jayxbox.com/All-Patches/titles/AMF%20Xtreme%20Bowling/PAL_00000009_42530014/AMF%20Xtreme%20Bowling%20%7BWidescreen%7D%20%28NTSC%29%20%5BEsppiral%5D/side-by-side.png"
+    index:=fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q,%q]}`,before,after,variant)
+    media,e:=ParsePatchHubMediaManifest([]byte(index))
+    if e!=nil||len(media)!=3{t.Fatalf("valid manifest images rejected: %+v %v",media,e)}
+    hub:=HubIndex{Games:[]HubGame{{Title:"AMF Xtreme Bowling"}}}
+    AppendPatchHubMedia(&hub,media)
+    if got:=len(hub.Games[0].Screenshots);got!=3{t.Fatalf("expected all three images, got %d",got)}
+    patches:=[]CatalogPatch{
+        {Name:"AMF Xtreme Bowling {Widescreen} (NTSC) [Esppiral]",TitleID:"different",Region:"PAL",Version:"999"},
+        {Name:"AMF Xtreme Bowling {720p} (NTSC) [Esppiral]",Region:"USA"},
     }
+    AttachHubGallery(patches,hub.Games[0].Screenshots)
+    if len(patches[0].Gallery)!=3||len(patches[1].Gallery)!=0 {
+        t.Fatalf("images must attach only to the correct patch folder: %+v",patches)
+    }
+    g:=Game{Title:"AMF Xtreme Bowling"}
+    if got:=MatchPatchHubMedia(g,patches[0],media);len(got)!=3{
+        t.Fatalf("discovery must match all image files independent of metadata: %+v",got)
+    }
+}
+
+func TestCachedPatchHubGalleryRefreshDoesNotWait24Hours(t *testing.T){
+    root:=t.TempDir()
+    cached:=HubIndex{GalleryScanVersion:2,Updated:time.Now(),Games:[]HubGame{
+        {Title:"AMF Xtreme Bowling",Screenshots:[]HubScreenshot{{URL:"https://www.jayxbox.com/old.jpg"}}},
+    }}
+    if e:=saveHubIndex(root,cached);e!=nil{t.Fatal(e)}
+    manifest:=fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q]}`,
+        ProvidedAMFBowlingImage,
+        strings.Replace(ProvidedAMFBowlingImage,"1.%20Before.jpg","2.%20After.jpg",1),
+    )
+    fake:=&patchMediaTransport{manifest:manifest}
+    count,e:=RefreshCachedPatchHubMedia(context.Background(),root,&http.Client{Transport:fake})
+    if e!=nil||count!=2{t.Fatalf("fresh gallery index wasn't loaded into cached game cards: %d %v",count,e)}
+    updated:=ReadHubCache(root)
+    if len(updated.Games)!=1||len(updated.Games[0].Screenshots)!=2{
+        t.Fatalf("cached game metadata still lacks real patch folder images: %+v",updated)
+    }
+    if fake.requests!=1{t.Fatalf("unexpected HTTP requests %d",fake.requests)}
 }
