@@ -173,3 +173,24 @@ func TestGalleryURLRejectsUnsafeFolders(t *testing.T){
         }
     }
 }
+
+func TestOwnerProvidedAMFBowlingMediaIdentity(t *testing.T) {
+    shot,ok:=patchhubGalleryURL(ProvidedAMFBowlingImage)
+    if !ok||shot.Game!="AMF Xtreme Bowling"||shot.Version!="00000001"||
+        shot.TitleID!="42530014"||shot.Region!="USA"||
+        shot.Patch!="AMF Xtreme Bowling {Widescreen} (NTSC) [Esppiral]"||
+        shot.Kind!="before"||shot.Set!=1 {
+        t.Fatalf("AMF image identity invalid: %+v (ok=%t)",shot,ok)
+    }
+    game:=Game{Title:"AMF Xtreme Bowling"}
+    patch:=CatalogPatch{Name:shot.Patch,TitleID:"42530014",Region:"NTSC"}
+    found:=knownPatchHubImages(game,patch)
+    if len(found)!=1||found[0].URL!=ProvidedAMFBowlingImage {
+        t.Fatalf("known AMF media not assigned to correct patch: %+v",found)
+    }
+    patch.Region="PAL"
+    if len(knownPatchHubImages(game,patch))!=0 {t.Fatal("US media attached to PAL")}
+    patch.Region="NTSC"
+    patch.TitleID="12345678"
+    if len(knownPatchHubImages(game,patch))!=0 {t.Fatal("wrong Title ID accepted")}
+}
