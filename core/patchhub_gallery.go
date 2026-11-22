@@ -118,7 +118,7 @@ func patchhubGalleryURL(raw string)(HubScreenshot,bool) {
     segments:=strings.Split(strings.Trim(cleaned,"/"),"/")
     pos:=-1
     for i,s:=range segments{if strings.EqualFold(s,"titles"){pos=i;break}}
-    if pos<0||pos<1||!strings.EqualFold(segments[pos-1],"All-Patches")||pos+4>=len(segments){return HubScreenshot{},false}
+    if pos<0||pos<1||!strings.EqualFold(segments[pos-1],"All-Patches")||len(segments)!=pos+5{return HubScreenshot{},false}
     for _,component:=range segments {
         if component==""||component=="."||component==".." {return HubScreenshot{},false}
     }
