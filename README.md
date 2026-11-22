@@ -171,3 +171,17 @@ The same workspace adds a scrollable **verification log**, read-only **XISO imag
 **Import JMP** now checks the complete selected patch against both the Custom and GitHub-synced libraries. A byte-identical JMP does **not** get copied: the status line displays **“Duplicate patch found! No need to add.”** in red and the local verification log records it. Different revisions with the same filename are saved as independent numbered copies; no original patch is overwritten. JMP/PF drag-and-drop follows the same duplicate-safe rule.
 
 In **Patch Library**, select a patch with before/after evidence and choose **View images (N)** to inspect original-aspect-ratio screenshots side by side, including multiple pairs and next/previous navigation. Where the public PatchHub website exposes individual image URLs, they are downloaded on demand and cached for offline viewing. Imported PatchHub `titles/` trees can also provide local screenshots. Some patches have no discoverable image metadata: the app deliberately does not invent pictures or attach an unrelated game's screenshot. See [JMP import and PatchHub gallery details](docs/JMP_IMPORT_AND_PATCHHUB_GALLERY.md).
+
+## v0.14.0-test.4 — Crash recovery and key Patch Library fixes
+
+**Hard crashes:** An unexpected process exit previously bypassed the normal handled-error report writer, which explains why the earlier Phantom Crash XBE-selection crash produced no report. The app now creates durable session markers and best-effort private stderr/stack logs, recovers unclean exits into existing sanitized diagnostic reports at the next launch, and displays a persistent red crash notice linking to Settings → Problem Reports. Use **Crash logs** or **View crash log** to inspect private evidence; **Report issue** and optional auto-report share ONLY sanitized metadata, never raw stacks or game files. A forced kill/power loss also counts as an unclean exit, not proof of an exception.
+
+**Import JMP:** Deduplication now covers semantically equivalent JMPs with different author/notes/line endings, loose and folder import paths, and pre-existing duplicate catalogue entries. The red **Duplicate patch found! No need to add.** message remains; no patch files are overwritten or deleted by catalogue deduplication.
+
+**Notes:** The original one-line footer and literal HTML tags are replaced by **READ FULL NOTES**, showing wrapped and scrollable instructions with HTML line breaks/lists/entities and a Copy all notes action.
+
+**Scrolling:** Patch list and record list scroll independently based on mouse position, each with draggable scrollbars. Compact windows retain more record space.
+
+**Convert & Create:** IPS RLE is only visible for IPS/EIPS/all-formats pack, and password entry only when encrypted IPS needs creating or decrypting. Plain IPS doesn't require a password.
+
+See [Crash recovery and UI repair details](docs/CRASH_RECOVERY_AND_UI.md). Native Windows smoke and core regression tests are required for release; real Phantom Crash reproduction still needs end-user field testing.
