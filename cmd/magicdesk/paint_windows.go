@@ -82,6 +82,8 @@ func paint(hdc uintptr) {
 	fill(hdc, r, bg)
 	drawSidebar(hdc, w, h)
 	switch app.tab {
+    case 9:
+        drawHome(hdc,w,h)
 	case 0:
 		drawLibrary(hdc, w, h)
         if app.galleryOpen{drawPatchGallery(hdc,w,h)}
@@ -150,6 +152,7 @@ func drawSidebar(hdc uintptr,w,h int32){
         addHit(ir(10,y,211,49),"tab",item.tab)
     }
     topNav:=[]navItem{
+        {"Home","⌂",9},
         {"Patch Library","◈",0},
         {"Convert Patch","◇",1},
         {"Batch Process","▤",8},
@@ -165,7 +168,8 @@ func drawSidebar(hdc uintptr,w,h int32){
     drawNav(navItem{"About","ⓘ",4},h-69)
     // The library summary is optional at compact heights: never cover tabs.
     collectionTop:=h-274
-    if collectionTop>445{
+    navEnd:=int32(145+len(topNav)*49)
+    if collectionTop>navEnd+12 && collectionTop+110<h-137 {
         panel(hdc,ir(17,collectionTop,198,110),0x1E2A3E,14)
         textAt(hdc,"PATCH COLLECTION",31,collectionTop+7,167,21,app.fonts.Micro,muted)
         app.mu.Lock()
