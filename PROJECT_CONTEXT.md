@@ -1,3 +1,10 @@
+## 2026-11-22 — v0.14.0-test.14 published and verified
+
+Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.14
+Successful one-shot run: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44995671424 — all required gates completed **success**: permanent updater v1 contract, media-index fixture, JMP Windows icon, `go test -count=1 ./...` (new HTML/URL safety and full comment tests), `go test -race -count=1 ./core`, `go vet ./...`, native Windows x64 GUI cross-build, PE identification and SHA256 manifest verification.
+
+Canonical asset `MagicPatchDesk-Windows-x64.exe`: **7,742,976 bytes**, SHA256 `e0c2f70ebaa593cef6bd5a53074512ba8603ac1abe4c96a46c7a4169ab3aa6a7`. `SHA256SUMS.txt` published. Early scoped CI attempts caught and fixed Go's RE2 regex repeat-count ceiling and a quoted test fixture syntax issue; the final successful run includes both fixes. `README.md` stays untouched, updater protocol `1` and canonical release assets retained. No claim of actual Windows GUI smoke execution, real third-party link clicks, physical Xbox testing or prior crash resolution. Changes are presentation-only; notes and JMP group/comments remain stored verbatim and patch toggle behavior is unchanged.
+
 ## 2026-11-22 — v0.14.0-test.14 candidate: complete record group comments + useful links
 
 - Owner screenshot shows **Phantom Crash** JMP group title cut off: `Widescreen Support (Everything is less stretched ...` despite available space. Some group comments and `notes=` headers include vital HTML, full URLs, instructions and multi-line explanatory content. Requirement: make them readable/useful without altering patch semantics or losing anything. Human owner `README.md` remains untouched.
