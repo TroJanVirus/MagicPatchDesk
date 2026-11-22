@@ -35,6 +35,40 @@ type CrashSession struct {
 
 func CrashDirectory(root string) string{return filepath.Join(root,"Reports","Crash")}
 func crashMarkerPath(root,id string)string{return filepath.Join(CrashDirectory(root),"session-"+id+".json")}
+func crashNoticePath(root,id string)string{return filepath.Join(CrashDirectory(root),"notice-"+id)}
+func recordCrashNotice(root,id string)error{
+    if !crashEvidenceIDRE.MatchString(id){return errors.New("invalid crash evidence ID")}
+    f,e:=os.OpenFile(crashNoticePath(root,id),os.O_CREATE|os.O_WRONLY|os.O_EXCL,0600)
+    if errors.Is(e,os.ErrExist){return nil}
+    if e!=nil{return e}
+    return f.Close()
+}
+func PendingCrashNotices(root string)(int,error){
+    entries,e:=os.ReadDir(CrashDirectory(root))
+    if errors.Is(e,os.ErrNotExist){return 0,nil}
+    if e!=nil{return 0,e}
+    count:=0
+    for _,entry:=range entries{
+        if entry.IsDir(){continue}
+        name:=entry.Name()
+        if strings.HasPrefix(name,"notice-")&&crashEvidenceIDRE.MatchString(strings.TrimPrefix(name,"notice-")){count++}
+    }
+    return count,nil
+}
+func ClearCrashNotices(root string)error{
+    entries,e:=os.ReadDir(CrashDirectory(root))
+    if errors.Is(e,os.ErrNotExist){return nil}
+    if e!=nil{return e}
+    for _,entry:=range entries{
+        if entry.IsDir(){continue}
+        name:=entry.Name()
+        if strings.HasPrefix(name,"notice-")&&crashEvidenceIDRE.MatchString(strings.TrimPrefix(name,"notice-")){
+            if e=os.Remove(filepath.Join(CrashDirectory(root),name));e!=nil{return e}
+        }
+    }
+    return nil
+}
+
 func CrashEvidencePath(root,id string)string{
     if !crashEvidenceIDRE.MatchString(id){return ""}
     return filepath.Join(CrashDirectory(root),"crash-"+id+".log")
@@ -118,6 +152,7 @@ func (s *CrashSession) SaveCaughtCrash(reason string,stack []byte)error{
     if e!=nil{return e}
     report.CrashEvidenceID=s.data.ID
     if _,e=SaveFailureReport(s.root,report);e!=nil{return e}
+    if e=recordCrashNotice(s.root,s.data.ID);e!=nil{return e}
     return os.Remove(s.marker)
 }
 // RecoverAbandonedCrashSessions safely imports evidence of a process that
@@ -158,6 +193,7 @@ func RecoverAbandonedCrashSessions(root string,isAlive func(int)bool)(int,error)
         if e!=nil{return count,e}
         report.CrashEvidenceID=marker.ID
         if _,e=SaveFailureReport(root,report);e!=nil{return count,e}
+        if e=recordCrashNotice(root,marker.ID);e!=nil{return count,e}
         if e=os.Remove(path);e!=nil{return count,e}
         count++
     }
