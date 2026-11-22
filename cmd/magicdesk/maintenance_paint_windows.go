@@ -29,22 +29,22 @@ func drawMaintenance(hdc uintptr,w,h int32){
     by:=y+85
     bw:=(width-75)/3
     button(hdc,"Install app",ir(x+20,by,bw,36),"maint-install",0,false)
-    button(hdc,"Check updates",ir(x+29+bw,by,bw,36),"maint-check",0,false)
+    button(hdc,"Check + sync",ir(x+29+bw,by,bw,36),"maint-check",0,false)
     button(hdc,"Update now",ir(x+38+bw*2,by,bw,36),"maint-update",0,maintenanceUpdate.Found)
     fill(hdc,ir(x+23,y+136,width-46,1),0x354258)
     textAt(hdc,"UPDATE SETTINGS",x+24,y+146,width-48,25,app.fonts.Medium,white)
     betaName:="STABLE ONLY"
     if maintenancePref.Beta{betaName="PREVIEWS ON"}
-    checkName:="CHECK AT START"
-    if maintenancePref.NoAutoCheck{checkName="CHECK MANUALLY"}
+    checkName:="CHECK + SYNC AT START"
+    if maintenancePref.NoAutoCheck{checkName="MANUAL CHECK + SYNC"}
     settingsY:=y+176
     button(hdc,betaName,ir(x+22,settingsY,145,34),"maint-beta",0,maintenancePref.Beta)
-    button(hdc,checkName,ir(x+174,settingsY,164,34),"maint-autocheck",0,!maintenancePref.NoAutoCheck)
+    button(hdc,checkName,ir(x+174,settingsY,192,34),"maint-autocheck",0,!maintenancePref.NoAutoCheck)
     if width>530{
         button(hdc,"App folder",ir(x+width-202,settingsY,81,34),"maint-program",0,false)
         button(hdc,"Data folder",ir(x+width-114,settingsY,91,34),"maint-data",0,false)
     }
-    textAt(hdc,"Previews ON = allow downloading preview builds. CHECK AT START = check for releases at launch.",
+    textAt(hdc,"Previews ON = preview builds. CHECK AT START also refreshes GitHub and PatchHub.",
         x+24,y+214,width-45,21,app.fonts.Small,muted)
 
     y+=hUpdate+gap
