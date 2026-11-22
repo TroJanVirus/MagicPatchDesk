@@ -8,6 +8,7 @@ import (
     "net/url"
     "strings"
     "testing"
+    "time"
 )
 
 const ProvidedPhantomCrashImage = "https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
@@ -247,4 +248,24 @@ func TestWebsiteManifestMediaIsNotFilteredByRegionAndAttachesToPatchFolder(t *te
     if got:=MatchPatchHubMedia(g,patches[0],media);len(got)!=3{
         t.Fatalf("discovery must match all image files independent of metadata: %+v",got)
     }
+}
+
+func TestCachedPatchHubGalleryRefreshDoesNotWait24Hours(t *testing.T){
+    root:=t.TempDir()
+    cached:=HubIndex{GalleryScanVersion:2,Updated:time.Now(),Games:[]HubGame{
+        {Title:"AMF Xtreme Bowling",Screenshots:[]HubScreenshot{{URL:"https://www.jayxbox.com/old.jpg"}}},
+    }}
+    if e:=saveHubIndex(root,cached);e!=nil{t.Fatal(e)}
+    manifest:=fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q]}`,
+        ProvidedAMFBowlingImage,
+        strings.Replace(ProvidedAMFBowlingImage,"1.%20Before.jpg","2.%20After.jpg",1),
+    )
+    fake:=&patchMediaTransport{manifest:manifest}
+    count,e:=RefreshCachedPatchHubMedia(context.Background(),root,&http.Client{Transport:fake})
+    if e!=nil||count!=2{t.Fatalf("fresh gallery index wasn't loaded into cached game cards: %d %v",count,e)}
+    updated:=ReadHubCache(root)
+    if len(updated.Games)!=1||len(updated.Games[0].Screenshots)!=2{
+        t.Fatalf("cached game metadata still lacks real patch folder images: %+v",updated)
+    }
+    if fake.requests!=1{t.Fatalf("unexpected HTTP requests %d",fake.requests)}
 }
