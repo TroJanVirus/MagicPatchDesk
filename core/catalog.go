@@ -39,6 +39,7 @@ type CatalogPatch struct {
 	Art     string
 	RAM     string
 	Issue   string
+    Gallery []PatchGalleryImage
 }
 type Game struct {
 	Title    string
@@ -215,6 +216,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 					cp.Issue = parseErr.Error()
 					cp.Notes = "Patch must be reviewed: " + parseErr.Error()
 				}
+                cp.Gallery=LocalPatchScreenshots(path)
 				results <- result{p: cp, err: parseErr}
 			}
 		}()
@@ -336,6 +338,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 		if g.CoverURL == "" {
 			g.CoverURL = hg.Image
 		}
+        if len(hg.Screenshots)>0 {AttachHubGallery(g.Patches,hg.Screenshots)}
 		if len(g.Versions) == 0 {
 			g.Versions = hg.Versions
 		}
