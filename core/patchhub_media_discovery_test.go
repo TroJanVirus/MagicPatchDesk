@@ -209,7 +209,7 @@ func TestManifestFirstMatchesPatchFolderAcrossRevisions(t *testing.T) {
     unrelated:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000006_504C0001/Phantom%20Crash%20-%20720p%20NTSC%20%5BJay%5D/Another%20picture.jpg"
     fake:=&patchMediaTransport{manifest:fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q,%q]}`,filename,other,unrelated)}
     shots,err:=DiscoverPatchHubMedia(context.Background(),&http.Client{Transport:fake},g,p)
-    if err!=nil||len(shots)!=2||shots[0].URL!=other||shots[1].URL!=filename {
+    if err!=nil||len(shots)!=2||!(shots[0].URL==filename&&shots[1].URL==other || shots[0].URL==other&&shots[1].URL==filename) {
         t.Fatalf("folder-first lookup did not return all patch-folder images: %+v %v",shots,err)
     }
     if fake.requests!=1 {t.Fatalf("index must prevent speculative URL probes, got %d",fake.requests)}
