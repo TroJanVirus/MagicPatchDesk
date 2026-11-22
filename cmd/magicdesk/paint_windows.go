@@ -421,7 +421,11 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
         }else if mediaDiscoveryRunning(chosen){
             textAt(hdc,"Finding images…",x+width-164,groupY+2,145,24,app.fonts.Small,muted)
         }else{
-            button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
+            if reason:=mediaDiscoveryReason(chosen);reason!="" {
+                button(hdc,"Why no images?",ir(x+width-168,groupY-1,150,30),"gallery-explain",0,false)
+            }else{
+                button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
+            }
         }
     }
 	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
