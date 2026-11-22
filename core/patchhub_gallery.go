@@ -159,9 +159,22 @@ func SortGallery(images []PatchGalleryImage){
 // different release directories can safely contribute screenshots.
 func AttachHubGallery(patches []CatalogPatch,shots []HubScreenshot) {
     for _,shot:=range shots{
+        exact:=[]int{}
+        candidate:=[]int{}
         for i:=range patches {
+            if PatchFolderMatches(patches[i].Name,shot.Patch) {
+                exact=append(exact,i)
+            }else if patchFolderCandidate(patches[i].Name,shot.Patch){
+                candidate=append(candidate,i)
+            }
+        }
+        // Identically named patches may appear in multiple release variants:
+        // these are all the same named image-owning patch folder. Shortened
+        // website folder labels are only trusted if exactly one JMP matches.
+        matches:=exact
+        if len(matches)==0&&len(candidate)==1{matches=candidate}
+        for _,i:=range matches {
             p:=&patches[i]
-            if !PatchFolderMatches(p.Name,shot.Patch){continue}
             exists:=false
             for _,old:=range p.Gallery{
                 if old.URL==shot.URL{exists=true;break}
