@@ -249,6 +249,8 @@ type appState struct {
     crashSetupWarning bool
     outputPickerOpen bool
     notesOpen bool
+    notesTargetGroup int // -1 = JMP header notes; >=0 = full record group comment
+    notesLinkIndex int // selected external link within current note/comment
     notesScroll int
     mouseY int32
     scrollDragStartY int32
@@ -494,6 +496,7 @@ func initApp() {
 	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
+    app.notesTargetGroup=-1
     app.tab=9 // Home is the initial landing workspace; existing tab IDs stay stable
     app.root, _ = core.GetLibraryDir()
     if !smokeWindowsUI {
@@ -1227,11 +1230,40 @@ func handle(action string, index int) {
         _=core.ClearCrashNotices(app.root)
         refreshDiagnosticGroups()
     case "notes-open":
-        if selectedPatchNoteText()!="" {app.notesOpen=true;app.notesScroll=0}
+        app.notesTargetGroup=-1
+        app.notesLinkIndex=0
+        if selectedPatchNoteText()!=""{app.notesOpen=true;app.notesScroll=0}
+    case "group-details":
+        if app.parsed!=nil&&index>=0&&index<len(app.parsed.Groups){
+            app.notesTargetGroup=index
+            app.notesLinkIndex=0
+            app.notesScroll=0
+            app.notesOpen=true
+        }
     case "notes-close":
         app.notesOpen=false
+        app.notesTargetGroup=-1
     case "notes-copy":
-        if e:=copyDiagnosticText(selectedPatchNoteText());e!=nil{notify("Cannot copy notes: "+e.Error())}
+        if e:=copyDiagnosticText(selectedPatchNoteText());e!=nil{notify("Cannot copy text: "+e.Error())}
+    case "notes-link-prev","notes-link-next":
+        links:=selectedPatchNoteLinks()
+        if len(links)>0{
+            move:=-1
+            if action=="notes-link-next"{move=1}
+            app.notesLinkIndex=(app.notesLinkIndex+len(links)+move)%len(links)
+        }
+    case "notes-link-copy":
+        links:=selectedPatchNoteLinks()
+        if len(links)>0{
+            if app.notesLinkIndex>=len(links){app.notesLinkIndex=0}
+            if e:=copyDiagnosticText(links[app.notesLinkIndex].URL);e!=nil{notify("Cannot copy link: "+e.Error())}
+        }
+    case "notes-link-open":
+        links:=selectedPatchNoteLinks()
+        if len(links)>0{
+            if app.notesLinkIndex>=len(links){app.notesLinkIndex=0}
+            openSelectedJMPWebLink(links[app.notesLinkIndex].URL)
+        }
     case "patch-scroll-track","records-scroll-track","notes-scroll-track":
         section:=strings.TrimSuffix(action,"-scroll-track")
         setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
