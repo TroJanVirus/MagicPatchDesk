@@ -1171,7 +1171,7 @@ func handle(action string, index int) {
 		}
 	case "dev-refresh", "dev-sort", "dev-select", "dev-prev", "dev-next", "dev-github", "dev-view", "dev-copy", "dev-root", "dev-report", "dev-fixpr", "dev-copygroups", "dev-copyroot", "dev-create":
 		developerAction(action,index)
-	case "diagnostics-folder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
+	case "diagnostics-folder", "diagnostics-crashfolder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
 		diagnosticsAction(action)
 	case "recent-select", "recent-prev", "recent-next", "recent-open", "recent-folder", "recent-copy", "recent-remove", "recent-clear":
 		recentAction(action,index)
