@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
@@ -185,12 +186,14 @@ func runPackConversion() {
 	}
 	fmtN, password, rle := app.format, app.password, app.ipsRLE
 	sourceISO := app.aFile
+    expectedXBEPath:=app.bFile
 	app.mu.Lock()
 	app.busy = true
 	app.status = "Building multi-file patch pack…"
 	app.mu.Unlock()
 	redraw()
 	go func() {
+        defer catchFatalPanic()
 		originalFiles := map[string][]byte{}
 		var jobErr error
 		for t, p := range paths {
@@ -229,9 +232,28 @@ func runPackConversion() {
 			} else {
 				packed, _, jobErr = core.BuildJMPPatchPack(name, patch, originalFiles, fmtN, password, rle)
 			}
-			if jobErr == nil {
-				jobErr = atomicWrite(output, packed)
-			}
+            if jobErr==nil&&expectedXBEPath!="" {
+                // An expected modified XBE also verifies an all-formats pack:
+                // decode/apply the generated archive and compare default.xbe
+                // byte-for-byte, including all source/target hash checks.
+                if originalFiles["default.xbe"]==nil{
+                    jobErr=fmt.Errorf("modified XBE verification requires original default.xbe in the selected sources")
+                }else{
+                    var expected []byte
+                    expected,jobErr=os.ReadFile(expectedXBEPath)
+                    if jobErr==nil{
+                        var checked map[string][]byte
+                        checked,jobErr=core.ApplyPatchPack(packed,originalFiles,password)
+                        if jobErr==nil {
+                            got:=checked["default.xbe"]
+                            if got==nil||!bytes.Equal(got,expected){
+                                jobErr=fmt.Errorf("converted patch pack does not reproduce the modified XBE byte-for-byte")
+                            }
+                        }
+                    }
+                }
+            }
+            if jobErr==nil{jobErr=atomicWrite(output,packed)}
 		}
 		app.mu.Lock()
 		app.busy = false
