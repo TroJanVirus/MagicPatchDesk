@@ -55,6 +55,21 @@ func smokePaintAndExit() {
     app.theme="Midnight"
     setTheme(app.theme)
     updateWindowsTitleBarTheme()
+    // Source patch must be the FIRST numbered conversion step; the original
+    // XBE belongs below it as step 02. The hit order catches UI regressions
+    // without relying on brittle screenshot text OCR.
+    app.tab=1
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    sourceTop,originalTop:=int32(-1),int32(-1)
+    for _,hit:=range app.hits{
+        if hit.Action=="cpatch"{sourceTop=hit.R.T}
+        if hit.Action=="a"{originalTop=hit.R.T}
+    }
+    if sourceTop<0||originalTop<0||sourceTop>=originalTop{
+        panic(fmt.Sprintf("Converter source patch must precede original XBE (patch=%d original=%d)",sourceTop,originalTop))
+    }
+
     // A standalone Game Outputs tab must NOT be navigable: its previous
     // single-game functionality now belongs to Patch Library.
     app.tab=0
