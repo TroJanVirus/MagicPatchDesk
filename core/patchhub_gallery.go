@@ -31,8 +31,8 @@ type HubScreenshot struct {
 // PatchHub may emit source images as img src/data-src, clickable anchors or
 // data-* attributes. Only explicitly named before/after JPEG/PNG/GIF images
 // under the same site's /All-Patches/titles tree are accepted.
-var hubGalleryAttr=regexp.MustCompile(`(?is)\b(?:src|data-src|href|data-full|data-image|data-before|data-after)\s*=\s*["']([^"'<>]{1,2048})["']`)
-var hubGalleryBare=regexp.MustCompile(`(?is)["']((?:https://(?:www\.)?jayxbox\.com)?/All-Patches/titles/[^"'<>\s]{1,1500}\.(?:jpg|jpeg|png|gif))["']`)
+var hubGalleryAttr=regexp.MustCompile(`(?is)\b(?:src|data-src|href|data-full|data-image|data-before|data-after)\s*=\s*["']([^"'<>]{1,1000})["']`)
+var hubGalleryBare=regexp.MustCompile(`(?is)["']((?:https://(?:www\.)?jayxbox\.com)?/All-Patches/titles/[^"'<>\s]{1,1000}\.(?:jpg|jpeg|png|gif))["']`)
 var galleryNumber=regexp.MustCompile(`(?:^|[-_.\s])(?:before|after)[-_.\s]*([0-9]{1,3})(?:[-_.\s]|$)`)
 var validScreenshotFile=regexp.MustCompile(`(?i)\.(?:jpg|jpeg|png|gif)$`)
 
