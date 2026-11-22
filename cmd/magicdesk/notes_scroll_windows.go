@@ -161,7 +161,12 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
         titleFont=app.fonts.Small
     }
     textAt(hdc,title,x+20,y+15,titleWidth,30,titleFont,white)
-    button(hdc,"Copy text",ir(x+width-266,y+13,136,35),"notes-copy",0,false)
+    if width>=690{
+        button(hdc,"Copy text",ir(x+width-392,y+13,122,35),"notes-copy",0,false)
+        button(hdc,"Copy original",ir(x+width-262,y+13,132,35),"notes-copy-original",0,false)
+    }else{
+        button(hdc,"Copy original",ir(x+width-266,y+13,136,35),"notes-copy-original",0,false)
+    }
     button(hdc,"Close",ir(x+width-120,y+13,100,35),"notes-close",0,false)
     help:="Read the full instructions, including HTML paragraphs and lists. Copy text or review external URLs below."
     if group{help="Complete original record comment. Reading it does not enable or disable any patch records."}
