@@ -1,3 +1,15 @@
+## 2026-11-22 — v0.14.0-test.18 RELEASED and merged; native Windows smoke PASSED
+
+- **Verified preview release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.18
+- **Canonical EXE:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.18/MagicPatchDesk-Windows-x64.exe
+- **Checksum manifest:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.18/SHA256SUMS.txt
+- **EXE:** 7,817,216 bytes; SHA256 `b2f223c9224e374b9d141103cf3b511b49e8bbf2d271111e9e8a5e56831b4744`. GitHub Release asset contains this digest and the verified manifest.
+- **One-shot gated CI:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45008193430 — concluded **success**. Ubuntu: permanent updater contract, media fixture, official icon, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 cross-build, PE and SHA256. Actual Windows runner: `--mpd-ui-smoke-v1` (including 360 synthetic on-disk ISO/CCI/XBE source transitions with selected patch and extra GC paint pressure) **exit 0**, and `--mpd-healthcheck-v1` **exit 0**. Release attached only after tests passed.
+- PR https://github.com/TroJanVirus/MagicPatchDesk/pull/32 was merged into `main` after the release; v0.14.0-test.18 source commit `c9cb528dcd69f6818de53d703980d31609154166`.
+- Fixes: Patch Hub background JSON decoder panic isolation and checked cache (actual crash trace from user archive), sync serialization, safe background worker reporting, native Windows syscall pointer-lifetime pragma, precise source-switch crash breadcrumbs and regression tests. Keep original README, source-game safety, and updater protocol v1.
+- **Field verification still needed:** real Windows 10/11 user interactive Phantom Crash ISO→CCI→XBE cycles, and independent native historical 0xC0000005 root-cause confirmation. A successful synthetic CI suite does NOT certify every actual ISO/CCI/XBE. Keep issue #19 open until field-testing.
+- The tag-scoped temporary one-shot release workflow is removed from `main` immediately following success to conserve GitHub Actions minutes; the manual-only verification workflow remains.
+
 ## 2026-11-22 — v0.14.0-test.18 release gate initiated (pending verification)
 
 Owner requested publishing the PR #32 crash mitigations. Source version increments to v0.14.0-test.18. A ONE-SHOT release workflow runs only when its own file is first pushed to the exact candidate branch. It gates any GitHub Release on portable Go tests, race, vet, updater contract, PatchHub media fixtures, official icon, Windows PE build, native UI source-switch stress and healthcheck; only then attaches canonical MagicPatchDesk-Windows-x64.exe and SHA256SUMS.txt. **Do not mark this as released or tested until the workflow succeeds and GitHub confirms the release and asset digest.** Remove the one-shot workflow afterward. Keep #19 open pending physical user field test. Human-written README unchanged.
