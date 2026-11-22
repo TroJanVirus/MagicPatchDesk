@@ -138,6 +138,7 @@ func smokePaintAndExit() {
     // choose its matching XBE. The parsed patch and record toggles remain
     // intact; an older inspector result must be dropped.
     smokePreselectedPatchThenXBE()
+    smokeISOPickerValidation()
 
     // Test the real Win32 button hit rectangles and Segoe UI text metrics at
     // the usual 1024px workspace and the narrower stacked-settings layout.
