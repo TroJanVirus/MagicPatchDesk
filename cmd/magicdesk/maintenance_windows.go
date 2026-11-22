@@ -133,6 +133,10 @@ func checkForNewRelease(silent bool) {
 	maintenanceUpdate.Busy = true
 	beta := maintenancePref.Beta
 	app.mu.Unlock()
+    // One check = app release discovery + GitHub JMP sync + PatchHub metadata.
+    // These background downloads are independent and safe when offline.
+    go reloadAndSync()
+    go syncPatchHubMetadata()
 	if !silent {
 		maintenanceProgress("Checking official Magic Patch Desk releases…")
 	}
