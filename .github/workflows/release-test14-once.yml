@@ -36,7 +36,7 @@ jobs:
         run: go test -race -count=1 ./core
       - name: Go vet
         run: go vet ./...
-      - name: Windows 10/11 x64 GUI cross-build
+      - name: Windows 10/11 x64 GUI cross-build (validated raw JMP smoke fixture)
         env:
           GOOS: windows
           GOARCH: amd64
