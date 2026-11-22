@@ -220,18 +220,20 @@ func MediaGameMatches(g Game,shot HubScreenshot)bool{
 // MatchPatchHubMedia finds ALL JPG/PNG images inside the selected website
 // patch folder, including repeated folders under different region/revisions.
 // The image filename is only used to offer optional Before/After labels.
-func MatchPatchHubMedia(game Game, patch CatalogPatch, all []HubScreenshot) []HubScreenshot {
+func MatchPatchHubMedia(game Game,patch CatalogPatch,all []HubScreenshot)[]HubScreenshot{
     if CoverMatchKey(patch.Name)==""{return nil}
+    patches:=game.Patches
+    allowAbbreviations:=len(patches)>0
+    if len(patches)==0{patches=[]CatalogPatch{patch}}
     result:=make([]HubScreenshot,0,8)
     seen:=map[string]bool{}
-    for _,shot:=range all {
+    for _,shot:=range all{
         if !MediaGameMatches(game,shot)||seen[shot.URL]{continue}
-        if !PatchFolderMatches(patch.Name,shot.Patch) {
-            // Only accept an abbreviated folder when this is the ONE patch
-            // with that candidate name in the currently selected game.
-            if !patchFolderCandidate(patch.Name,shot.Patch)||len(game.Patches)==0||
-                matchingPatchFolderCount(game.Patches,shot.Patch)!=1 {continue}
+        selected:=false
+        for _,i:=range galleryFolderOwners(patches,shot,allowAbbreviations){
+            if sameGalleryPatch(patches[i],patch){selected=true;break}
         }
+        if !selected{continue}
         seen[shot.URL]=true
         result=append(result,shot)
         if len(result)>=128{break}
