@@ -1390,12 +1390,17 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" || ext == ".pf" {
-				if _, err := core.ImportJMP(app.root, path); err != nil {
-					notify(err.Error())
-				} else {
-					go reloadCatalog()
-					notify("Imported " + filepath.Base(path))
-				}
+                if _,err:=core.ImportJMP(app.root,path);err!=nil {
+                    if errors.Is(err,core.ErrDuplicatePatch){
+                        app.mu.Lock()
+                        app.status="Duplicate patch found! No need to add."
+                        app.mu.Unlock()
+                        manager.log.Add("error","Import JMP","Duplicate patch found! No need to add.")
+                    }else{notify("Import error: "+err.Error())}
+                }else{
+                    go reloadCatalog()
+                    notify("Imported "+filepath.Base(path))
+                }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
                 if app.tab==7 {
                     selectGameSource(path)
