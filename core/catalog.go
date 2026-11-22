@@ -600,6 +600,19 @@ func ImportFolder(root, folder string) (int, error) {
 		default:
 			return nil
 		}
+        if ext==".jmp"||ext==".pf"{
+            data,e:=os.ReadFile(path)
+            if e!=nil{return e}
+            if int64(len(data))>maxImportedPatchBytes{return fmt.Errorf("patch exceeds import size limit: %s",filepath.Base(path))}
+            if ext==".jmp"{
+                if _,e=ParseJMP(filepath.Base(path),data);e!=nil{return fmt.Errorf("invalid JMP %s: %w",filepath.Base(path),e)}
+            }else{
+                if _,e=ParsePF(filepath.Base(path),data);e!=nil{return fmt.Errorf("invalid PF %s: %w",filepath.Base(path),e)}
+            }
+            matching,e:=existingIdenticalPatch(root,ext,data)
+            if e!=nil{return e}
+            if matching!=""{return nil}
+        }
 		rel, e := filepath.Rel(folder, path)
 		if e != nil {
 			return e
