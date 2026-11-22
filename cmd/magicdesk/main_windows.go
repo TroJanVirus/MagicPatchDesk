@@ -517,55 +517,74 @@ func main() {
     defer catchFatalPanic()
     initApp()
 }
-func reloadCatalog() {
-	app.mu.Lock()
-	workers := app.workers
-	prevTitle := ""
-	prevFile := ""
-	if app.selectedGame >= 0 && app.selectedGame < len(app.cat.Games) {
-		prevTitle = app.cat.Games[app.selectedGame].Title
-		if app.selectedPatch >= 0 && app.selectedPatch < len(app.cat.Games[app.selectedGame].Patches) {
-			prevFile = app.cat.Games[app.selectedGame].Patches[app.selectedPatch].File
-		}
-	}
-	app.mu.Unlock()
-	c, err := core.LoadCatalog(app.root, workers)
-	if err != nil {
-		notify(err.Error())
-		return
-	}
-	app.mu.Lock()
-	app.cat = c
-	app.selectedGame = -1
-	app.selectedPatch = -1
-	app.parsed = nil
-	if prevTitle != "" {
-		for i, g := range c.Games {
-			if strings.EqualFold(g.Title, prevTitle) {
-				app.selectedGame = i
-				for k, cp := range g.Patches {
-					if cp.File == prevFile {
-						app.selectedPatch = k
-						break
-					}
-				}
-				break
-			}
-		}
-	}
-	info := app.inputInfo
-	app.mu.Unlock()
-	if info.Valid && prevTitle == "" {
-		autoSelectXBE(info)
-	} else if prevFile != "" {
-		app.mu.Lock()
-		idx := app.selectedPatch
-		app.mu.Unlock()
-		if idx >= 0 {
-			selectPatch(idx)
-		}
-	}
-	redraw()
+// File scans and GitHub sync run on workers. Never swap the catalogue or
+// selection from a worker while Win32 is drawing a patch list. A partially
+// updated slice/string header can make native GDI dereference invalid memory.
+var catalogueReady = make(chan core.Catalog,4)
+var autoMatchReady = make(chan core.XBEInfo,4)
+
+func publishCatalogue(c core.Catalog){
+    select{
+    case catalogueReady<-c:
+    default:
+        select{case <-catalogueReady:default:}
+        select{case catalogueReady<-c:default:}
+    }
+    if app.hwnd!=0 {sysCall(postMsg,app.hwnd,WM_APP+2,0,0)}
+}
+
+func commitCatalogueOnUI(c core.Catalog){
+    app.mu.Lock()
+    prevTitle,prevFile:="",""
+    if app.selectedGame>=0&&app.selectedGame<len(app.cat.Games){
+        prevTitle=app.cat.Games[app.selectedGame].Title
+        if app.selectedPatch>=0&&app.selectedPatch<len(app.cat.Games[app.selectedGame].Patches){
+            prevFile=app.cat.Games[app.selectedGame].Patches[app.selectedPatch].File
+        }
+    }
+    app.cat=c
+    app.selectedGame=-1
+    app.selectedPatch=-1
+    app.parsed=nil
+    if prevTitle!=""{
+        for i,g:=range c.Games{
+            if strings.EqualFold(g.Title,prevTitle){
+                app.selectedGame=i
+                for j,p:=range g.Patches{
+                    if p.File==prevFile{app.selectedPatch=j;break}
+                }
+                break
+            }
+        }
+    }
+    info:=app.inputInfo
+    selected:=app.selectedPatch
+    app.mu.Unlock()
+    if info.Valid && prevTitle==""{
+        autoSelectXBE(info)
+    }else if prevFile!=""&&selected>=0{
+        selectPatch(selected)
+    }
+    redraw()
+}
+
+func reloadCatalog(){
+    app.mu.Lock()
+    workers,root:=app.workers,app.root
+    app.mu.Unlock()
+    c,err:=core.LoadCatalog(root,workers)
+    if err!=nil{notify(err.Error());return}
+    publishCatalogue(c)
+}
+
+func queueAutoMatch(info core.XBEInfo){
+    select{
+    case autoMatchReady<-info:
+    default:
+        select{case <-autoMatchReady:default:}
+        select{case autoMatchReady<-info:default:}
+    }
+    if app.hwnd!=0{sysCall(postMsg,app.hwnd,WM_APP+3,0,0)}
 }
 
 // Match by the embedded XBE Title ID and its whole-file CRC32 when possible.
@@ -722,7 +741,7 @@ func openInput(path string) {
             app.mu.Lock();same:=app.input==path;app.mu.Unlock()
             if !same{return}
 			rememberRecent("input",path)
-			autoSelectXBE(info)
+			queueAutoMatch(info)
 		}
 		redraw()
 	}()
@@ -1581,6 +1600,32 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		sysCall(dragFinish, wp)
 		redraw()
 		return 0
+    case WM_APP + 2:
+        // Draw/selection objects must be published on the owner UI thread.
+        var newest core.Catalog
+        found:=false
+        for {
+            select {
+            case newest=<-catalogueReady:
+                found=true
+            default:
+                if found {commitCatalogueOnUI(newest)}
+                return 0
+            }
+        }
+    case WM_APP + 3:
+        for {
+            select{
+            case info:=<-autoMatchReady:
+                app.mu.Lock()
+                valid:=app.inputInfo.Valid&&app.inputInfo.TitleID==info.TitleID&&
+                    app.inputInfo.CRC32==info.CRC32
+                app.mu.Unlock()
+                if valid {autoSelectXBE(info)}
+            default:
+                return 0
+            }
+        }
 	case WM_APP + 1:
 		redraw()
 		return 0
