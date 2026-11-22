@@ -1245,6 +1245,11 @@ func handle(action string, index int) {
         app.notesTargetGroup=-1
     case "notes-copy":
         if e:=copyDiagnosticText(selectedPatchNoteText());e!=nil{notify("Cannot copy text: "+e.Error())}
+    case "notes-copy-original":
+        // The formatted renderer has a safety bound; copying the original
+        // notes/group text keeps every byte of important long explanations,
+        // HTML markup and links available to the user.
+        if e:=copyDiagnosticText(selectedPatchNoteRaw());e!=nil{notify("Cannot copy original comment: "+e.Error())}
     case "notes-link-prev","notes-link-next":
         links:=selectedPatchNoteLinks()
         if len(links)>0{
