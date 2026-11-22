@@ -3,6 +3,7 @@
 package main
 
 import (
+    "bytes"
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
@@ -43,7 +44,7 @@ func readConversionPatch(path string) (string, []byte, error) {
 
 func refreshConversionHint() {
 	app.conversionBlocked = true
-	if app.bFile != "" {
+	if app.bFile != "" && app.convertPatchFile == "" {
         if app.format == core.AllPatchFormats {app.conversionHint="All Formats Pack requires a JMP or PF script; choose a source patch";return}
 		if app.aFile == "" {
 			app.conversionHint = "This patch conversion requires the source file for the context to create it · Choose stock/original XBE"
@@ -150,7 +151,7 @@ func runConversion() {
 	var patch []byte
 	var plan core.ConversionPlan
 	var err error
-	if app.bFile != "" {
+	if app.bFile != "" && app.convertPatchFile == "" {
 		if app.aFile == "" {
 			notify("Stock XBE required when converting a modified XBE.")
 			return
@@ -212,7 +213,7 @@ func runConversion() {
 			title = strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
 		}
 		if jobErr == nil {
-			if modPath != "" {
+			if modPath != "" && inputName == "" {
 				modified, e := os.ReadFile(modPath)
 				if e != nil {
 					jobErr = e
@@ -220,7 +221,25 @@ func runConversion() {
 					converted, jobErr = core.BuildPatchWithOptions(original, modified, format, password, title, useRLE)
 				}
 			} else {
-				converted, _, jobErr = core.ConvertPatchBytes(inputName, patch, original, format, password, useRLE, title)
+                // Verify the original patch produces precisely the supplied
+                // expected patched XBE, not merely similar edited regions.
+                if modPath!="" {
+                    var expected []byte
+                    expected,jobErr=os.ReadFile(modPath)
+                    if jobErr==nil && original==nil {
+                        jobErr=fmt.Errorf("stock/original XBE required for pre-patched result verification")
+                    }
+                    if jobErr==nil {
+                        var produced []byte
+                        produced,jobErr=core.ApplyPatchFile(original,app.convertPatchFile,password,false)
+                        if jobErr==nil&&!bytes.Equal(produced,expected) {
+                            jobErr=fmt.Errorf("pre-patched XBE verification FAILED: source patch produces different bytes (got %d bytes; reference %d bytes)",len(produced),len(expected))
+                        }
+                    }
+                }
+                if jobErr==nil {
+                    converted, _, jobErr = core.ConvertPatchBytes(inputName, patch, original, format, password, useRLE, title)
+                }
 			}
 		}
 		if jobErr == nil {
