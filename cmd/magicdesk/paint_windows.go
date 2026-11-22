@@ -167,7 +167,7 @@ func drawSidebar(hdc uintptr,w,h int32){
         remote:=app.remoteCount
         count:=app.cat.PatchCount
         app.mu.Unlock()
-        textAt(hdc,fmt.Sprintf("%d patches · %d online",count,remote),31,collectionTop+34,170,24,app.fonts.Small,white)
+        textAt(hdc,fmt.Sprintf("%d unique patches · %d source files",count,remote),31,collectionTop+34,170,24,app.fonts.Small,white)
         button(hdc,"↻ Sync GitHub",ir(25,collectionTop+70,184,32),"sync",0,false)
     }
 }
