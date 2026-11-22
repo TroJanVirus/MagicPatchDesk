@@ -659,9 +659,18 @@ func autoSelectXBE(info core.XBEInfo) {
 			}
 		}
 	}
-	if bestScore == 0 {
-		return
-	}
+    if bestScore==0 {
+        // The embedded XBE still identifies a real game, even when no JMP
+        // currently matches it. Give an actionable status rather than
+        // silently leaving the previous selected game onscreen.
+        app.mu.Lock()
+        app.selectedGame=-1
+        app.selectedPatch=-1
+        app.parsed=nil
+        app.mu.Unlock()
+        notify("Identified "+info.Title+" ("+info.TitleID+") · no matching patch found in library")
+        return
+    }
 	app.mu.Lock()
 	app.selectedGame = bestGame
 	app.patchScroll = 0
