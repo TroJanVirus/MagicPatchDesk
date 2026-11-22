@@ -112,3 +112,26 @@ func TestCleanCrashSessionDoesNotCreateReport(t *testing.T){
     n,e:=RecoverAbandonedCrashSessions(root,func(int)bool{return false})
     if e!=nil||n!=0{t.Fatal("clean shutdown was recorded as crash")}
 }
+
+
+func TestCatalogCollapsesPreExistingSemanticDuplicates(t *testing.T){
+    root:=t.TempDir()
+    upstream:=filepath.Join(root,"GitHub","titles","Halo 2","GLO_1_4D530064","Widescreen","Original.jmp")
+    writeImportFixture(t,upstream,fixtureJMP(fakeXBE()))
+    custom:=strings.ReplaceAll(fixtureJMP(fakeXBE()),"author=Tester","author=Translator")
+    custom=strings.ReplaceAll(custom,"notes=Sample","notes=Use original game files<br><br>Then apply the patch")
+    local:=filepath.Join(root,"Custom","titles","Halo 2","GLO_1_4D530064","Widescreen","Local version.jmp")
+    writeImportFixture(t,local,custom)
+    writeImportFixture(t,filepath.Join(filepath.Dir(local),"Before1.jpg"),"synthetic sample")
+    writeImportFixture(t,filepath.Join(filepath.Dir(local),"After1.jpg"),"synthetic sample")
+    catalog,e:=LoadCatalog(root,2)
+    if e!=nil{t.Fatal(e)}
+    if catalog.PatchCount!=1{t.Fatalf("duplicate JMP was still displayed: %d",catalog.PatchCount)}
+    if len(catalog.Games)!=1||len(catalog.Games[0].Patches)!=1{
+        t.Fatalf("catalog includes redundant entries: %+v",catalog.Games)
+    }
+    p:=catalog.Games[0].Patches[0]
+    if p.Source!="GitHub"{t.Fatalf("unpredictably replaced upstream patch: %q",p.Source)}
+    if len(p.Gallery)!=2{t.Fatalf("locally imported screenshots lost while deduplicating: %+v",p.Gallery)}
+    if _,e=os.Stat(local);e!=nil{t.Fatal("preexisting duplicate was deleted:",e)}
+}
