@@ -781,7 +781,7 @@ func openInput(path string) {
             rememberRecent("input",path)
             queueAutoMatch(info)
         }else{
-            recordWarning("game.inspect",err,path,"","")
+            recordFailure("game.inspect",err,path,"","")
         }
         redraw()
     }()
