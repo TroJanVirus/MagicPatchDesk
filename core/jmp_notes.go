@@ -64,7 +64,8 @@ func ExtractJMPNoteLinks(raw string) []JMPNoteLink {
         seen[safe]=true
         label=strings.TrimSpace(notesTag.ReplaceAllString(html.UnescapeString(label),""))
         if label==""{label=safe}
-        if len(label)>160{label=string([]rune(label)[:160])}
+        labelRunes:=[]rune(label)
+        if len(labelRunes)>160{label=string(labelRunes[:160])}
         links=append(links,JMPNoteLink{Label:label,URL:safe})
     }
     for _,m:=range notesAnchor.FindAllStringSubmatch(raw,-1) {
