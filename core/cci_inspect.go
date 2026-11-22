@@ -37,20 +37,34 @@ func (r *CCIReader) ReadAt(dst []byte, offset int64)(int,error){
 // an empty member selects default.xbe (or the only XBE if no default exists).
 // It never decodes the entire game to a temporary ISO.
 func ReadCCIGameMember(path,member string)([]byte,error){
+    items,err:=ReadCCIGameMembers(path,[]string{member})
+    if err!=nil{return nil,err}
+    return items[member],nil
+}
+
+// ReadCCIGameMembers opens the split headers and XDVDFS directory once,
+// keeping all requested targets inside a single verified logical read.
+func ReadCCIGameMembers(path string,members []string)(map[string][]byte,error){
     r,err:=OpenCCI(path)
     if err!=nil{return nil,err}
     defer r.Close()
     image,err:=openXDVDFSReaderAt(r,r.Sectors*cciSectorSize,path)
     if err!=nil{return nil,fmt.Errorf("CCI does not contain a readable Xbox XDVDFS image: %w",err)}
-    var target ImageFile
-    if member==""{
-        target,err=image.DefaultXBE()
-    }else{
-        target,err=image.ResolveTarget(member)
+    result:=make(map[string][]byte,len(members))
+    for _,member:=range members{
+        if _,already:=result[member];already{continue}
+        var target ImageFile
+        if member==""{
+            target,err=image.DefaultXBE()
+        }else{
+            target,err=image.ResolveTarget(member)
+        }
+        if err!=nil{return nil,err}
+        if target.Size>512<<20{return nil,errors.New("CCI member exceeds 512 MiB safety limit")}
+        result[member],err=readAt(r,image.Base+int64(target.StartSector)*sectorSize,int(target.Size))
+        if err!=nil{return nil,fmt.Errorf("CCI member %s: %w",member,err)}
     }
-    if err!=nil{return nil,err}
-    if target.Size>512<<20{return nil,errors.New("CCI member exceeds 512 MiB safety limit")}
-    return readAt(r,image.Base+int64(target.StartSector)*sectorSize,int(target.Size))
+    return result,nil
 }
 
 // CCIPartSummary describes which member of a numbered set the user chose.
