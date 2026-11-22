@@ -25,7 +25,7 @@ func FormatJMPNotes(raw string) string {
     // Paint buffers. The app can still save/parse the full raw patch unchanged.
     const limit=1<<18
     if len(raw)>limit{raw=raw[:limit]+"\n[Additional text exceeds viewer safety limit]"}
-    s:=html.UnescapeString(raw)
+    s:=strings.ReplaceAll(html.UnescapeString(raw),"\x00","�")
     s=notesLineBreak.ReplaceAllString(s,"\n")
     s=notesItemOpen.ReplaceAllString(s,"\n• ")
     s=notesItemClose.ReplaceAllString(s,"\n")
