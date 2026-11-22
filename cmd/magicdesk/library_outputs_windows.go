@@ -20,9 +20,11 @@ var outputOptions = []struct{
 }
 
 func outputSummary() string {
-    if chosenGameSource()==""{return "Choose a source game"}
+    // An empty source is not an output format. Tell the user what this
+    // section does, rather than redundantly saying "Choose a source game".
+    if chosenGameSource()=="" {return "Choose the formats to create from your selected game and patch"}
     mask,err:=chosenOutputMask()
-    if err!=nil||mask==0{return "No output format chosen"}
+    if err!=nil||mask==0{return "Choose the formats to create from your selected game and patch"}
     if mask&^availableGameOutputs()!=0{return "Incompatible output selected · revise formats"}
     title:=outputNames(mask)
     if gameOutputPreserve{
