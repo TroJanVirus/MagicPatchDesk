@@ -161,97 +161,86 @@ func checkForNewRelease(silent bool) {
         refreshConfidenceOnUpdate()
 	}()
 }
-func updateNow() {
-	app.mu.Lock()
-	available := maintenanceUpdate.Found
-	release := maintenanceUpdate.Release
-	if maintenanceUpdate.Busy {
-		app.mu.Unlock()
-		return
-	}
-	app.mu.Unlock()
-	if !available {
-		notify("Check for updates first, or enable Preview releases to see test builds.")
-		return
-	}
-	if maintenanceDialog("Update Magic Patch Desk", "Download official release "+release.TagName+" and install it?\n\nThe download is verified against SHA256SUMS.txt and GitHub asset digest. A rollback copy is retained. The app will restart.\n\nNo games, custom patches, settings or reports are deleted.", 0x24|0x100) != 6 {
-		return
-	}
-	app.mu.Lock()
-	maintenanceUpdate.Busy = true
-	app.mu.Unlock()
-	maintenanceProgress("Downloading and verifying " + release.TagName + "…")
-	go func() {
-		target, e := installedExePath()
-		if e != nil {
-			maintenanceUpdateDone(e)
-			return
-		}
-		dir := filepath.Dir(target)
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
-		defer cancel()
-		stage, digest, e := core.FetchVerifiedUpdate(ctx, release, dir)
-		if e != nil {
-			maintenanceUpdateDone(e)
-			return
-		}
-		source, e := os.Executable()
-		if e != nil {
-			os.Remove(stage)
-			maintenanceUpdateDone(e)
-			return
-		}
-		if !core.IsInstalledPath(source) {
-			// Upgrade from portable mode directly into its long-term installed folder.
-			if _, x := os.Stat(target); x == nil {
-				os.Remove(stage)
-				maintenanceUpdateDone(errors.New("an installed copy exists; open it to update"))
-				return
-			}
-			if e = os.Rename(stage, target); e != nil {
-				os.Remove(stage)
-				maintenanceUpdateDone(e)
-				return
-			}
-			helper := filepath.Join(dir, "MagicPatchDeskUpdater.exe")
-			if _, x := os.Stat(helper); errors.Is(x, os.ErrNotExist) {
-				if e = copyExecutable(source, helper); e != nil {
-					maintenanceUpdateDone(e)
-					return
-				}
-			}
-			cmd := exec.Command(target)
-			cmd.Dir = dir
-			if e = cmd.Start(); e != nil {
-				maintenanceUpdateDone(e)
-				return
-			}
-			sysCall(postMsg, app.hwnd, WM_CLOSE, 0, 0)
-			return
-		}
-		helper := filepath.Join(dir, "MagicPatchDeskUpdater.exe")
-		if _, x := os.Stat(helper); errors.Is(x, os.ErrNotExist) {
-			if e = copyExecutable(source, helper); e != nil {
-				os.Remove(stage)
-				maintenanceUpdateDone(e)
-				return
-			}
-		}
-		// Health-check the staged executable BEFORE the parent exits.
-		if e = exec.Command(stage, healthOption).Run(); e != nil {
-			os.Remove(stage)
-			maintenanceUpdateDone(fmt.Errorf("new release failed launch self-check: %w", e))
-			return
-		}
-		cmd := exec.Command(helper, helperOption, strconv.Itoa(os.Getpid()), target, stage, digest)
-		cmd.Dir = dir
-		if e = cmd.Start(); e != nil {
-			os.Remove(stage)
-			maintenanceUpdateDone(e)
-			return
-		}
-		sysCall(postMsg, app.hwnd, WM_CLOSE, 0, 0)
-	}()
+// preparePortableUpdateHelper refreshes the helper from the *running* app.
+// The existing helper may be an older v1 implementation that only accepts
+// installed targets; reusing it for a portable update would fail again.
+func preparePortableUpdateHelper(source string)(string,error){
+    helper:=filepath.Join(filepath.Dir(source),"MagicPatchDeskUpdater.exe")
+    expected,e:=sourceIntegrity(source)
+    if e!=nil{return "",e}
+    actual,e:=sourceIntegrity(helper)
+    if e!=nil||actual!=expected{
+        if _,e=os.Stat(helper);e==nil{
+            if e=os.Remove(helper);e!=nil{
+                return "",fmt.Errorf("existing updater helper cannot be replaced (another update may be active): %w",e)
+            }
+        }
+        if e=copyExecutable(source,helper);e!=nil{return "",e}
+    }
+    if e=exec.Command(helper,healthOption).Run();e!=nil{
+        return "",fmt.Errorf("portable updater helper health-check failed: %w",e)
+    }
+    return helper,nil
+}
+
+func updateNow(){
+    app.mu.Lock()
+    available:=maintenanceUpdate.Found
+    release:=maintenanceUpdate.Release
+    if maintenanceUpdate.Busy{app.mu.Unlock();return}
+    app.mu.Unlock()
+    if !available{
+        notify("Check for updates first, or enable Preview releases to see test builds.")
+        return
+    }
+    source,e:=os.Executable()
+    if e!=nil{notify("Cannot locate running application: "+e.Error());return}
+    mode:="this portable EXE"
+    if core.IsInstalledPath(source){mode="the installed application"}
+    message:="Download and update "+mode+" to "+release.TagName+"?\n\n"+
+        "The exact executable is checked against the release SHA256 manifest and health-checked before replacement. "+
+        "The previous version is retained in the same folder.\n\n"+
+        "A separate installed or portable copy will NOT be replaced. Your games, patches, settings and reports are untouched."
+    if maintenanceDialog("Update Magic Patch Desk",message,0x24|0x100)!=6{return}
+    app.mu.Lock()
+    maintenanceUpdate.Busy=true
+    app.mu.Unlock()
+    maintenanceProgress("Downloading and verifying "+release.TagName+"…")
+    go func(){
+        defer catchFatalPanic()
+        target:=source // Always update the copy the user actually launched.
+        dir:=filepath.Dir(target)
+        ctx,cancel:=context.WithTimeout(context.Background(),4*time.Minute)
+        defer cancel()
+        stage,digest,e:=core.FetchVerifiedUpdate(ctx,release,dir)
+        if e!=nil{maintenanceUpdateDone(e);return}
+        cleanup:=func(){_ =os.Remove(stage);_=os.Remove(core.PortableUpdateIntentPath(stage))}
+        // Both managed and portable updates validate the newly downloaded PE
+        // while the original application is still running.
+        if e=exec.Command(stage,healthOption).Run();e!=nil{
+            cleanup()
+            maintenanceUpdateDone(fmt.Errorf("new release failed launch self-check: %w",e))
+            return
+        }
+        helper:=filepath.Join(dir,"MagicPatchDeskUpdater.exe")
+        if core.IsInstalledPath(target){
+            if _,x:=os.Stat(helper);errors.Is(x,os.ErrNotExist){
+                if e=copyExecutable(source,helper);e!=nil{
+                    cleanup();maintenanceUpdateDone(e);return
+                }
+            }
+        }else{
+            helper,e=preparePortableUpdateHelper(source)
+            if e!=nil{cleanup();maintenanceUpdateDone(e);return}
+            if e=core.SavePortableUpdateIntent(stage,target,digest,os.Getpid());e!=nil{
+                cleanup();maintenanceUpdateDone(e);return
+            }
+        }
+        cmd:=exec.Command(helper,helperOption,strconv.Itoa(os.Getpid()),target,stage,digest)
+        cmd.Dir=dir
+        if e=cmd.Start();e!=nil{cleanup();maintenanceUpdateDone(e);return}
+        sysCall(postMsg,app.hwnd,WM_CLOSE,0,0)
+    }()
 }
 func maintenanceUpdateDone(e error) {
 	app.mu.Lock()
@@ -275,19 +264,30 @@ func updateHelper(args []string) error {
 		return errors.New("invalid updater parent process")
 	}
 	target, staged, digest := args[2], args[3], args[4]
-	expected, e := installedExePath()
-	if e != nil {
-		return e
-	}
-	if !strings.EqualFold(filepath.Clean(target), filepath.Clean(expected)) {
-		return errors.New("update target is not the managed install")
-	}
-	if !strings.EqualFold(filepath.Dir(staged), filepath.Dir(target)) || !strings.HasPrefix(filepath.Base(staged), ".mpd-update-") {
-		return errors.New("untrusted staged update location")
-	}
-	if e = core.ValidateDownloadedDigest(staged, digest); e != nil {
-		return e
-	}
+    expected,e:=installedExePath()
+    if e!=nil{return e}
+    if !strings.EqualFold(filepath.Dir(staged),filepath.Dir(target))||
+       !strings.HasPrefix(strings.ToLower(filepath.Base(staged)),".mpd-update-")||
+       !strings.EqualFold(filepath.Ext(staged),".exe"){
+        return errors.New("untrusted staged update location")
+    }
+    managed:=strings.EqualFold(filepath.Clean(target),filepath.Clean(expected))
+    if !managed{
+        // The installed-target restrictions remain untouched for existing
+        // v1 helpers. For portable updates require a one-time explicit intent
+        // created by this app before it exited. The helper must be co-located.
+        runningHelper,e:=os.Executable()
+        if e!=nil{return e}
+        wantHelper:=filepath.Join(filepath.Dir(target),"MagicPatchDeskUpdater.exe")
+        if !strings.EqualFold(filepath.Clean(runningHelper),filepath.Clean(wantHelper)){
+            return errors.New("portable updater helper is not beside the application")
+        }
+        if e=core.IsPortableUpdateAuthorized(staged,target,digest,parent);e!=nil{return e}
+        defer os.Remove(core.PortableUpdateIntentPath(staged))
+    }
+    backup,e:=core.UpdateTargetBackup(target,expected)
+    if e!=nil{return e}
+    if e=core.ValidateDownloadedDigest(staged,digest);e!=nil{return e}
 	kernel := syscall.NewLazyDLL("kernel32.dll")
 	openProcess := kernel.NewProc("OpenProcess")
 	wait := kernel.NewProc("WaitForSingleObject")
@@ -303,8 +303,9 @@ func updateHelper(args []string) error {
 		// The parent may have exited before OpenProcess was called.
 		time.Sleep(1300 * time.Millisecond)
 	}
-	backup := filepath.Join(filepath.Dir(target), "MagicPatchDesk.previous.exe")
-	os.Remove(backup)
+    if e=os.Remove(backup);e!=nil&&!errors.Is(e,os.ErrNotExist){
+        return fmt.Errorf("previous rollback executable cannot be replaced: %w",e)
+    }
 	if e = os.Rename(target, backup); e != nil {
 		return fmt.Errorf("backup old executable: %w", e)
 	}
