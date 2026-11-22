@@ -17,7 +17,7 @@ type Preferences struct {
 	GameOutputFormats map[string]uint32 `json:"game_output_formats,omitempty"`
 }
 
-func DefaultPreferences() Preferences { return Preferences{Workers: 4, Filter: 0} }
+func DefaultPreferences() Preferences { return Preferences{Workers: 4, Filter: 0, Theme: "Midnight"} }
 
 func (p Preferences) Validate() Preferences {
 	if p.Theme!="Midnight" && p.Theme!="Forest" && p.Theme!="Plum" {p.Theme="Midnight"}
