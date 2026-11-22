@@ -59,6 +59,10 @@ func refreshConversionHint() {
 		app.conversionHint = "Choose a source patch or modified XBE"
 		return
 	}
+    if app.bFile!="" && app.convertPatchFile!="" && app.aFile=="" {
+        app.conversionHint="Original XBE required to compare source patch output with pre-patched XBE"
+        return
+    }
 	ext := strings.ToLower(filepath.Ext(name))
 	// Encrypted IPS costs 210k PBKDF2 rounds. Never derive keys on each
 	// keystroke or on every Win32 UI repaint.
