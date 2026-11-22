@@ -494,8 +494,7 @@ func initApp() {
     // The single Check at Start preference now governs BOTH the application
     // update check and public GitHub/PatchHub library refresh. Offline users
     // still see the cached catalogue and can run either check manually.
-    go reloadCatalog()
-    if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
+    if maintenancePref.NoAutoCheck {go reloadCatalog()}else{checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
     markCrashStage("ui_callback")
