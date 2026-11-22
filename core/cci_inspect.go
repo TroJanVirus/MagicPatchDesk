@@ -4,6 +4,8 @@ import (
     "errors"
     "fmt"
     "io"
+    "path/filepath"
+    "strings"
 )
 
 // ReadAt presents the full contiguous CCI split set as a read-only logical
@@ -49,6 +51,24 @@ func ReadCCIGameMember(path,member string)([]byte,error){
     if err!=nil{return nil,err}
     if target.Size>512<<20{return nil,errors.New("CCI member exceeds 512 MiB safety limit")}
     return readAt(r,image.Base+int64(target.StartSector)*sectorSize,int(target.Size))
+}
+
+// CCIPartSummary describes which member of a numbered set the user chose.
+// This is filesystem-only discovery; InspectCCIExecutable independently
+// validates CCIM headers and the actual logical XDVDFS data.
+func CCIPartSummary(path string)(string,error){
+    parts,err:=discoverCCIParts(path)
+    if err!=nil{return "",err}
+    if len(parts)==1{return "single CCI image",nil}
+    selected:=0
+    for i,part:=range parts{
+        if strings.EqualFold(filepath.Clean(part),filepath.Clean(path)){
+            selected=i+1
+            break
+        }
+    }
+    if selected==0 {return "",errors.New("selected CCI part is not in discovered set")}
+    return fmt.Sprintf("CCI part %d of %d",selected,len(parts)),nil
 }
 
 // InspectCCIExecutable returns the same Title ID, game name and CRC32 as
