@@ -82,8 +82,8 @@ func gameOutputAction(action string,index int) {
     switch action {
     case "game-source":
         if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.xiso;*.cci\x00All files\x00*.*\x00","Choose original game image or XBE","");p!="" {
-            selectGameSource(p)
-            app.status="Game output source: "+filepath.Base(p)
+            openInput(p)
+            app.status="Game source: "+filepath.Base(p)
         }
     case "game-folder":
         // Select the root default.xbe to identify a complete extracted folder.
@@ -92,8 +92,9 @@ func gameOutputAction(action string,index int) {
                 notify("Select the root default.xbe, not another game executable.")
                 return
             }
-            selectGameSource(filepath.Dir(p))
-            app.status="Extracted game folder selected"
+            openInput(p) // inspect/auto-match the actual root default.xbe
+            selectGameSource(filepath.Dir(p)) // exports the complete game folder
+            app.status="Extracted game folder selected; choose output formats"
         }
     case "game-use-loaded":
         selectGameSource("")
@@ -298,6 +299,7 @@ func startGameOutput(){
     manager.log.Add("info","Game Outputs","Preflight: verifying source and preserving the original")
     redraw()
     go func(){
+        defer catchFatalPanic()
         var err error
         workSource:=source
         if strings.EqualFold(filepath.Ext(direct),".pf"){
