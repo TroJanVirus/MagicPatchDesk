@@ -46,6 +46,24 @@ func ParsePatchHubMediaManifest(body []byte)([]HubScreenshot,error){
 // This is the user's provided actual public filename, not a guessed URL.
 // Fetching the image remains best-effort and is verified as a real image.
 const ProvidedPhantomCrashImage="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
+const ProvidedAMFBowlingImage="https://www.jayxbox.com/All-Patches/titles/AMF%20Xtreme%20Bowling/USA_00000001_42530014/AMF%20Xtreme%20Bowling%20%7BWidescreen%7D%20%28NTSC%29%20%5BEsppiral%5D/1.%20Before.jpg"
+
+// Exact user-provided paths are seeds, not inferred server files. Their
+// original game, patch name, revision, Title ID and region must all match.
+func knownPatchHubImages(game Game,patch CatalogPatch) []HubScreenshot {
+    urls:=[]string{ProvidedPhantomCrashImage,ProvidedAMFBowlingImage}
+    result:=[]HubScreenshot{}
+    for _,raw:=range urls {
+        shot,ok:=patchhubGalleryURL(raw)
+        if !ok||CoverMatchKey(shot.Game)!=CoverMatchKey(game.Title)||
+            !strings.EqualFold(shot.Patch,patch.Name)||
+            !strings.EqualFold(shot.TitleID,patch.TitleID)||
+            !patchRegionEquivalent(patch.Region,shot.Region) {continue}
+        result=append(result,shot)
+    }
+    return result
+}
+
 
 func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot){
     if hub==nil{return}
@@ -172,8 +190,12 @@ func CommonPatchHubMediaNames()[]string{
     return out
 }
 func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,patch CatalogPatch)([]HubScreenshot,error){
+    known:=knownPatchHubImages(game,patch)
     folder,e:=PatchHubPatchDirectory(game,patch)
-    if e!=nil{return nil,e}
+    if e!=nil {
+        if len(known)>0{return known,nil}
+        return nil,e
+    }
     if client==nil{
         client=&http.Client{Timeout:5*time.Second,CheckRedirect:func(req *http.Request,via []*http.Request)error{
             if len(via)>3||!trustedPatchHubURL(req.URL){return errors.New("unsafe PatchHub redirect")}
@@ -185,6 +207,7 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
     add:=func(s HubScreenshot){
         if !seen[s.URL]&&len(results)<32{seen[s.URL]=true;results=append(results,s)}
     }
+    for _,shot:=range known {add(shot)}
     // Listing optional. A 403/404 is expected on servers with autoindex off.
     listing,err:=http.NewRequestWithContext(ctx,http.MethodGet,folder,nil)
     if err==nil{
