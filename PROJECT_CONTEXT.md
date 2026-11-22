@@ -33,6 +33,8 @@ The user reported a silent crash when selecting a Phantom Crash XBE after import
 
 Import JMP and folder imports now check conservative **semantic equivalence** (source/game identity, ordered byte changes, groups and targets) beyond file hashes; already-existing duplicate JMPs are collapsed in the visible catalogue without deleting old files. `READ FULL NOTES` displays line-break/HTML-entity aware word-wrapped scrollable instructions and a Copy action. Patch/record lists have separate cursor-targeted scrolling and visible draggable thumb/track bars. Convert & Create shows IPS RLE only for IPS/EIPS/pack, and password only when encrypted IPS input/output needs it.
 
+**Open manual repro / crash-evidence QA tracker:** https://github.com/TroJanVirus/MagicPatchDesk/issues/17.
+
 **Not verified:** the original Phantom Crash failure's precise cause—the previous release captured no stack—and actual clicking/file-dialog behavior on a real user Windows installation, OS-native fatal exception trace availability, commercial Xbox game bootability or full PatchHub gallery coverage. The CI includes synthetic forced exit/panic reporting tests and actual Windows executable UI paint/navigation smoke, not a real Phantom Crash boot test. Consult `docs/CRASH_RECOVERY_AND_UI.md`, `docs/STATUS.md` and the open QA tracker.
 
 ## Verified release and repository snapshot
