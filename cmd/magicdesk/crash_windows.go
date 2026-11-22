@@ -85,7 +85,9 @@ func beginCrashProtection(root string) (int,error) {
     // WER is best-effort. Session recovery and caught-panic logs still work
     // if local policy disables it or registry access fails.
     _=configureCrashWER(root)
-    return count,nil
+    notices,e:=core.PendingCrashNotices(root)
+    if e!=nil{return count,e}
+    return notices,nil
 }
 func markCrashStage(stage string) {
     if crashSession!=nil { _=crashSession.SetStage(stage) }
