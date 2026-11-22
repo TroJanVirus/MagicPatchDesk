@@ -520,5 +520,8 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
     decryptPassword:=false
     for _,hit:=range app.hits{if hit.Action=="password"{decryptPassword=true}}
     if !decryptPassword{panic("Encrypted IPS input cannot provide required decryption password")}
+    // Final Windows-only stress suite uses real on-disk ISO/CCI/XBE fixtures
+    // and switches each source hundreds of times with a patch selected.
+    smokeRapidMixedSourceSwitch()
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
 }

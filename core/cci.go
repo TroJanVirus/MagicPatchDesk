@@ -1,6 +1,7 @@
 package core
 
 import (
+    "context"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -104,6 +105,10 @@ func (r *CCIReader) Close() error {
 	return first
 }
 func OpenCCI(path string) (*CCIReader, error) {
+    return OpenCCIContext(context.Background(),path)
+}
+func OpenCCIContext(ctx context.Context,path string)(*CCIReader,error){
+    if err:=ctx.Err();err!=nil{return nil,err}
 	paths, err := discoverCCIParts(path)
 	if err != nil {
 		return nil, err
@@ -116,6 +121,7 @@ func OpenCCI(path string) (*CCIReader, error) {
 		}
 	}()
 	for _, p := range paths {
+        if e:=ctx.Err();e!=nil{return nil,e}
 		f, e := os.Open(p)
 		if e != nil {
 			return nil, e
@@ -147,33 +153,46 @@ func OpenCCI(path string) (*CCIReader, error) {
 		if indexBytes > cciMaxIndexSize || indexAt > uint64(info.Size()) || uint64(indexBytes) > uint64(info.Size())-indexAt {
 			return nil, errors.New("CCI index outside image")
 		}
-		buf := make([]byte, indexBytes)
-		if _, e = f.ReadAt(buf, int64(indexAt)); e != nil {
-			return nil, e
-		}
-		idx := make([]uint32, sectors+1)
-		var prev int64
-		for i := range idx {
-			idx[i] = binary.LittleEndian.Uint32(buf[i*4:])
-			pos := int64(idx[i]&0x7FFFFFFF) << 2
-			if i == 0 {
-				if pos < 32 {
-					return nil, errors.New("CCI index starts inside header")
-				}
-			} else {
-				span := pos - prev
-				if span <= 0 || span > cciMaxSectorSpan || ((idx[i-1]&0x80000000) == 0 && span != 2048) {
-					return nil, fmt.Errorf("corrupt CCI sector index at %d", i-1)
-				}
-			}
-			if pos > int64(indexAt) {
-				return nil, errors.New("CCI sector index past index table")
-			}
-			prev = pos
-		}
-		if int64(idx[len(idx)-1]&0x7FFFFFFF)<<2 != int64(indexAt) {
-			return nil, errors.New("CCI sentinel index does not match header")
-		}
+        // Avoid allocating TWO entire multi-megabyte index copies (raw
+        // byte buffer + uint32 slice) for every part. Decode a small chunk
+        // directly into the final index, checking cancellation between
+        // chunks so a superseded source releases handles and memory soon.
+        if e:=ctx.Err();e!=nil{return nil,e}
+        idx:=make([]uint32,sectors+1)
+        const indexChunkEntries=8192
+        scratch:=make([]byte,indexChunkEntries*4)
+        var prev int64
+        for start:=0;start<len(idx);{
+            if e:=ctx.Err();e!=nil{return nil,e}
+            count:=len(idx)-start
+            if count>indexChunkEntries{count=indexChunkEntries}
+            bytesNeeded:=count*4
+            read,e:=f.ReadAt(scratch[:bytesNeeded],int64(indexAt)+int64(start)*4)
+            if e!=nil{return nil,e}
+            if read!=bytesNeeded{return nil,io.ErrUnexpectedEOF}
+            for j:=0;j<count;j++{
+                i:=start+j
+                idx[i]=binary.LittleEndian.Uint32(scratch[j*4:])
+                pos:=int64(idx[i]&0x7FFFFFFF)<<2
+                if i==0 {
+                    if pos<32{return nil,errors.New("CCI index starts inside header")}
+                }else{
+                    span:=pos-prev
+                    if span<=0||span>cciMaxSectorSpan||
+                        ((idx[i-1]&0x80000000)==0&&span!=2048){
+                        return nil,fmt.Errorf("corrupt CCI sector index at %d",i-1)
+                    }
+                }
+                if pos>int64(indexAt){
+                    return nil,errors.New("CCI sector index past index table")
+                }
+                prev=pos
+            }
+            start+=count
+        }
+        if int64(idx[len(idx)-1]&0x7FFFFFFF)<<2!=int64(indexAt){
+            return nil,errors.New("CCI sentinel index does not match header")
+        }
 		current.index = idx
 		current.sectors = sectors
 		current.indexAt = int64(indexAt)
