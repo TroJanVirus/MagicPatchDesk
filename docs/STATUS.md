@@ -6,11 +6,11 @@
 
 | Area | Evidence / confidence |
 |---|---|
-| Released Windows preview | **v0.14.0-test.4** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4 |
-| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b` |
+| Released Windows preview | **v0.14.0-test.5** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.5 |
+| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `76d1edb3da73cb7a9896c3938820f48802cd4d2237985571411a10545f1c19a4` |
 | Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
-| Latest source-feature PR | **#16 merged:** https://github.com/TroJanVirus/MagicPatchDesk/pull/16 (v0.14.0-test.4) |
-| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561 — Linux, native Windows and publisher |
+| Latest source-feature PR | **#18:** https://github.com/TroJanVirus/MagicPatchDesk/pull/18 (v0.14.0-test.5; source merged after publication) |
+| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44976120121 — Linux, native Windows and publisher |
 | Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
 | Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
 
@@ -29,6 +29,15 @@
 
 **Not established:** whether the current public PatchHub PHP page emits screenshot URLs for every patch. The public JMP GitHub corpus does not contain the screenshots. Locally imported PatchHub `titles/` screenshots are supported. Do not fabricate image links or claim complete remote gallery coverage.
 
+## Newly verified in v0.14.0-test.5
+
+- **Code, Windows EXE and publisher gate: PASS.** [Run #44976120121](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44976120121) executed complete Linux Go suite, race detector, vet, Windows x64 build and manifest, native Windows Go tests, checked the exact downloaded release EXE digest and ran `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1`. The release assets were verified again after publication.
+- **Single-game outputs moved into Patch Library:** `CHOOSE OUTPUTS` offers multiple independent selected formats and Preserve current format. Source/patch selection plus explicit valid format is a prerequisite for an enabled Apply Patch hit target; a newly chosen source resets the format mask. Source constraints prohibit fabricating a complete image from a loose XBE and creating full-disc ISO from a non-full-disc input. Real game images and GUI clicks still require field tests.
+- **Navigation and Maintenance:** old Game Outputs sidebar entry removed, **Batch Process Library** label replaces Game Manager, Settings/About anchored to sidebar bottom. `Check for Updates` embeds `Update Settings` and clarifies Previews ON. Diagnostic report controls only expose Connect when disconnected and the remaining actions after a Windows Credential Manager connection, with no UI PAT state.
+- **Portable update blocker repaired:** test.4 rejected portable update merely because a separately installed app exists, not due to duplicate filenames. test.5 updates the *running executable* in place independently; stages in the running EXE's folder, verifies SHA256 and staged `--mpd-healthcheck-v1`, uses a portable-only PID/target/checksum intent, keeps separate rollback names, and preserves original installed-mode v1 helper arguments. Core tests reject tampered intent, mismatched PID/target/digest and unsafe stage paths.
+- **Unverified user environments:** actual portable-in-place self-replacement from a real Windows desktop was NOT performed by CI. An older portable binary with the previous blocker requires a one-time manual download of v0.14.0-test.5; running installed copy may update managed independently. Portable directory must be writable. No physical Xbox boot compatibility claims.
+- **Artifacts:** [release v0.14.0-test.5](https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.5); published `MagicPatchDesk-Windows-x64.exe` SHA256 `76d1edb3da73cb7a9896c3938820f48802cd4d2237985571411a10545f1c19a4`, with matching `SHA256SUMS.txt`. One-off publisher removed after success; only manual verification workflow remains. See [new UX and updater documentation](PATCH_LIBRARY_OUTPUTS_AND_UPDATES.md).
+
 ## Newly verified in v0.14.0-test.4
 
 - **Code and release gate PASS:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561. Go tests on Linux and native Windows; race/vet; Windows x64 EXE build, checksum verification, updater healthcheck and UI smoke of full notes, section-specific scrollbars and conditional IPS controls. Published https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4. Canonical EXE SHA256 `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b`.
@@ -43,7 +52,7 @@
 
 ## Manual QA still outstanding — do not claim completed
 
-1. **Real Windows 10/11 interactive test** reproducing Phantom Crash original-XBE selection (with existing duplicate JMPs), process crash/force-termination then next-launch private crash log/diagnostic upload flow, independent patch/record wheel and thumb hitboxes, notes and IPS controls; also folder picker, drag/drop, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
+1. **Real Windows 10/11 interactive test** of a portable-to-newer-portable update when a separately installed copy exists, with manifest validation, rollback and user-data survival; Patch Library multiple formats/Preserve/disabled Apply/actual output exports; Maintenance conditional connection controls and bottom sidebar, plus reproducing Phantom Crash original-XBE selection (with existing duplicate JMPs), process crash/force-termination then next-launch private crash log/diagnostic upload flow, independent patch/record wheel and thumb hitboxes, notes and IPS controls; also folder picker, drag/drop, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
 2. **Full library batch test** across legitimate extracted games, XISO/ISO and CCI sources: strict Auto matching, manual queue, Skip, mixed output formats, insufficient disk space, existing destination, interrupted operation, no original modification, proper recovery.
 3. **Full-sized image compatibility**, including CCI split files, physical sector/file limits, multi-target named assets, PF and packs, and XBE-only output validation. Not all combinations are supported; fail closed rather than dropping operations.
 4. **Actual xemu and physical Original Xbox game boots**. Distinguish emulator versus stock or upgraded Xbox RAM/CPU/revisions; user reports are not official compatibility guarantees.
