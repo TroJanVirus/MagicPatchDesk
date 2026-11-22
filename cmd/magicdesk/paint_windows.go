@@ -11,17 +11,32 @@ import (
 	"unsafe"
 )
 
-const (
-	bg       = 0x0C111C
-	sidebar  = 0x111A29
-	surface  = 0x182335
-	surface2 = 0x1F2D44
-	muted    = 0x91A3BD
-	white    = 0xF5F8FF
-	blue     = 0x6C9CFF
-	mint     = 0x5AD5BF
-	amber    = 0xFFC678
+var (
+	bg uint32       = 0x0C111C
+	sidebar uint32  = 0x111A29
+	surface uint32  = 0x182335
+	surface2 uint32 = 0x1F2D44
+	muted uint32    = 0x91A3BD
+	white uint32    = 0xF5F8FF
+	blue uint32     = 0x6C9CFF
+	mint uint32     = 0x5AD5BF
+	amber uint32    = 0xFFC678
 )
+
+// GDI colours use COLORREF BGR. Preserve high-contrast text across presets.
+func setTheme(name string) {
+    switch name {
+    case "Forest":
+        bg,sidebar,surface,surface2=0x11201A,0x193027,0x264238,0x305447
+        muted,white,blue,mint,amber=0xB1CDBF,0xF1FAF5,0xC5DA92,0x91E3BD,0xB9D8EF
+    case "Plum":
+        bg,sidebar,surface,surface2=0x1D1320,0x291B2D,0x3A2940,0x4C3652
+        muted,white,blue,mint,amber=0xBCB0CA,0xFCF4FF,0xE8A6D6,0xC6D8FF,0xD6AFEA
+    default:
+        bg,sidebar,surface,surface2=0x0C111C,0x111A29,0x182335,0x1F2D44
+        muted,white,blue,mint,amber=0x91A3BD,0xF5F8FF,0x6C9CFF,0x5AD5BF,0xFFC678
+    }
+}
 
 func cover(hdc uintptr, x, y int32, title, art, artURL string) {
 	h := uint32(2166136261)
@@ -598,6 +613,8 @@ func drawSettings(hdc uintptr, w, h int32) {
 	panel(hdc, ir(x, 129, width, 115), surface, 17)
 	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 142, width-55, 29, app.fonts.Title, white)
 	textAt(hdc, "Copying ISO images and indexing patches (1–8 workers).", x+29, 179, width-255, 28, app.fonts.Regular, muted)
+    textAt(hdc,"COLOUR THEME",x+29,216,180,20,app.fonts.Small,white)
+    button(hdc,app.theme+"  ·  Change",ir(x+width-227,214,199,30),"theme",0,false)
 	button(hdc, "−", ir(x+width-217, 173, 48, 43), "workers", -1, false)
 	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 175, 50, 38, app.fonts.Title, white)
 	button(hdc, "+", ir(x+width-95, 173, 48, 43), "workers", 1, false)
