@@ -1,3 +1,7 @@
+## 2026-11-22 — v0.14.0-test.18 release gate initiated (pending verification)
+
+Owner requested publishing the PR #32 crash mitigations. Source version increments to v0.14.0-test.18. A ONE-SHOT release workflow runs only when its own file is first pushed to the exact candidate branch. It gates any GitHub Release on portable Go tests, race, vet, updater contract, PatchHub media fixtures, official icon, Windows PE build, native UI source-switch stress and healthcheck; only then attaches canonical MagicPatchDesk-Windows-x64.exe and SHA256SUMS.txt. **Do not mark this as released or tested until the workflow succeeds and GitHub confirms the release and asset digest.** Remove the one-shot workflow afterward. Keep #19 open pending physical user field test. Human-written README unchanged.
+
 ### 2026-11-22 added guard coverage (candidate)
 
 All Patch Library background catalogue reload and user-triggered sync entry points, not just the initial updater check, use panic recovery. Portable AST test checks mandatory sysCall `//go:uintptrescapes` annotation. No app-level tests or user hardware validation executed yet.
