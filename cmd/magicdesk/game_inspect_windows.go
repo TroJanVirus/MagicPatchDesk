@@ -18,24 +18,28 @@ type gameInspection struct {
     generation uint64
     info core.XBEInfo
     partSummary string
+    sourceKind string
     err error
 }
 
-func inspectGamePath(path string)(core.XBEInfo,string,error){
+func inspectGamePath(path string)(core.XBEInfo,string,string,error){
     var info core.XBEInfo
     var err error
     var partSummary string
+    kind:=""
     if core.CCISourcePath(path){
+        kind="cci"
         partSummary,err=core.CCIPartSummary(path)
         if err==nil{info,err=core.InspectCCIExecutable(path)}
-        return info,partSummary,err
+        return info,partSummary,kind,err
     }
     if core.IsNumberedRawImagePart(path) {
         partSummary,err=core.RawImagePartSummary(path)
-        if err!=nil{return info,partSummary,err}
+        if err!=nil{return info,partSummary,kind,err}
     }
     var data []byte
     if strings.EqualFold(filepath.Ext(path),".xbe"){
+        kind="xbe"
         var st os.FileInfo
         st,err=os.Stat(path)
         if err==nil{
@@ -53,13 +57,15 @@ func inspectGamePath(path string)(core.XBEInfo,string,error){
         var image *core.Image
         image,err=core.OpenXISO(path)
         if err==nil{
+            kind="xiso"
+            if image.Base!=0&&!core.IsNumberedRawImagePart(path){kind="fulliso"}
             var entry core.ImageFile
             entry,err=image.DefaultXBE()
             if err==nil{data,err=image.ReadFile(entry)}
         }
     }
     if err==nil{info,err=core.InspectXBE(data)}
-    return info,partSummary,err
+    return info,partSummary,kind,err
 }
 
 // The event handler calls this only on the Win32 UI thread, after dropping any
@@ -73,10 +79,27 @@ func commitGameInspection(result gameInspection) {
     app.inputInfo=result.info
     app.inputPartSummary=result.partSummary
     app.inputErr=""
+    app.inputKind=""
+    // Only a verified scan may expose output choices. In particular, a
+    // full-disc ISO must not be mistaken for an XISO while still loading.
+    selectedSource:=chosenGameSource()
+    ownsOutput:=selectedSource==result.path||
+        (strings.EqualFold(filepath.Base(result.path),"default.xbe")&&
+            selectedSource==filepath.Dir(result.path))
+    if ownsOutput {
+        gameOutputValidated=false
+        gameOutputKind=""
+    }
     if result.err!=nil{
         app.inputErr=result.err.Error()
         app.status="Cannot identify game: "+result.err.Error()
     }else{
+        app.inputKind=result.sourceKind
+        if ownsOutput {
+            gameOutputKind=result.sourceKind
+            if selectedSource!=result.path{gameOutputKind="folder"}
+            gameOutputValidated=true
+        }
         app.status="Loaded: "+result.info.Title+" · "+result.info.TitleID+" · CRC32 "+result.info.CRC32
         if result.partSummary!=""{app.status+=" · "+result.partSummary}
     }
