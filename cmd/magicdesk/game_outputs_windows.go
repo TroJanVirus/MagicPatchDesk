@@ -289,6 +289,22 @@ func startGameOutput(){
     dest:=pickFile(true,"Output package folder name\x00*.*\x00","Select a NEW output package name",base+"_patched")
     if dest==""{return}
     if info,e:=os.Stat(dest);e==nil && info!=nil{notify("Output already exists; choose a new name.");return}
+    // Never mistake a matching Title ID for a matching XBE revision.
+    // The user may explicitly bypass this check for this operation only.
+    if selected!=nil && len(selected.CRCs)>0 && direct=="" {
+        originals,readErr:=gameOriginals(source,[]string{"default.xbe"})
+        if readErr!=nil {notify("Cannot inspect original XBE: "+readErr.Error());return}
+        actual:=fmt.Sprintf("%08X",crc32.ChecksumIEEE(originals["default.xbe"]))
+        match:=false
+        for _,expected:=range selected.CRCs {
+            if actual==fmt.Sprintf("%08X",expected){match=true;break}
+        }
+        if !match {
+            warning:=fmt.Sprintf("CRC32 MISMATCH!\n\nSelected XBE: %s\nPatch expects: %s\n\nThis patch likely will not work on this revision. Search patterns or offsets can fail or modify the wrong bytes.\n\nAttempt to proceed anyway? The original game remains untouched.",actual,selected.ExpectedCRC())
+            if sysCall(messageBox,app.hwnd,uintptr(unsafe.Pointer(ptr(warning))),uintptr(unsafe.Pointer(ptr("WARNING: CRC32 MISMATCH!"))),uintptr(0x04|0x30))!=6{return}
+            override=true
+        }
+    }
     if !showPreviewMessage(fmt.Sprintf("Original: %s\n\nRequested formats: %s\n\nOutput package: %s\n\nExisting output is never overwritten. All named patch targets will be checked. Temporary disk space must accommodate extraction and packing.",filepath.Base(source),outputNames(mask),filepath.Base(dest)),true){return}
     app.mu.Lock()
     if app.busy {app.mu.Unlock();return}
