@@ -33,10 +33,10 @@ func setTheme(name string) {
         bg,sidebar,surface,surface2=0x1D1320,0x291B2D,0x3A2940,0x4C3652
         muted,white,blue,mint,amber=0xBCB0CA,0xFCF4FF,0xE8A6D6,0xC6D8FF,0xD6AFEA
     case "Light":
-        // GDI COLORREF BGR. Light backgrounds and genuinely dark foreground
-        // text, not a pale background with leftover white typography.
-        bg,sidebar,surface,surface2=0xF7F4F0,0xE8E4DE,0xFFFFFF,0xEEEAE5
-        muted,white,blue,mint,amber=0x67564C,0x211B17,0xB45F29,0x566D15,0x5C4BA4
+        // Cool paper neutrals, ink-blue text, restrained teal accents, and
+        // warm amber for warnings. Colours are RGB; col() converts to GDI.
+        bg,sidebar,surface,surface2=0xF6F8FA,0xEAF0F4,0xFFFFFF,0xEDF2F6
+        muted,white,blue,mint,amber=0x506574,0x203645,0x0D687E,0x116D53,0x955C18
     default:
         bg,sidebar,surface,surface2=0x0C111C,0x111A29,0x182335,0x1F2D44
         muted,white,blue,mint,amber=0x91A3BD,0xF5F8FF,0x6C9CFF,0x5AD5BF,0xFFC678
@@ -515,7 +515,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
         }
         if !match {
             crcLabel="CRC32 MISMATCH! expected "+p.ExpectedCRC()+" / loaded "+strings.ToUpper(app.inputInfo.CRC32)
-            crcColor=0x5A73FF // GDI COLORREF: bright red (BGR)
+            crcColor=0xB52F43 // Accessible warning red (RGB; col() converts to GDI)
         } else {
             crcLabel="CRC32 MATCH · "+app.inputInfo.CRC32
         }
@@ -612,60 +612,104 @@ func drawConvert(hdc uintptr, w, h int32) {
 }
 
 func drawSettings(hdc uintptr, w, h int32) {
-	drawPageHeader(hdc, "Settings & diagnostics", "Performance, verification, offline patches and local problem reports.", w)
-	x := int32(266)
-	width := w - 298
-	panel(hdc, ir(x, 129, width, 115), surface, 17)
-	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 142, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Copying ISO images and indexing patches (1–8 workers).", x+29, 179, width-255, 28, app.fonts.Regular, muted)
-    textAt(hdc,"COLOUR THEME",x+29,216,180,20,app.fonts.Small,white)
-    button(hdc,app.theme+"  ·  Change",ir(x+width-227,214,199,30),"theme",0,false)
-	button(hdc, "−", ir(x+width-217, 173, 48, 43), "workers", -1, false)
-	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 175, 50, 38, app.fonts.Title, white)
-	button(hdc, "+", ir(x+width-95, 173, 48, 43), "workers", 1, false)
-	panel(hdc, ir(x, 258, width, 109), surface, 17)
-	textAt(hdc, "VERIFICATION SAFEGUARDS", x+28, 268, width-55, 29, app.fonts.Title, white)
-	textAt(hdc, "Require the original XBE to match the patch CRC32.", x+29, 308, width-205, 28, app.fonts.Regular, muted)
-	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 302, 152, 43), "override", 0, app.override)
-	panel(hdc, ir(x, 380, width, 130), surface, 17)
-	textAt(hdc, "OFFLINE PATCHES", x+28, 386, width-55, 28, app.fonts.Title, white)
-    button(hdc,fmt.Sprintf("Duplicates: %d · View",len(app.cat.Duplicates)),ir(x+width-220,391,190,30),"duplicate-audit",0,false)
-	textAt(hdc, strLimit(app.root, 100), x+29, 421, width-57, 23, app.fonts.Small, muted)
-	cell := (width - 80) / 3
-	for i, action := range []struct{ label, id string }{{"Patch folder", "folder"}, {"Import JMP / PF", "import"}, {"Rescan", "refresh"}} {
-		button(hdc, action.label, ir(x+27+int32(i)*(cell+13), 460, cell, 38), action.id, 0, false)
-	}
-	panel(hdc, ir(x, 524, width, 201), surface, 17)
-	textAt(hdc, "PROBLEM REPORT GROUPS", x+28, 535, width-210, 27, app.fonts.Title, white)
-    button(hdc,"Crash logs",ir(x+width-284,531,110,33),"diagnostics-crashfolder",0,false)
-	button(hdc, "Reports folder", ir(x+width-167, 531, 143, 33), "diagnostics-folder", 0, false)
-	app.mu.Lock()
-	groupCount := len(app.diagnosticGroups)
-	groupIndex := app.diagnosticSelected
-	var g core.DiagnosticGroup
-	hasGroup := groupIndex >= 0 && groupIndex < groupCount
-	if hasGroup {
-		g = app.diagnosticGroups[groupIndex]
-	}
-	app.mu.Unlock()
-	headline := "No reports. Reports stay local until you explicitly share them."
-	detail := ""
-	if hasGroup {
-		headline = fmt.Sprintf("Group %d/%d  ·  %s / %s", groupIndex+1, groupCount, g.ErrorCode, g.Operation)
-		detail = fmt.Sprintf("%s  ·  Title ID %s  ·  %d report(s), %d warning(s)", g.ID, g.TitleID, g.Occurrences, g.Warnings)
-	}
-	textAt(hdc, strLimit(headline, 104), x+28, 572, width-57, 23, app.fonts.Small, white)
-	textAt(hdc, strLimit(detail, 115), x+28, 596, width-57, 23, app.fonts.Small, muted)
-	viewLabel:="View group"
+    drawPageHeader(hdc,"Settings & diagnostics",
+        "Appearance, performance, verification, offline patches and local reports.",w)
+    x:=int32(266)
+    width:=w-298
+
+    // Dedicated, clearly differentiated appearance section. A preview shows
+    // background, surface, accent and ink colours for every theme.
+    themeY:=int32(125)
+    panel(hdc,ir(x,themeY,width,148),surface,16)
+    textAt(hdc,"APPEARANCE",x+24,themeY+9,width-48,27,app.fonts.Title,white)
+    textAt(hdc,"Choose a colour theme · saved automatically",x+24,themeY+36,width-48,20,app.fonts.Small,muted)
+    themes:=[]struct{name string; background,panel,accent,ink uint32}{
+        {"Midnight",0x0C111C,0x182335,0x6C9CFF,0xF5F8FF},
+        {"Forest",0x11201A,0x264238,0x91E3BD,0xF1FAF5},
+        {"Plum",0x1D1320,0x3A2940,0xE8A6D6,0xFCF4FF},
+        {"Light",0xF6F8FA,0xFFFFFF,0x0D687E,0x203645},
+    }
+    tileW:=(width-66)/4
+    if tileW<75{tileW=75}
+    for i,t:=range themes {
+        tx:=x+24+int32(i)*(tileW+6)
+        selected:=app.theme==t.name
+        bgCard:=surface2
+        if selected {bgCard=0xD5E8EF; if app.theme!="Light"{bgCard=0x2A4161}}
+        panel(hdc,ir(tx,themeY+66,tileW,67),bgCard,12)
+        if selected{fill(hdc,ir(tx+10,themeY+128,tileW-20,3),blue)}
+        rawSwatch(hdc,ir(tx+12,themeY+75,26,26),t.background)
+        rawSwatch(hdc,ir(tx+27,themeY+80,22,22),t.panel)
+        rawSwatch(hdc,ir(tx+41,themeY+75,19,19),t.accent)
+        rawSwatch(hdc,ir(tx+51,themeY+91,12,12),t.ink)
+        textAt(hdc,t.name,tx+10,themeY+107,tileW-18,20,app.fonts.Small,white)
+        addHit(ir(tx,themeY+66,tileW,67),"theme",i)
+    }
+
+    gap:=int32(13)
+    leftW:=(width-gap)/2
+    rightX:=x+leftW+gap
+    rightW:=width-leftW-gap
+    y:=int32(285)
+
+    panel(hdc,ir(x,y,leftW,108),surface,15)
+    textAt(hdc,"PARALLEL FILE WORKERS",x+22,y+10,leftW-43,27,app.fonts.Title,white)
+    textAt(hdc,"ISO copying and patch indexing (1–8).",x+22,y+39,leftW-43,21,app.fonts.Small,muted)
+    button(hdc,"−",ir(x+leftW-175,y+68,44,32),"workers",-1,false)
+    textAt(hdc,fmt.Sprintf("%d",app.workers),x+leftW-117,y+69,38,30,app.fonts.Title,white)
+    button(hdc,"+",ir(x+leftW-65,y+68,43,32),"workers",1,false)
+
+    y=405
+    panel(hdc,ir(x,y,leftW,103),surface,15)
+    textAt(hdc,"VERIFICATION SAFEGUARDS",x+22,y+9,leftW-44,26,app.fonts.Title,white)
+    textAt(hdc,"Enforce the stock XBE's expected CRC32.",x+22,y+37,leftW-44,20,app.fonts.Small,muted)
+    button(hdc,map[bool]string{true:"OVERRIDE ON",false:"ENFORCED"}[app.override],
+        ir(x+leftW-177,y+64,155,33),"override",0,app.override)
+
+    y=520
+    panel(hdc,ir(x,y,leftW,141),surface,15)
+    textAt(hdc,"OFFLINE PATCHES",x+22,y+9,leftW-44,27,app.fonts.Title,white)
+    button(hdc,fmt.Sprintf("Duplicates: %d · View",len(app.cat.Duplicates)),
+        ir(x+leftW-192,y+13,173,30),"duplicate-audit",0,false)
+    textAt(hdc,strLimit(app.root,64),x+22,y+44,leftW-44,22,app.fonts.Small,muted)
+    cell:=(leftW-60)/3
+    for i,c:=range []struct{label,action string}{{"Patch folder","folder"},{"Import JMP / PF","import"},{"Rescan","refresh"}}{
+        button(hdc,c.label,ir(x+19+int32(i)*(cell+9),y+86,cell,38),c.action,0,false)
+    }
+
+    y=285
+    panel(hdc,ir(rightX,y,rightW,376),surface,15)
+    textAt(hdc,"PROBLEM REPORT GROUPS",rightX+21,y+11,rightW-42,27,app.fonts.Title,white)
+    app.mu.Lock()
+    groupCount:=len(app.diagnosticGroups)
+    groupIndex:=app.diagnosticSelected
+    var g core.DiagnosticGroup
+    hasGroup:=groupIndex>=0&&groupIndex<groupCount
+    if hasGroup{g=app.diagnosticGroups[groupIndex]}
+    app.mu.Unlock()
+    headline:="No reports. They remain local until you share them."
+    detail:=""
+    if hasGroup{
+        headline=fmt.Sprintf("Group %d/%d · %s / %s",groupIndex+1,groupCount,g.ErrorCode,g.Operation)
+        detail=fmt.Sprintf("%s · Title ID %s · %d reports, %d warnings",g.ID,g.TitleID,g.Occurrences,g.Warnings)
+    }
+    textAt(hdc,strLimit(headline,83),rightX+21,y+51,rightW-42,24,app.fonts.Small,white)
+    textAt(hdc,strLimit(detail,95),rightX+21,y+79,rightW-42,24,app.fonts.Small,muted)
+    viewLabel:="View group"
     if hasGroup&&g.Latest.CrashEvidenceID!=""{viewLabel="View crash log"}
-    buttons := [][2]string{{"Previous", "diagnostics-prev"}, {"Next", "diagnostics-next"}, {viewLabel, "diagnostics-view"}, {"Copy summary", "diagnostics-copy"}, {"Find matches", "diagnostics-find"}, {"Report issue", "diagnostics-github"}}
-	cell2 := (width - 78) / 3
-	for i, v := range buttons {
-		bx := x + 27 + int32(i%3)*(cell2+12)
-		by := int32(627 + (i/3)*45)
-		button(hdc, v[0], ir(bx, by, cell2, 37), v[1], 0, i == 5)
-	}
-	_ = h
+    buttons:=[][2]string{{"Previous","diagnostics-prev"},{"Next","diagnostics-next"},
+        {viewLabel,"diagnostics-view"},{"Copy summary","diagnostics-copy"},
+        {"Find matches","diagnostics-find"},{"Report issue","diagnostics-github"}}
+    btnW:=(rightW-61)/2
+    for i,c:=range buttons {
+        bx:=rightX+21+int32(i%2)*(btnW+12)
+        by:=y+128+int32(i/2)*54
+        button(hdc,c[0],ir(bx,by,btnW,39),c[1],0,i==5)
+    }
+    textAt(hdc,"Private evidence and crash logs",rightX+21,y+292,rightW-42,20,app.fonts.Small,muted)
+    button(hdc,"Crash logs",ir(rightX+21,y+318,btnW,34),"diagnostics-crashfolder",0,false)
+    button(hdc,"Reports folder",ir(rightX+33+btnW,y+318,btnW,34),"diagnostics-folder",0,false)
+    _=h
 }
 // drawGameOutputs scales its vertical layout to fit a typical 720p desktop
 // instead of hiding the Create button under the bottom status bar.
