@@ -477,6 +477,9 @@ func initApp() {
 	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
+    // Persist once: distinguish a native failure inside event dispatch/paint
+    // from a failure in startup initialization when Windows reports no WER event.
+    markCrashStage("ui_callback")
 	go reloadAndSync()
 	go syncPatchHubMetadata()
 	var m msg
