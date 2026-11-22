@@ -65,6 +65,7 @@ func paint(hdc uintptr) {
 	case 0:
 		drawLibrary(hdc, w, h)
         if app.galleryOpen{drawPatchGallery(hdc,w,h)}
+        if app.notesOpen{drawFullPatchNotes(hdc,w,h)}
 	case 1:
 		drawConvert(hdc, w, h)
 	case 2:
@@ -94,6 +95,11 @@ func paint(hdc uintptr) {
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
     statusColor:=uint32(muted)
     if strings.HasPrefix(status,"Duplicate patch found!") {statusColor=0xFF667C}
+    if app.recoveredCrashes>0 {
+        status=fmt.Sprintf("%d unexpected previous exit(s) logged · Click here to review and report",app.recoveredCrashes)
+        statusColor=0xFF667C
+        addHit(ir(249,h-42,w-330,42),"crash-open-reports",0)
+    }
     textAt(hdc,strLimit(status,155),273,h-35,w-340,24,app.fonts.Small,statusColor)
 	textAt(hdc, "v0.14", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
@@ -138,6 +144,10 @@ func drawPageHeader(hdc uintptr, title, subtitle string, w int32) {
 	textAt(hdc, subtitle, 264, 76, w-520, 26, app.fonts.Small, muted)
 }
 func drawLibrary(hdc uintptr, w, h int32) {
+    app.patchViewport=rect{}
+    app.recordViewport=rect{}
+    app.patchBar=listScrollBar{}
+    app.recordBar=listScrollBar{}
 	drawPageHeader(hdc, "Discover & patch", "Select a game, pick a patch, and build a ready-to-use XBE or XISO.", w)
 	button(hdc, "Load patch file", ir(w-365, 38, 167, 42), "direct", 0, false)
 	button(hdc, "+  Import JMP", ir(w-186, 38, 155, 42), "import", 0, false)
@@ -301,8 +311,10 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	textAt(hdc, strLimit(g.Title, 44), x+22, top+12, width-43, 38, app.fonts.Title, white)
 	textAt(hdc, fmt.Sprintf("%d available patches · Select one", len(g.Patches)), x+23, top+50, width-42, 19, app.fonts.Small, muted)
 	listY := top + 83
-	listRows := 3
+    listRows:=3
+    if bottom-top<485 {listRows=2} // reserve record space at 720p-height
 	rowH := int32(57)
+    app.patchViewport=ir(x+16,listY,width-32,int32(listRows)*rowH)
 	if app.patchScroll > len(g.Patches)-listRows {
 		app.patchScroll = len(g.Patches) - listRows
 	}
@@ -343,8 +355,10 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
 	}
+    app.patchBar=drawScrollBar(hdc,ir(x+width-29,listY,11,int32(listRows)*rowH-5),
+        app.patchScroll,len(g.Patches),listRows,"patch")
 	p := app.parsed
-	groupY := listY + rowH*3 + 14
+	groupY := listY + rowH*int32(listRows) + 14
 	fill(hdc, ir(x+18, groupY-5, width-36, 1), 0x354258)
 	if p == nil {
 		txt(hdc, "Choose a patch above to review and toggle its records.", ir(x+25, groupY+16, width-51, 55), app.fonts.Regular, muted, DT_WORDBREAK)
@@ -359,10 +373,9 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
     }
 	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
 	rowY := groupY + 56
-	visible := int((bottom - rowY - 88) / 38)
-	if visible < 1 {
-		visible = 1
-	}
+	visible := int((bottom - rowY - 82) / 38)
+	if visible < 1 {visible=1}
+    app.recordViewport=ir(x+18,rowY,width-36,int32(visible)*38)
 	type row struct {
 		group  int
 		record int
@@ -436,12 +449,16 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			addHit(ir(x+48, y, width-66, 34), "group", r.group)
 		}
 	}
+    app.recordBar=drawScrollBar(hdc,ir(x+width-29,rowY,11,int32(visible)*38-3),
+        app.groupScroll,len(rows),visible,"records")
 	foot := bottom - 72
 	fill(hdc, ir(x+18, foot-7, width-36, 1), 0x354258)
-	version := p.Headers["version"]
 	textAt(hdc, "AUTHOR  "+strLimit(p.Headers["author"], 25)+"     •     CRC32  "+strLimit(p.ExpectedCRC(), 37), x+23, foot, width-46, 20, app.fonts.Small, mint)
-	textAt(hdc, strLimit(p.Headers["notes"], 93), x+23, foot+24, width-46, 22, app.fonts.Small, muted)
-	_ = version
+    if p.Headers["notes"]!="" {
+        button(hdc,"READ FULL NOTES · formatted + scrollable",ir(x+18,foot+24,width-36,32),"notes-open",0,false)
+    }else{
+        textAt(hdc,"No JMP notes were provided.",x+23,foot+26,width-46,22,app.fonts.Small,muted)
+    }
 }
 func drawConvert(hdc uintptr, w, h int32) {
 	drawPageHeader(hdc, "Convert & create", "Convert JMP, IPS, BPS, Xdelta and encrypted IPS using a stock XBE, or create a patch from two XBEs.", w)
@@ -488,17 +505,28 @@ func drawConvert(hdc uintptr, w, h int32) {
 		textAt(hdc, s, bx+34, by+4, cell-40, 28, app.fonts.Small, white)
 		addHit(ir(bx, by, cell, 35), "format", i)
 	}
-	textAt(hdc, "Password (EIPS encryption / decryption; 8+ characters to create)", x+30, 562, width-55, 21, app.fonts.Micro, muted)
-	panel(hdc, ir(x+28, 584, width-56, 37), surface2, 10)
-	placeholder := "Password for encrypted IPS"
-	if app.password != "" { placeholder = strings.Repeat("•", len([]rune(app.password))) }
-	textAt(hdc, placeholder, x+44, 590, width-90, 25, app.fonts.Regular, white)
-	if app.passFocus { fill(hdc, ir(x+28, 620, width-56, 2), blue) }
-	addHit(ir(x+28, 584, width-56, 37), "password", 0)
-
-	mark(hdc, ir(x+32, 631, 18, 18), app.ipsRLE)
-	textAt(hdc, "Use IPS RLE encoding (for IPS and encrypted IPS)", x+60, 625, width-83, 28, app.fonts.Small, muted)
-	addHit(ir(x+28, 625, width-56, 29), "ipsrle", 0)
+    // Plain IPS only uses optional RLE; passwords are exclusively for
+    // EIPS, all-formats packs containing EIPS, or an encrypted IPS source.
+    showPassword:=app.format==3||app.format==5||
+        strings.EqualFold(filepath.Ext(app.convertPatchFile),".eips")||
+        strings.EqualFold(filepath.Ext(app.directFile),".eips")
+    showRLE:=app.format==1||app.format==3||app.format==5
+    if showPassword{
+        textAt(hdc,"Encrypted IPS password (required for EIPS; optional for pack)",x+30,562,width-55,21,app.fonts.Micro,muted)
+        panel(hdc,ir(x+28,584,width-56,37),surface2,10)
+        placeholder:="Password for encrypted IPS"
+        if app.password!="" {placeholder=strings.Repeat("•",len([]rune(app.password)))}
+        textAt(hdc,placeholder,x+44,590,width-90,25,app.fonts.Regular,white)
+        if app.passFocus{fill(hdc,ir(x+28,620,width-56,2),blue)}
+        addHit(ir(x+28,584,width-56,37),"password",0)
+    }
+    if showRLE{
+        posY:=int32(625)
+        if !showPassword{posY=584}
+        mark(hdc,ir(x+32,posY+6,18,18),app.ipsRLE)
+        textAt(hdc,"Use IPS run-length encoding (RLE)",x+60,posY,width-83,28,app.fonts.Small,muted)
+        addHit(ir(x+28,posY,width-56,31),"ipsrle",0)
+    }
 	if app.packMode {
 		button(hdc, "LOCATE TARGET ORIGINALS", ir(x+28, 658, 230, 44), "packsources", 0, false)
 	}
