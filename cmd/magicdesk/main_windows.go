@@ -491,14 +491,14 @@ func initApp() {
         smokePaintAndExit()
         return
     }
-	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
+    // The single Check at Start preference now governs BOTH the application
+    // update check and public GitHub/PatchHub library refresh. Offline users
+    // still see the cached catalogue and can run either check manually.
+    go reloadCatalog()
+    if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
-    // Persist once: distinguish a native failure inside event dispatch/paint
-    // from a failure in startup initialization when Windows reports no WER event.
     markCrashStage("ui_callback")
-	go reloadAndSync()
-	go syncPatchHubMetadata()
 	var m msg
 	for {
 		v := sysCall(getMessage, uintptr(unsafe.Pointer(&m)), 0, 0, 0)
