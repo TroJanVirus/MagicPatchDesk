@@ -303,11 +303,14 @@ func panel(hdc uintptr, r rect, color uint32, radius int32) {
 	sysCall(deleteObject, pen)
 }
 func txt(hdc uintptr, s string, r rect, size uintptr, color uint32, flags uint32) {
+    txtRaw(hdc,s,r,size,themeTextColor(color),flags)
+}
+func txtRaw(hdc uintptr, s string, r rect, size uintptr, color uint32, flags uint32) {
 	if s == "" {
 		return
 	}
 	sysCall(setBkMode, hdc, TRANSPARENT)
-	sysCall(setTextColor, hdc, col(themeTextColor(color)))
+	sysCall(setTextColor, hdc, col(color))
 	old := sysCall(selectObject, hdc, size)
 	utf := syscall.StringToUTF16(s)
 	sysCall(drawText, hdc, uintptr(unsafe.Pointer(&utf[0])), uintptr(len(utf)-1), uintptr(unsafe.Pointer(&r)), uintptr(flags))
@@ -365,7 +368,7 @@ func button(hdc uintptr, label string, r rect, action string, idx int, main bool
         buttonText=0x183646
         if main {buttonText=0xFFFFFF}
     }
-    txt(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, buttonText, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
+    txtRaw(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, buttonText, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
 	addHit(r, action, idx)
 }
 
