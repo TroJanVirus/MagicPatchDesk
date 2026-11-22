@@ -51,3 +51,8 @@
 ## How to update this decisions file
 
 Only record a decision here when the **owner actually made it** or explicitly accepted it; ideas from assistants remain proposals until approved. When a decision is superseded, edit the active row and add a brief dated note with the old/new behavior; do not leave contradictory active instructions. Also update `PROJECT_CONTEXT.md` and the task-specific documentation. This file is not a bug tracker, development TODO list or a claim that an idea has already shipped.
+
+## 2026-11-22 — additional explicit product decisions
+
+- **Import JMP duplicate behaviour:** if an identical patch already exists anywhere in the indexed library (including GitHub-synced patches), importing it is a **no-op** and shows the red bottom-log message **“Duplicate patch found! No need to add.”** Do not overwrite a same-named *different* patch.
+- **PatchHub screenshots:** show before-and-after comparison images for the selected patch **in the Patch Library**, not just a game cover. A patch may have **several** screenshots; the user must be able to browse all discoverable images. Be accurate about which patch/version each screenshot belongs to, and retain offline functionality where cached or imported images exist.
