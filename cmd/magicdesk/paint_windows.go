@@ -538,25 +538,27 @@ func drawConvert(hdc uintptr, w, h int32) {
 	panel(hdc, ir(x, 125, width, 620), surface, 19)
 	textAt(hdc, "PATCH CONVERTER", x+28, 145, width-40, 29, app.fonts.Title, white)
 
-	textAt(hdc, "01   Stock / original XBE  ·  optional for direct offset patches", x+31, 181, width-55, 20, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 208, width-226, 43), surface2, 12)
-	label := "Choose your original XBE"
-	if app.aFile != "" { label = filepath.Base(app.aFile) }
-	textAt(hdc, label, x+44, 214, width-253, 31, app.fonts.Medium, white)
-	button(hdc, "Choose stock XBE", ir(x+width-190, 209, 160, 40), "a", 0, false)
+    // Start with what the user is converting. The original XBE is step 02:
+    // optional for some patch formats and required for byte-level checks.
+    textAt(hdc,"01   Source patch  ·  JMP / IPS / BPS / Xdelta / encrypted IPS",x+31,181,width-50,20,app.fonts.Medium,muted)
+    panel(hdc,ir(x+28,208,width-226,43),surface2,12)
+    label:="Choose an existing patch to convert"
+    if app.convertPatchFile!="" {
+        label=filepath.Base(app.convertPatchFile)
+    }else if app.bFile==""&&app.directFile!="" {
+        label=filepath.Base(app.directFile)+"  (library)"
+    }else if app.bFile==""&&app.parsed!=nil {
+        label=app.parsed.Filename+"  (library)"
+    }
+    textAt(hdc,label,x+44,214,width-253,31,app.fonts.Medium,white)
+    button(hdc,"Choose patch",ir(x+width-190,209,160,40),"cpatch",0,false)
 
-	textAt(hdc, "02   Source patch  ·  JMP / IPS / BPS / Xdelta / encrypted IPS", x+31, 259, width-50, 20, app.fonts.Medium, muted)
-	panel(hdc, ir(x+28, 285, width-226, 43), surface2, 12)
-	label = "Choose an existing patch to convert"
-	if app.convertPatchFile != "" {
-		label = filepath.Base(app.convertPatchFile)
-	} else if app.bFile == "" && app.directFile != "" {
-		label = filepath.Base(app.directFile) + "  (library)"
-	} else if app.bFile == "" && app.parsed != nil {
-		label = app.parsed.Filename + "  (library)"
-	}
-	textAt(hdc, label, x+44, 291, width-253, 31, app.fonts.Medium, white)
-	button(hdc, "Choose patch", ir(x+width-190, 286, 160, 40), "cpatch", 0, false)
+    textAt(hdc,"02   Stock / original XBE  ·  source and verification",x+31,259,width-55,20,app.fonts.Medium,muted)
+    panel(hdc,ir(x+28,285,width-226,43),surface2,12)
+    label="Choose your original XBE"
+    if app.aFile!="" {label=filepath.Base(app.aFile)}
+    textAt(hdc,label,x+44,291,width-253,31,app.fonts.Medium,white)
+    button(hdc,"Choose stock XBE",ir(x+width-190,286,160,40),"a",0,false)
 
 	textAt(hdc, "OR   Modified XBE  ·  alternative to a source patch", x+31, 336, width-60, 20, app.fonts.Medium, muted)
 	panel(hdc, ir(x+28, 362, width-226, 43), surface2, 12)
@@ -609,9 +611,12 @@ func drawConvert(hdc uintptr, w, h int32) {
 		if app.packMode { label = "CREATE PATCH PACK" }
 		button(hdc, label, ir(x+width-277, 658, 244, 44), "convert", 0, true)
     }
-	hint := app.conversionHint
-	if hint == "" { hint = "Choose a source patch to determine whether the original XBE is required." }
-	textAt(hdc, hint, x+30, 707, width-53, 25, app.fonts.Small, muted)
+    hint:=app.conversionHint
+    if hint=="" {hint="Choose a patch to see whether a stock/original XBE is required."}
+    textAt(hdc,hint,x+30,702,width-53,22,app.fonts.Small,muted)
+    // This is an actual byte-for-byte verification option, not just a
+    // suggestion: the reference XBE must match the generated patch's output.
+    textAt(hdc,"Modified XBE + original XBE: verifies the converted patch against your expected result.",x+30,724,width-53,20,app.fonts.Small,muted)
 	_ = h
 }
 
@@ -799,7 +804,7 @@ func drawAbout(hdc uintptr, w, h int32) {
         "JayYardley / Xbox Magic Patches and PatchHub: JMP catalogue/source",
     }
     for i,v:=range refs{textAt(hdc,v,x+35,417+int32(i)*37,width-63,30,app.fonts.Regular,muted)}
-    textAt(hdc,"References are credited, not bundled. No Repackinator source has been copied.",x+35,579,width-67,28,app.fonts.Small,amber)
+    textAt(hdc,"References are credited, not bundled. No sources have been copied.",x+35,579,width-67,28,app.fonts.Small,amber)
     button(hdc,"VIEW FULL CREDITS + SOURCE LINKS",ir(x+35,635,323,45),"game-credits",0,false)
     _=h
 }
