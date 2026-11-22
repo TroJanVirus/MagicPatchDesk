@@ -179,6 +179,23 @@ func PatchFolderMatches(patchName,folderName string) bool {
     return a!="" && a==b
 }
 
+// Some website patch-folder titles are abbreviated (e.g. "720p Patch"
+// instead of "Halo 2 720p Patch"). A partial match may only be used when it
+// identifies a single patch in that game; never attach on ambiguous guesses.
+func patchFolderCandidate(patchName,folderName string) bool {
+    if PatchFolderMatches(patchName,folderName){return true}
+    a,b:=CoverMatchKey(patchName),CoverMatchKey(folderName)
+    return len(b)>=5&&strings.Contains(a,b)
+}
+func matchingPatchFolderCount(patches []CatalogPatch,folderName string)int{
+    exact:=0
+    for _,p:=range patches {if PatchFolderMatches(p.Name,folderName){exact++}}
+    if exact>0{return exact}
+    candidate:=0
+    for _,p:=range patches {if patchFolderCandidate(p.Name,folderName){candidate++}}
+    return candidate
+}
+
 // A website game title may include a parenthetical subtitle not present in a
 // JMP game header. Use a conservative title alias or an already-known Title ID
 // for the game, without requiring region/version equality.
@@ -208,8 +225,12 @@ func MatchPatchHubMedia(game Game, patch CatalogPatch, all []HubScreenshot) []Hu
     result:=make([]HubScreenshot,0,8)
     seen:=map[string]bool{}
     for _,shot:=range all {
-        if !MediaGameMatches(game,shot)||!PatchFolderMatches(patch.Name,shot.Patch)||seen[shot.URL]{
-            continue
+        if !MediaGameMatches(game,shot)||seen[shot.URL]{continue}
+        if !PatchFolderMatches(patch.Name,shot.Patch) {
+            // Only accept an abbreviated folder when this is the ONE patch
+            // with that candidate name in the currently selected game.
+            if !patchFolderCandidate(patch.Name,shot.Patch)||len(game.Patches)==0||
+                matchingPatchFolderCount(game.Patches,shot.Patch)!=1 {continue}
         }
         seen[shot.URL]=true
         result=append(result,shot)
