@@ -20,6 +20,8 @@ var gdiDispose = gdiplus.NewProc("GdipDisposeImage")
 var gdiCreate = gdiplus.NewProc("GdipCreateFromHDC")
 var gdiDelete = gdiplus.NewProc("GdipDeleteGraphics")
 var gdiDraw = gdiplus.NewProc("GdipDrawImageRectI")
+var gdiImageWidth = gdiplus.NewProc("GdipGetImageWidth")
+var gdiImageHeight = gdiplus.NewProc("GdipGetImageHeight")
 var gdiplusToken uintptr
 var artCache = map[string]uintptr{}
 
@@ -44,6 +46,33 @@ func closeArtwork() {
 		stopGDI.Call(gdiplusToken)
 	}
 }
+// drawArtFitted preserves the original aspect ratio (and pads the available
+// space) rather than stretching the screenshots used for patch comparisons.
+func drawArtFitted(hdc uintptr,filename string,x,y,w,h int32)bool{
+    if filename==""||gdiplusToken==0||w<=0||h<=0{return false}
+    art,ok:=artCache[filename]
+    if !ok{
+        var loaded uintptr
+        status,_,_:=gdiLoad.Call(uintptr(unsafe.Pointer(ptr(filename))),uintptr(unsafe.Pointer(&loaded)))
+        if status!=0||loaded==0{return false}
+        artCache[filename]=loaded
+        art=loaded
+    }
+    if art==0{return false}
+    var imageW,imageH uint32
+    if status,_,_:=gdiImageWidth.Call(art,uintptr(unsafe.Pointer(&imageW)));status!=0{return false}
+    if status,_,_:=gdiImageHeight.Call(art,uintptr(unsafe.Pointer(&imageH)));status!=0{return false}
+    if imageW==0||imageH==0{return false}
+    tw,th:=w,h
+    if int64(w)*int64(imageH) < int64(h)*int64(imageW){
+        th=int32(int64(w)*int64(imageH)/int64(imageW))
+    }else{
+        tw=int32(int64(h)*int64(imageW)/int64(imageH))
+    }
+    if tw<1||th<1{return false}
+    return drawArt(hdc,filename,x+(w-tw)/2,y+(h-th)/2,tw,th)
+}
+
 func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 	if path == "" || gdiplusToken == 0 {
 		return false
