@@ -629,6 +629,7 @@ func drawSettings(hdc uintptr, w, h int32) {
 	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 302, 152, 43), "override", 0, app.override)
 	panel(hdc, ir(x, 380, width, 130), surface, 17)
 	textAt(hdc, "OFFLINE PATCHES", x+28, 386, width-55, 28, app.fonts.Title, white)
+    button(hdc,fmt.Sprintf("Duplicates: %d · View",len(app.cat.Duplicates)),ir(x+width-220,391,190,30),"duplicate-audit",0,false)
 	textAt(hdc, strLimit(app.root, 100), x+29, 421, width-57, 23, app.fonts.Small, muted)
 	cell := (width - 80) / 3
 	for i, action := range []struct{ label, id string }{{"Patch folder", "folder"}, {"Import JMP / PF", "import"}, {"Rescan", "refresh"}} {
