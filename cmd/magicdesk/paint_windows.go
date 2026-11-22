@@ -131,8 +131,8 @@ func drawSidebar(hdc uintptr,w,h int32){
     }
     topNav:=[]navItem{
         {"Patch Library","◈",0},
-        {"Convert & Create","◇",1},
-        {"Batch Process Library","▤",8},
+        {"Convert Patch","◇",1},
+        {"Batch Process","▤",8},
         {"Diagnostics","◉",3},
         {"Recent","◷",5},
         {"Maintenance","⚒",6},
