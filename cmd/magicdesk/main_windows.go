@@ -46,6 +46,7 @@ const (
 	DT_CENTER           = 0x1
 	DT_END_ELLIPSIS     = 0x8000
 	DT_WORDBREAK        = 0x10
+	DT_NOPREFIX         = 0x800 // Display literal ampersands in headings and labels
 	TRANSPARENT         = 1
 	IDC_ARROW           = 32512
 	SW_SHOW             = 5
@@ -151,6 +152,7 @@ var (
 	endPaint               = user32.NewProc("EndPaint")
 	getClientRect          = user32.NewProc("GetClientRect")
 	drawText               = user32.NewProc("DrawTextW")
+    getTextExtent           = gdi32.NewProc("GetTextExtentPoint32W")
 	fillRect               = user32.NewProc("FillRect")
 	setBkMode              = gdi32.NewProc("SetBkMode")
 	setTextColor           = gdi32.NewProc("SetTextColor")
@@ -195,7 +197,7 @@ type hit struct {
 	Action string
 	Index  int
 }
-type fonts struct{ Regular, Medium, Title, Hero, Small, Micro uintptr }
+type fonts struct{ Regular, Medium, Title, Hero, Small, Micro, ButtonCompact, ButtonTiny uintptr }
 type appState struct {
 	mu            sync.Mutex
 	hwnd          uintptr
@@ -313,11 +315,31 @@ func txtRaw(hdc uintptr, s string, r rect, size uintptr, color uint32, flags uin
 	sysCall(setTextColor, hdc, col(color))
 	old := sysCall(selectObject, hdc, size)
 	utf := syscall.StringToUTF16(s)
-	sysCall(drawText, hdc, uintptr(unsafe.Pointer(&utf[0])), uintptr(len(utf)-1), uintptr(unsafe.Pointer(&r)), uintptr(flags))
+	sysCall(drawText, hdc, uintptr(unsafe.Pointer(&utf[0])), uintptr(len(utf)-1), uintptr(unsafe.Pointer(&r)), uintptr(flags|DT_NOPREFIX))
 	sysCall(selectObject, hdc, old)
 }
 func textAt(hdc uintptr, s string, x, y, w, h int32, f uintptr, color uint32) {
-	txt(hdc, s, ir(x, y, w, h), f, color, DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
+    txt(hdc,s,ir(x,y,w,h),f,color,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
+}
+
+// Use two lines for user-facing descriptions with enough vertical room.
+// The rectangle limits the text so it cannot paint over adjacent controls.
+func textWrapped(hdc uintptr,s string,x,y,w,h int32,f uintptr,color uint32){
+    if w<=0||h<=0{return}
+    txt(hdc,s,ir(x,y,w,h),f,color,DT_WORDBREAK|DT_END_ELLIPSIS)
+}
+
+type measuredSize struct{ Width,Height int32 }
+func textPixelWidth(hdc uintptr,label string,fontHandle uintptr) int32 {
+    if label==""||hdc==0||fontHandle==0{return 0}
+    utf:=syscall.StringToUTF16(label)
+    if len(utf)<2{return 0}
+    old:=sysCall(selectObject,hdc,fontHandle)
+    var size measuredSize
+    ok:=sysCall(getTextExtent,hdc,uintptr(unsafe.Pointer(&utf[0])),uintptr(len(utf)-1),uintptr(unsafe.Pointer(&size)))
+    sysCall(selectObject,hdc,old)
+    if ok==0{return 0}
+    return size.Width
 }
 
 // Native GDI hover and press feedback: the background eases between states,
@@ -368,7 +390,24 @@ func button(hdc uintptr, label string, r rect, action string, idx int, main bool
         buttonText=0x183646
         if main {buttonText=0xFFFFFF}
     }
-    txtRaw(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, buttonText, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
+    // Measure actual Segoe UI widths. Fit the whole label with a slightly
+    // smaller caption font before resorting to multi-line layout.
+    inset:=int32(10)
+    available:=rr.R-rr.L-inset*2
+    selectedFont:=app.fonts.Medium
+    if available>0&&textPixelWidth(hdc,label,selectedFont)>available {
+        selectedFont=app.fonts.ButtonCompact
+    }
+    if available>0&&textPixelWidth(hdc,label,selectedFont)>available {
+        selectedFont=app.fonts.ButtonTiny
+    }
+    flags:=uint32(DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
+    textRect:=ir(rr.L+inset,rr.T+dy/2,rr.R-rr.L-2*inset,rr.B-rr.T)
+    if available>0&&textPixelWidth(hdc,label,selectedFont)>available&&rr.B-rr.T>=40 {
+        flags=DT_WORDBREAK|DT_CENTER|DT_END_ELLIPSIS
+        textRect=ir(rr.L+inset,rr.T+3,rr.R-rr.L-2*inset,rr.B-rr.T-6)
+    }
+    txtRaw(hdc,label,textRect,selectedFont,buttonText,flags)
 	addHit(r, action, idx)
 }
 
@@ -467,7 +506,7 @@ func initApp() {
 	app.syncStatus = "Connecting to GitHub…"
 	initArtwork()
 	defer closeArtwork()
-	app.fonts = fonts{Regular: font(17, 400), Medium: font(17, 600), Title: font(22, 700), Hero: font(30, 700), Small: font(14, 400), Micro: font(13, 600)}
+	app.fonts = fonts{Regular: font(17, 400), Medium: font(17, 600), Title: font(22, 700), Hero: font(30, 700), Small: font(14, 400), Micro: font(13, 600), ButtonCompact: font(15, 600), ButtonTiny: font(13, 600)}
 	sysCall(setDPI)
 	instance := sysCall(getModule, 0)
 	name := ptr("MagicPatchDeskNative")
