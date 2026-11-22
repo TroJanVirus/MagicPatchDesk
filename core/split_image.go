@@ -10,6 +10,20 @@ import (
     "strings"
 )
 
+// DiscPartSetKey identifies numbered CCI/ISO/XISO siblings for drag-and-drop
+// de-duplication. It is a grouping key, not proof that all parts are valid;
+// OpenCCI/OpenXISO perform strict validation before reading any game data.
+func DiscPartSetKey(path string)string{
+    ext:=strings.ToLower(filepath.Ext(path))
+    if ext!=".cci"&&ext!=".iso"&&ext!=".xiso"{return ""}
+    stem:=path[:len(path)-len(filepath.Ext(path))]
+    at:=strings.LastIndex(stem,".")
+    if at<0{return ""}
+    n,err:=strconv.Atoi(stem[at+1:])
+    if err!=nil||n<1||n>64{return ""}
+    return strings.ToLower(filepath.Clean(stem[:at]+ext))
+}
+
 // Supported raw multi-file layouts are Game.1.iso, Game.2.iso, ... or
 // Game.1.xiso, Game.2.xiso, ... . They are concatenated logically; no temporary
 // 4GB+ joined disc is written simply to look up default.xbe.
