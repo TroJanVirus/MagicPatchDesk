@@ -22,6 +22,12 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 6. **`docs/UPDATE_CONTRACT.md`**, **`CREDITS.md`** and task-specific `docs/*.md`; inspect actual source and tests for final truth.
 7. Latest `main` HEAD, GitHub Releases, Issues/PRs and CI run results. Do not infer a future release from version strings or assume that a passing test confirms Xbox game bootability.
 
+## Current in-progress reliability fix (2026-11-22)
+
+The user reported a Phantom Crash original-XBE selection crash which produced **no previous diagnostic**, ongoing duplicate JMP imports, truncated notes with literal HTML br tags, unrelated IPS controls, and simultaneous patch/record scrolling. Previous code only saved reports for handled errors, compared JMP byte equality rather than semantic equivalence, omitted folder deduplication, drew notes on one line, and modified two scroll offsets on each right-side wheel event.
+
+**v0.14.0-test.4 source candidate:** durable crash session markers and best-effort private panic stderr/stacks with recovered privacy-filtered diagnostic reports and next-launch notice; duplicate import and existing-catalogue semantic deduplication; full formatted/scrollable/copied JMP notes; conditional RLE/password inputs; independently draggable and mouse-targeted patch/record scrollbars. See docs/CRASH_RECOVERY_AND_UI.md, core/crash_dedup_notes_test.go and cmd/magicdesk/ui_smoke_windows.go. **Do not mark this candidate released or hardware-tested until CI verifies and the release assets actually exist.** The exact cause of the past Phantom Crash crash remains unknown because no prior trace was captured.
+
 ## Verified release and repository snapshot
 
 | Item | Status as of 2026-11-22 NZ |
