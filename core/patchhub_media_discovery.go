@@ -207,7 +207,6 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
     add:=func(s HubScreenshot){
         if !seen[s.URL]&&len(results)<32{seen[s.URL]=true;results=append(results,s)}
     }
-    for _,shot:=range known {add(shot)}
     // Listing optional. A 403/404 is expected on servers with autoindex off.
     listing,err:=http.NewRequestWithContext(ctx,http.MethodGet,folder,nil)
     if err==nil{
@@ -264,6 +263,7 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
             }
         }
     }
+    if len(results)==0 {for _,shot:=range known {add(shot)}}
     sort.SliceStable(results,func(i,j int)bool{
         if results[i].Set!=results[j].Set{return results[i].Set<results[j].Set}
         if results[i].Kind!=results[j].Kind{return results[i].Kind=="before"}
