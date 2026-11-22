@@ -7,7 +7,7 @@
 Installed program: `%LOCALAPPDATA%\Programs\MagicPatchDesk\MagicPatchDesk.exe`.
 The app also copies a version-agnostic `MagicPatchDeskUpdater.exe` helper into the same folder. When a self-update succeeds, the former application is retained as `MagicPatchDesk.previous.exe`. The helper is intentionally a copy of the app containing the stable `--mpd-apply-update-v1` entry point, invoked only after the parent process exits. It validates staged SHA-256 and the managed destination, swaps the main executable, keeps the backup, and restarts. The app's `--mpd-healthcheck-v1` must always exit successfully without opening a GUI.
 
-On first launch, use **Maintenance → Install app** to copy the existing loose EXE into the above folder. The portable EXE remains usable if installation is declined. If the app already has an installed copy, the loose copy must not overwrite it.
+On first launch, use **Maintenance → Install app** to copy the loose EXE into the above folder if preferred. **From v0.14.0-test.5 onward**, the updater is also available in **portable mode**: a running portable EXE updates *itself*, not the separately installed copy, even if both exist. The installed and portable EXEs are independent; neither silently overwrites the other. The portable backup is saved alongside the original as `<original-exe-name>.previous.exe`. An older portable EXE containing the previous "installed copy exists" refusal needs a **one-time manual download of v0.14.0-test.5** before this newer portable updater behavior can take effect; existing managed app updates already work with v1.
 
 Data is **never** stored inside the managed program directory:
 
@@ -45,3 +45,12 @@ Fetch `https://api.github.com/repos/TroJanVirus/MagicPatchDesk/releases?per_page
 ## Limitations
 
 The current executable is not Authenticode signed; the published checksum and GitHub asset digest detect tampering but do not replace publisher code signing. Updating requires HTTPS network access and sufficient space for the staged EXE plus rollback.
+
+
+## v0.14.0-test.5 portable self-update extension (v1 stays backward compatible)
+
+The internal **five argument** `--mpd-apply-update-v1` command has NOT changed; old helpers updating the managed install remain supported. The application now directs updates to the executable that was actually launched. The portable branch downloads an exact-GitHub-SHA256-verified new executable to its own writable folder, executes the new EXE's `--mpd-healthcheck-v1`, and creates an exclusive, private `.mpd-update-*.exe.intent.json` record that binds the current process PID, target path, staged EXE and SHA256. A co-located, freshly validated helper understands this explicit portable authorization; a helper cannot replace arbitrary portable targets by passing unrecognized arguments. The prior portable EXE is renamed to `<portable-stem>.previous.exe`; the managed app still backs up to `MagicPatchDesk.previous.exe`. Update intent metadata is removed by the helper when processing the request. Failure returns the user to the existing EXE where rollback is possible.
+
+**The downloaded release asset names and SHA256 manifest remain identical.** The update protocol version must stay at `1`; retain managed install helper compatibility and old `--mpd-healthcheck-v1`/ `--mpd-apply-update-v1` flags. Explicitly verify both independently in tests and field QA. A portable folder without write permission is a real update error and must never trigger a silent fallback that writes to another installed executable.
+
+See `docs/PATCH_LIBRARY_OUTPUTS_AND_UPDATES.md` for the UI and QA requirements.
