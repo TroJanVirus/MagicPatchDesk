@@ -353,6 +353,7 @@ func drawLibrary(hdc uintptr, w, h int32) {
     if app.inputInfo.Valid{
         display+=fmt.Sprintf("  ·  %s  ·  CRC %s",app.inputInfo.TitleID,app.inputInfo.CRC32)
     }
+    if app.inputPartSummary!=""{display+="  ·  "+app.inputPartSummary}
     textAt(hdc,display,272,h-136,w-639,28,app.fonts.Small,white)
     button(hdc,"Open file",ir(w-318,h-151,89,32),"open",0,false)
     button(hdc,"Open folder",ir(w-221,h-151,101,32),"game-folder",0,false)
