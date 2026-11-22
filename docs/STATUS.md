@@ -2,6 +2,12 @@
 
 **Last confirmed:** 2026-11-22 NZ. This is the **current QA status**, not the 2026-11-21 first-build snapshot that previously occupied this file. For the self-contained development handoff and exact next-conversation prompt, see [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md); for user product requirements, see [DECISIONS.md](DECISIONS.md).
 
+## Release-blocking live Windows test failure — 2026-11-22
+
+**v0.14.0-test.5 passed synthetic Linux and native Windows CI, but a user reported TWO CTDs immediately after launch. Do not call the desktop runtime stable.** Private uploaded evidence (`crashes.zip`) contains one native Windows **0xC0000005 access violation** during `DispatchMessageW` (`cmd/magicdesk/main_windows.go:483`) and one additional unexpected exit with no runtime trace; the process marker reports `startup` for both, but this stage has not been updated for ordinary UI dispatch/paint. It is **not** possible to identify the faulting Windows DLL or the precise crashing callback from this Go trace alone. The crash may be in a Win32 callback, GDI/GDI+, external DLL or hook; none is confirmed. The second crash cannot be assumed identical to the first. No game assets or user paths should be posted to public GitHub Issues. **Open regression issue:** https://github.com/TroJanVirus/MagicPatchDesk/issues/19.
+
+**Next check:** Windows Reliability Monitor (`perfmon /rel`) or Event Viewer Application Error event around `2026-11-22 15:31 NZDT`: retrieve *faulting module name* and *fault offset* before attributing a specific root cause. Preserve v1 updater and non-overwrite safety. No speculative repaired build should be labelled verified without real Windows startup/field evidence.
+
 ## Latest verified distribution
 
 | Area | Evidence / confidence |
