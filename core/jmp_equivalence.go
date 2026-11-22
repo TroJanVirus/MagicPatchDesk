@@ -74,7 +74,16 @@ func semanticJMPFingerprint(p *Patch)([32]byte,bool){
     }
     for _,r:=range p.Records{
         target,err:=p.RecordTarget(r)
-        if err!=nil{return empty,false}
+        if err!=nil {
+            // Several file names inside instructional notes make the patch
+            // ambiguous for application, but still permit conservative
+            // import deduplication if the *same targets* are named.
+            explicit,e:=FileTargetsInText(r.Comment)
+            if e!=nil||len(explicit)!=0{return empty,false}
+            names,e:=FileTargetsInText(FormatJMPNotes(p.Headers["notes"]))
+            if e!=nil||len(names)<2{return empty,false}
+            target="ambiguous:"+strings.Join(names,"|")
+        }
         key.Records=append(key.Records,recordFingerprint{
             Kind:r.Kind,Target:target,Group:strings.ToLower(strings.TrimSpace(r.Group)),
             Enabled:r.Enabled,Offset:r.Offset,Find:r.Find,Replace:r.Replace,Data:r.Data,
