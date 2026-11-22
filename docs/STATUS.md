@@ -6,11 +6,11 @@
 
 | Area | Evidence / confidence |
 |---|---|
-| Released Windows preview | **v0.14.0-test.3** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
-| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
+| Released Windows preview | **v0.14.0-test.4** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4 |
+| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b` |
 | Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
-| Latest source-feature PR | #15: https://github.com/TroJanVirus/MagicPatchDesk/pull/15 (v0.14.0-test.3; merged after release publication) |
-| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 |
+| Latest source-feature PR | **#16 merged:** https://github.com/TroJanVirus/MagicPatchDesk/pull/16 (v0.14.0-test.4) |
+| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561 — Linux, native Windows and publisher |
 | Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
 | Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
 
@@ -29,13 +29,19 @@
 
 **Not established:** whether the current public PatchHub PHP page emits screenshot URLs for every patch. The public JMP GitHub corpus does not contain the screenshots. Locally imported PatchHub `titles/` screenshots are supported. Do not fabricate image links or claim complete remote gallery coverage.
 
-## Pending verification — v0.14.0-test.4 reliability work
+## Newly verified in v0.14.0-test.4
 
-The current feature branch adds durable abnormal-exit report recovery and private crash logs, stronger duplicate JMP recognition across imports and pre-existing library entries, HTML-aware full notes, separate Patch Library scrollbars and conditional IPS/EIPS controls. Go and Windows smoke regression tests were added, including simulated forced-exit recovery, stack privacy and two independently scrollable lists. **These changes are not yet a verified public release**; use current GitHub Actions and release evidence before updating this status. The past Phantom Crash failure cannot be attributed to a specific panic or corrupt JMP without a crash trace. See docs/CRASH_RECOVERY_AND_UI.md.
+- **Code and release gate PASS:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561. Go tests on Linux and native Windows; race/vet; Windows x64 EXE build, checksum verification, updater healthcheck and UI smoke of full notes, section-specific scrollbars and conditional IPS controls. Published https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4. Canonical EXE SHA256 `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b`.
+- **Durable failure evidence:** simulated forced exit and caught Go panic produce persistent private crash log, a separate sanitized JSON report, next-launch red unread-crash notice; clean exit and still-running instance do not produce false reports. Native Windows runtime stderr capture is best effort. **Not yet tested:** actual Windows kernel-level crash, original Phantom Crash original-XBE reproduction or manual GitHub issue interaction.
+- **JMP duplicate prevention:** semantic comparison beyond raw SHA covers formatting/author/notes/CRLF changes, folder imports and pre-existing duplicate visible catalogue entries; preserves original files and local screenshots. Tests distinguish truly different record bytes/regions, which still import independently.
+- **Complete HTML-aware notes and UX:** word-wrap, browser-free `<br>`/list/entity formatting and Copy all notes; explicit scrollable view; cursor-specific patch/record scrollbars with draggable thumbs; IPS password and RLE controls only where relevant.
+- **Privacy:** raw stacks and local evidence logs are intentionally private. Sanitized GitHub issue payloads exclude raw failure text/paths and crash evidence IDs. Forced termination and power interruption are classified as abnormal exits, **not** automatically as a confirmed software crash. Windows Error Reporting minidumps are optional via the documented admin-controlled HKLM setup; MagicPatchDesk does not modify those registry policies.
+
+**Past Phantom Crash cause remains unknown.** We can confirm the previous reporter could not save fatal process crashes, not that any particular duplicate caused the original crash. Read [crash recovery and UI repair details](CRASH_RECOVERY_AND_UI.md).
 
 ## Manual QA still outstanding — do not claim completed
 
-1. **Real Windows 10/11 interactive test** of game folder picker, drag/drop, patch controls, wheel/scroll handling, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
+1. **Real Windows 10/11 interactive test** reproducing Phantom Crash original-XBE selection (with existing duplicate JMPs), process crash/force-termination then next-launch private crash log/diagnostic upload flow, independent patch/record wheel and thumb hitboxes, notes and IPS controls; also folder picker, drag/drop, DPI scaling, output selectors, report consent dialog and error feedback. Check at small windows and at larger desktop resolutions.
 2. **Full library batch test** across legitimate extracted games, XISO/ISO and CCI sources: strict Auto matching, manual queue, Skip, mixed output formats, insufficient disk space, existing destination, interrupted operation, no original modification, proper recovery.
 3. **Full-sized image compatibility**, including CCI split files, physical sector/file limits, multi-target named assets, PF and packs, and XBE-only output validation. Not all combinations are supported; fail closed rather than dropping operations.
 4. **Actual xemu and physical Original Xbox game boots**. Distinguish emulator versus stock or upgraded Xbox RAM/CPU/revisions; user reports are not official compatibility guarantees.
