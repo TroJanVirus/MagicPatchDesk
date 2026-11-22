@@ -112,19 +112,32 @@ func saveHubIndex(root string,hub HubIndex)error{
     return os.Rename(f.Name(),filepath.Join(root,"patchhub-index.json"))
 }
 
+// RefreshCachedPatchHubMedia fetches the lightweight JPG/PNG file inventory
+// independently of the HTML game index. A fresh upload becomes visible on
+// Check + sync without waiting for the 24-hour card-cache expiry. The HTTP
+// client can be injected for deterministic offline regression tests.
+func RefreshCachedPatchHubMedia(ctx context.Context, root string, client *http.Client)(int,error){
+    cache:=ReadHubCache(root)
+    if len(cache.Games)==0{return 0,errors.New("PatchHub game index is empty")}
+    shots,e:=ReadPatchHubMediaManifest(ctx,client)
+    if e!=nil{return 0,e}
+    for i:=range cache.Games{cache.Games[i].Screenshots=nil}
+    AppendPatchHubMedia(&cache,shots)
+    count:=0
+    for _,g:=range cache.Games{count+=len(g.Screenshots)}
+    if e=saveHubIndex(root,cache);e!=nil{return 0,e}
+    return count,nil
+}
+
 // Media refresh is independent of the 24-hour game-card cache. A published
 // JPG/PNG index must become visible as soon as the user selects Check + sync.
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
     cache:=ReadHubCache(root)
     if len(cache.Games)>0 && cache.GalleryScanVersion>=2 &&
         time.Since(cache.Updated)<24*time.Hour {
-        if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil {
-            // Reconcile the latest on-server folder inventory, including
-            // image additions/removals, rather than keeping stale 24h entries.
-            for i:=range cache.Games {cache.Games[i].Screenshots=nil}
-            AppendPatchHubMedia(&cache,listed)
-            if e=saveHubIndex(root,cache);e!=nil{return 0,e}
-        }
+        // Missing internet/media index must not make the offline game list
+        // unusable. Preserve the previous photo cache on request failure.
+        _,_ = RefreshCachedPatchHubMedia(ctx,root,nil)
         // Offline mode still uses the previous game and image metadata.
         return len(cache.Games),nil
     }
