@@ -1084,6 +1084,7 @@ func handle(action string, index int) {
     case "crash-open-reports":
         app.tab=2
         app.recoveredCrashes=0
+        _=core.ClearCrashNotices(app.root)
         refreshDiagnosticGroups()
     case "notes-open":
         if selectedPatchNoteText()!="" {app.notesOpen=true;app.notesScroll=0}
