@@ -1,3 +1,10 @@
+## 2026-11-22 — v0.14.0-test.9 verified preview release
+
+Published: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.9
+Verified one-shot run: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44988840325 (success). PR #23 was merged into main. The canonical Windows x64 PE executable `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` were published; digest verification, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, icon build, Windows cross-build and updater contract all passed. Removed the one-shot release workflow afterward, retaining only the manual verification workflow.
+
+The patch ownership and 24h media-cache fixes are released. Owner-provided manifest inspected offline: 477 image URLs in 253 patch directories. The production website's runtime response, Windows GUI screenshot rendering and real Xbox patch applications were NOT independently tested. The current desktop image folder matching is game+patch title (or unique shortened label), not region/revision/TitleID.
+
 ## 2026-11-22 — v0.14.0-test.9 image fix candidate
 
 - Owner uploaded the true `patchhub-media-v1.json`: inspected locally, 477 JPG/PNG image URLs under 253 distinct PatchHub patch directories; filenames may be arbitrary. Owner clarified that the **patch folder owns all nested images**; region/revision/TitleID checks should not filter the presentation gallery when the game/patch folder matches.
