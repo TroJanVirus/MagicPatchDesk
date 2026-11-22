@@ -1397,8 +1397,17 @@ func handle(action string, index int) {
 	case "password":
 		app.passFocus = true
 		app.searchFocus = false
-	case "convert":
-		convertFiles()
+    case "convert-reason":
+        // Display the full validation reason. A status bar or clipped footer
+        // must never be the sole place explaining why conversion is blocked.
+        if app.conversionBlocked {
+            reason:=app.conversionHint
+            if reason=="" {reason="Choose a valid source patch and output format first."}
+            proc:=user32.NewProc("MessageBoxW")
+            sysCall(proc,app.hwnd,uintptr(unsafe.Pointer(ptr(reason))),uintptr(unsafe.Pointer(ptr("Why conversion is blocked"))),0x40)
+        }
+    case "convert":
+        convertFiles()
 	}
 	redraw()
 }
