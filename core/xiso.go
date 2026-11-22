@@ -35,9 +35,12 @@ type ImageFile struct {
 
 func get32(b []byte) uint32 { return binary.LittleEndian.Uint32(b) }
 func readAt(f io.ReaderAt, where int64, n int) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := f.ReadAt(b, where)
-	return b, err
+    if where<0||n<0{return nil,errors.New("negative image read range")}
+    b:=make([]byte,n)
+    count,err:=f.ReadAt(b,where)
+    if err!=nil{return nil,err}
+    if count!=n{return nil,io.ErrUnexpectedEOF}
+    return b,nil
 }
 func OpenXISO(path string) (*Image,error) {
     if IsNumberedRawImagePart(path) {
@@ -51,13 +54,23 @@ func OpenXISO(path string) (*Image,error) {
     defer f.Close()
     st,err:=f.Stat()
     if err!=nil{return nil,err}
+    if !st.Mode().IsRegular(){return nil,errors.New("disc image is not a regular file")}
     return openXDVDFSReaderAt(f,st.Size(),path)
 }
 
 // Use the same bounded XDVDFS parser for ordinary ISOs and for a logical
 // multi-part CCI sector stream. This avoids extracting multi-gigabyte CCI
 // images just to locate a few executable sectors.
+const maxXDVDFSEntries = 200000
+const maxXDVDFSDirectoryBytes int64 = 128 << 20
+
+type imageScanLimits struct {
+    entries int
+    directoryBytes int64
+}
+
 func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,error) {
+    if imageSize<0{return nil,errors.New("negative Xbox image size")}
 	for _, base := range partitionBases {
         if base+0x10800>imageSize {
 			continue
@@ -72,8 +85,9 @@ func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,err
 			return nil, fmt.Errorf("invalid XISO directory table")
 		}
 		im := &Image{Path: path, Base: base, RootSector: root, RootSize: rs}
-		visited := map[string]bool{}
-		if err := im.walk(f, imageSize, "", root, rs, visited, 0); err != nil {
+        visited:=map[string]bool{}
+        limits:=&imageScanLimits{}
+        if err:=im.walk(f,imageSize,"",root,rs,visited,0,limits);err!=nil{
 			return nil, err
 		}
 		if len(im.Files) == 0 {
@@ -83,16 +97,18 @@ func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,err
 	}
 	return nil, errors.New("no recognized original Xbox XDVDFS volume (XISO / XGD1 / XGD2 / XGD3)")
 }
-func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint32, size uint32, visited map[string]bool, depth int) error {
+func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint32, size uint32, visited map[string]bool, depth int, limits *imageScanLimits) error {
 	if depth > 24 {
 		return errors.New("XISO directory nesting too deep")
 	}
 	if size == 0 {
 		return nil
 	}
-	if size > 32<<20 {
-		return errors.New("directory table too large")
-	}
+    if size>32<<20{return errors.New("directory table too large")}
+    limits.directoryBytes+=int64(size)
+    if limits.directoryBytes>maxXDVDFSDirectoryBytes{
+        return errors.New("XDVDFS directory metadata exceeds safe 128 MiB limit")
+    }
 	dirAt := im.Base + int64(sector)*sectorSize
 	key := fmt.Sprintf("%d:%d", dirAt, size)
 	if visited[key] {
@@ -106,62 +122,55 @@ func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint
 	if err != nil {
 		return err
 	}
-	nodes := map[int]bool{}
-	var parse func(int) error
-	parse = func(off int) error {
-		if nodes[off] {
-			return errors.New("directory tree cycle")
-		}
-		nodes[off] = true
-		if off < 0 || off+14 > len(table) {
-			return errors.New("directory entry outside table")
-		}
-		b := table[off:]
-		if b[0] == 0xFF && b[1] == 0xFF {
-			return nil
-		}
-		left := int(binary.LittleEndian.Uint16(b[0:2])) * 4
-		right := int(binary.LittleEndian.Uint16(b[2:4])) * 4
-		sector := get32(b[4:])
-		filesize := get32(b[8:])
-		attr := b[12]
-		length := int(b[13])
-		if length == 0 || off+14+length > len(table) {
-			return errors.New("invalid XISO filename length")
-		}
-		name := string(b[14 : 14+length])
-		if strings.ContainsAny(name, "/\\") || name == ".." {
-			return errors.New("XISO contains invalid filename")
-		}
-		pth := name
-		if prefix != "" {
-			pth = prefix + "/" + name
-		}
-		if attr&0x10 != 0 {
-			im.Directories = append(im.Directories, pth)
-			if sector != 0 && filesize != 0 {
-				if err := im.walk(f, imageSize, pth, sector, filesize, visited, depth+1); err != nil {
-					return err
-				}
-			}
-		} else {
-			at := im.Base + int64(sector)*sectorSize
-			if at < 0 || at+int64(filesize) > imageSize {
-				return fmt.Errorf("XISO file outside image: %s", pth)
-			}
-			im.Files = append(im.Files, ImageFile{pth, sector, filesize, dirAt + int64(off)})
-		}
-		if left > 0 {
-			if err := parse(left); err != nil {
-				return err
-			}
-		}
-		if right > 0 {
-			return parse(right)
-		}
-		return nil
-	}
-	return parse(0)
+    // XDVDFS directory entries form a binary search tree. Iterative
+    // traversal avoids unbounded Go stack growth on malformed skewed trees.
+    nodes:=map[int]bool{}
+    pending:=[]int{0}
+    for len(pending)>0{
+        off:=pending[len(pending)-1]
+        pending=pending[:len(pending)-1]
+        if nodes[off]{return errors.New("directory tree cycle")}
+        nodes[off]=true
+        limits.entries++
+        if limits.entries>maxXDVDFSEntries{
+            return errors.New("XDVDFS has too many directory entries")
+        }
+        if off<0||off+14>len(table){return errors.New("directory entry outside table")}
+        b:=table[off:]
+        if b[0]==0xFF&&b[1]==0xFF{continue}
+        left:=int(binary.LittleEndian.Uint16(b[0:2]))*4
+        right:=int(binary.LittleEndian.Uint16(b[2:4]))*4
+        sector:=get32(b[4:])
+        filesize:=get32(b[8:])
+        attr:=b[12]
+        length:=int(b[13])
+        if length==0||off+14+length>len(table){
+            return errors.New("invalid XISO filename length")
+        }
+        name:=string(b[14:14+length])
+        if strings.ContainsAny(name,"/\\")||name==".."||name=="."{
+            return errors.New("XISO contains invalid filename")
+        }
+        pth:=name
+        if prefix!=""{pth=prefix+"/"+name}
+        if attr&0x10!=0{
+            im.Directories=append(im.Directories,pth)
+            if sector!=0&&filesize!=0 {
+                if err:=im.walk(f,imageSize,pth,sector,filesize,visited,depth+1,limits);err!=nil{
+                    return err
+                }
+            }
+        }else{
+            at:=im.Base+int64(sector)*sectorSize
+            if at<0||at+int64(filesize)>imageSize{
+                return fmt.Errorf("XISO file outside image: %s",pth)
+            }
+            im.Files=append(im.Files,ImageFile{pth,sector,filesize,dirAt+int64(off)})
+        }
+        if right>0{pending=append(pending,right)}
+        if left>0{pending=append(pending,left)}
+    }
+    return nil
 }
 func (im *Image) XBEs() []ImageFile {
 	out := []ImageFile{}
@@ -199,12 +208,16 @@ func (im *Image) ReadFile(entry ImageFile) ([]byte, error) {
         }
         return readAt(parts,offset,int(entry.Size))
     }
-	f, err := os.Open(im.Path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return readAt(f, im.Base+int64(entry.StartSector)*sectorSize, int(entry.Size))
+    f,err:=os.Open(im.Path)
+    if err!=nil{return nil,err}
+    defer f.Close()
+    st,err:=f.Stat()
+    if err!=nil{return nil,err}
+    offset:=im.Base+int64(entry.StartSector)*sectorSize
+    if !st.Mode().IsRegular()||offset<0||offset+int64(entry.Size)>st.Size(){
+        return nil,errors.New("XDVDFS member is outside the current disc image")
+    }
+    return readAt(f,offset,int(entry.Size))
 }
 
 // CopyImage performs bounded parallel ReadAt/WriteAt copies. The caller chooses worker count (1-8).

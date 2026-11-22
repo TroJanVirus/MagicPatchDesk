@@ -212,6 +212,7 @@ type appState struct {
 	input         string
 	inputInfo     core.XBEInfo
     inputPartSummary string
+    inputKind string // worker-validated XBE/XISO/full-disc ISO/CCI source kind
     gameInputGeneration uint64 // UI-thread-only picker epoch
 	inputErr      string
 	search        string
@@ -770,17 +771,19 @@ func openInput(path string) {
     app.inputErr="Reading game executable…"
     app.inputInfo=core.XBEInfo{}
     app.inputPartSummary=""
+    app.inputKind=""
     app.status="Inspecting game image and matching the patch library…"
     app.mu.Unlock()
     redraw()
     go func(){
         defer catchFatalPanic()
-        info,summary,err:=inspectGamePath(path)
+        info,summary,kind,err:=inspectGamePath(path)
         result:=gameInspection{
             path:path,
             generation:generation,
             info:info,
             partSummary:summary,
+            sourceKind:kind,
             err:err,
         }
         // A stale worker may finish after a newly selected game. Keep only

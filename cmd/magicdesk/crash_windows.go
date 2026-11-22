@@ -69,6 +69,14 @@ func captureFatalPanic(value any){
     // Never continue after an unhandled callback panic: UI state may be
     // inconsistent. Write the private trace synchronously before exit.
     defer os.Exit(2)
+    // Only an explicitly opted-in synthetic smoke run may write a diagnostic
+    // to a caller-provided path. Normal user builds preserve private crash
+    // reporting under the existing app-data Reports folder.
+    if smokeWindowsUI {
+        if path:=os.Getenv("MPD_UI_SMOKE_REPORT");path!=""{
+            _=os.WriteFile(path,[]byte(fmt.Sprintf("Win32 UI smoke failed: %v\n%s",value,debug.Stack())),0600)
+        }
+    }
     if crashSession!=nil{
         reason:=fmt.Sprint(value)
         if len(reason)>2048{reason=reason[:2048]}

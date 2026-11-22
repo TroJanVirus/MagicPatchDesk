@@ -27,32 +27,43 @@ func chosenGameSource() string {
     if gameOutputSource!="" {return gameOutputSource}
     return app.input
 }
-func gameSourceCategory(source string) string {
-    if source=="" {return "xiso"}
-    if info,e:=os.Stat(source);e==nil && info.IsDir(){return "folder"}
-    if core.CCISourcePath(source){return "cci"}
-    if core.IsNumberedRawImagePart(source){return "xiso"} // safe rebuilt outputs only, not a copied fragment
-    if strings.EqualFold(filepath.Ext(source),".xbe"){return "xbe"}
-    if im,e:=core.OpenXISO(source);e==nil && im.Base!=0{return "fulliso"}
-    return "xiso"
-}
+// Source output capability is never inferred by parsing an ISO on the Win32
+// UI thread. The worker's validated Image.Base decides whether full-disc
+// preservation can be offered.
+var gameOutputValidated bool
+
 func selectGameSource(source string) {
-    // Called on every game picker/drop/recent file selection. Never inherit
-    // an earlier source's format choice, even if a saved preference exists.
     gameOutputSource=source
-    effective:=source
-    if effective==""{effective=app.input}
     gameOutputKind=""
-    if effective!=""{gameOutputKind=gameSourceCategory(effective)}
+    gameOutputValidated=false
     gameOutputMask=0
     gameOutputPreserve=false
     app.outputPickerOpen=false
+
+    effective:=source
+    if effective==""{effective=app.input}
+    if effective==""{return}
+    if info,err:=os.Stat(effective);err==nil&&info.IsDir(){
+        // The folder itself may exist, but its root XBE still needs to pass
+        // inspection before we allow a patch/export operation.
+        gameOutputKind="folder"
+        gameOutputValidated=app.inputInfo.Valid&&app.inputKind=="xbe"&&
+            strings.EqualFold(filepath.Clean(app.input),
+                filepath.Clean(filepath.Join(effective,"default.xbe")))
+        return
+    }
+    // Reusing an already validated and unchanged loaded game is safe.
+    // An explicit new picker operation always scans again off-thread.
+    if source==""&&app.inputInfo.Valid&&app.inputKind!=""{
+        gameOutputKind=app.inputKind
+        gameOutputValidated=true
+    }
 }
-func currentGameOutputKind() string {
-    if chosenGameSource()=="" {return ""}
-    if gameOutputKind!="" {return gameOutputKind}
-    return gameSourceCategory(chosenGameSource())
+func currentGameOutputKind()string{
+    if !gameOutputValidated{return ""}
+    return gameOutputKind
 }
+
 func availableGameOutputs()uint32 {
     allowed,_:=core.AllowedOutputFormats(currentGameOutputKind())
     if strings.EqualFold(filepath.Ext(app.directFile),".pf"){
@@ -64,7 +75,8 @@ func chosenOutputMask()(uint32,error){
     return core.ResolveGameOutputChoice(currentGameOutputKind(),gameOutputMask,gameOutputPreserve)
 }
 func libraryApplyReady()bool{
-    if app.busy||chosenGameSource()==""||(app.parsed==nil&&app.directFile==""){return false}
+    if app.busy||!gameOutputValidated||chosenGameSource()==""||
+        (app.parsed==nil&&app.directFile==""){return false}
     mask,e:=chosenOutputMask()
     return e==nil && mask!=0 && mask&^availableGameOutputs()==0
 }
