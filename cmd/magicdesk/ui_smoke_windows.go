@@ -87,20 +87,20 @@ func smokePaintAndExit() {
     smokeDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
     if smokeDC==0{panic("Cannot measure Win32 Maintenance text")}
     defer sysCall(user32.NewProc("ReleaseDC"),app.hwnd,smokeDC)
-    controls:=map[string]rect{}
+    buttonBounds:=map[string]rect{}
     for _,hit:=range app.hits {
         if name,ok:=required[hit.Action];ok{
-            controls[hit.Action]=hit.R
+            buttonBounds[hit.Action]=hit.R
             if textPixelWidth(smokeDC,name,app.fonts.ButtonTiny)>hit.R.R-hit.R.L-20{
                 panic(fmt.Sprintf("Maintenance button %s still clips %q",hit.Action,name))
             }
         }
     }
     for name:=range required{
-        if _,ok:=controls[name];!ok{panic("Maintenance button missing: "+name)}
+        if _,ok:=buttonBounds[name];!ok{panic("Maintenance button missing: "+name)}
     }
-    for a,ra:=range controls{
-        for b,rb:=range controls{
+    for a,ra:=range buttonBounds{
+        for b,rb:=range buttonBounds{
             if a>=b{continue}
             if ra.L<rb.R&&ra.R>rb.L&&ra.T<rb.B&&ra.B>rb.T{
                 panic(fmt.Sprintf("Maintenance buttons overlap: %s and %s",a,b))
