@@ -9,7 +9,7 @@
 | Released Windows preview | **v0.14.0-test.3** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
 | Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
 | Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
-| Latest source-feature PR | #13 merged: https://github.com/TroJanVirus/MagicPatchDesk/pull/13 |
+| Latest source-feature PR | #15: https://github.com/TroJanVirus/MagicPatchDesk/pull/15 (v0.14.0-test.3; merged after release publication) |
 | Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 |
 | Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
 | Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
