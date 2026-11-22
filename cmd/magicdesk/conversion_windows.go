@@ -121,6 +121,10 @@ func refreshConversionHint() {
 		return
 	}
 	app.conversionBlocked = false
+    if app.bFile!="" && app.convertPatchFile!="" {
+        app.conversionHint="Verification enabled: the converted patch must exactly recreate your modified XBE."
+        return
+    }
 	if plan.RequiresSource {
 		app.conversionHint = "Original source selected · " + plan.Reason
 	} else if plan.SourceRecommended {
