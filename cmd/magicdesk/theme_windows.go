@@ -8,6 +8,12 @@ package main
 // cover legacy GDI literal colours in the other screens too.
 func themeSurfaceColor(c uint32) uint32 {
     if app.theme!="Light" {return c}
+    if c==blue||c==mint||c==amber||c==surface||c==surface2||c==bg||c==sidebar {return c}
+    // Preserve saturated teal/action colours (including hover blends), while
+    // replacing legacy midnight navy backgrounds.
+    red,green,blueChannel:=int(c>>16)&255,int(c>>8)&255,int(c)&255
+    if green>=75&&blueChannel>=green&&blueChannel-green<=48&&
+        green>red*2&&blueChannel>red*3 {return c}
     switch c {
     case 0x101A2A,0x111A29,0x0C111C:
         return 0xEAF0F4
