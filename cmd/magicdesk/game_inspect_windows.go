@@ -4,6 +4,7 @@ package main
 
 import (
     "magicpatchdesk/core"
+    "errors"
     "os"
     "path/filepath"
     "strings"
@@ -35,7 +36,19 @@ func inspectGamePath(path string)(core.XBEInfo,string,error){
     }
     var data []byte
     if strings.EqualFold(filepath.Ext(path),".xbe"){
-        data,err=os.ReadFile(path)
+        var st os.FileInfo
+        st,err=os.Stat(path)
+        if err==nil{
+            switch{
+            case !st.Mode().IsRegular():
+                err=errors.New("selected XBE is not a regular file")
+            case st.Size()>512<<20:
+                err=errors.New("selected XBE exceeds the 512 MiB safety limit")
+            case st.Size()<0x200:
+                err=errors.New("selected XBE is too small to contain a valid header")
+            }
+        }
+        if err==nil{data,err=os.ReadFile(path)}
     }else{
         var image *core.Image
         image,err=core.OpenXISO(path)
