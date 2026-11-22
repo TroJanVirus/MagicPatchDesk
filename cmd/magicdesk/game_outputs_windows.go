@@ -31,6 +31,7 @@ func gameSourceCategory(source string) string {
     if source=="" {return "xiso"}
     if info,e:=os.Stat(source);e==nil && info.IsDir(){return "folder"}
     if core.CCISourcePath(source){return "cci"}
+    if core.IsNumberedRawImagePart(source){return "xiso"} // safe rebuilt outputs only, not a copied fragment
     if strings.EqualFold(filepath.Ext(source),".xbe"){return "xbe"}
     if im,e:=core.OpenXISO(source);e==nil && im.Base!=0{return "fulliso"}
     return "xiso"
