@@ -37,6 +37,7 @@ type HubGame struct {
     Screenshots []HubScreenshot `json:"screenshots,omitempty"`
 }
 type HubIndex struct {
+    GalleryScanVersion int `json:"gallery_scan_version,omitempty"`
 	Updated time.Time `json:"updated"`
 	Games   []HubGame `json:"games"`
 }
@@ -49,7 +50,7 @@ var hubVersion = regexp.MustCompile(`(?is)Title ID:\s*([A-Fa-f0-9]{8})\s*\|\s*Re
 func ParsePatchHubHTML(doc []byte) (HubIndex, error) {
 	contents := string(doc)
 	locations := hubCard.FindAllStringIndex(contents, -1)
-	result := HubIndex{Updated: time.Now().UTC()}
+	result := HubIndex{Updated: time.Now().UTC(),GalleryScanVersion:1}
 	for idx, loc := range locations {
 		end := len(contents)
 		if idx+1 < len(locations) {
@@ -101,7 +102,7 @@ func ReadHubCache(root string) HubIndex {
 }
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
 	cache := ReadHubCache(root)
-	if len(cache.Games) > 0 && time.Since(cache.Updated) < 24*time.Hour {
+	if len(cache.Games) > 0 && cache.GalleryScanVersion>=1 && time.Since(cache.Updated) < 24*time.Hour {
 		return len(cache.Games), nil
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", PatchHubURL, nil)
