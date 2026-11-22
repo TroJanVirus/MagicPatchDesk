@@ -1,3 +1,13 @@
+## 2026-11-22 — v0.14.0-test.16 published; native Windows smoke verified
+
+Preview: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.16
+Scoped release workflow: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44997796855 — **all three jobs completed successfully**:
+- Ubuntu portable `go test -count=1 ./...` covering actual built XISO fixture (game partition/full-disc), 7,500-entry skewed XDVDFS tree, truncated members, metadata mutations, unexpected short reads; `go test -race -count=1 ./core`; `go vet ./...`; native Windows x64 PE cross-build and SHA-256 manifest verification, updater v1 contract, official icon and media fixture.
+- **For the first time in these recent releases, an actual Windows GitHub runner executed `MagicPatchDesk-Windows-x64.exe --mpd-ui-smoke-v1` AND `--mpd-healthcheck-v1`, both EXIT 0.** Native smoke exercises simulated ISO-pending / validated-full-disc / xiso / invalid / stale-source UI conditions, existing selected-JMP state preservation, plus the wider existing UI smoke suite. This is stronger evidence than Windows compilation alone; it is NOT the same as user field testing on a Phantom Crash retail ISO with an interactive desktop.
+- Gated publishing of `MagicPatchDesk-Windows-x64.exe`, **7,757,824 bytes SHA256 `196b9b0c50bc0d90d112f545cf7c478c656aab30c5f3b5312231743abeb09918`**, and `SHA256SUMS.txt` completed success.
+- An earlier CI run uncovered an existing synthetic two-file XISO fixture that overlapped XBE and settings data; the new identity test was corrected to build an actual XDVDFS via `BuildGameXISO`. Next run caught two leftover variable references in Win32 source classification; removed them. No build was released from either failed gate. The final third scoped run was successful. Avoid future CI churn by checking both portable test fixtures and Windows-only refactor compilation before kicking off the release job when a local cross-build is available.
+- Original owner-written `README.md` untouched, updater protocol `1` and canonical release assets unchanged. **Root cause of historical CTD still unproven** because prior crash evidence lacks a WER exception or full private runtime trace; owner said test.15 seemed stable and needs to field-test the actual Phantom Crash ISO in test.16. Never claim a complete real-file compatibility proof without those bytes/test.
+
 - Audit follow-up: extracted game folders also await root `default.xbe` verification before outputs unlock; Game Manager manual review distinguishes folders and inspects their root XBE, not the directory as an ISO.
 ## 2026-11-22 — v0.14.0-test.16 candidate: precise ISO picker audit and additional hardening
 
