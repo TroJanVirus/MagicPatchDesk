@@ -768,7 +768,7 @@ func pickFile(save bool, filter, title, defaultName string) string {
 // Only the owner thread may modify the visible file/patch/library selection.
 // File inspection runs off-thread and publishes an immutable result message.
 func openInput(path string) {
-    markCrashStage("game_source_open")
+    markCrashSourceSelection(path)
     selectGameSource(path)
     app.gameInputGeneration++
     generation:=app.gameInputGeneration

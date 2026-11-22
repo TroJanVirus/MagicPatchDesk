@@ -24,6 +24,9 @@ type crashSessionMarker struct {
     StartedUTC string `json:"started_utc"`
     AppVersion string `json:"app_version"`
     Stage string `json:"stage"`
+    SourceKind string `json:"source_kind,omitempty"`
+    SourceSwitches int `json:"source_switches,omitempty"`
+    RecentSourceKinds []string `json:"recent_source_kinds,omitempty"`
 }
 
 type CrashSession struct {
@@ -83,6 +86,56 @@ func crashStage(value string)string{
         return value
     default:return "other"
     }
+}
+// Crash breadcrumbs contain only file format categories, never filenames,
+// patch bytes, absolute paths or user information. Keep at most eight hops.
+func crashSourceCode(path string) string {
+    switch strings.ToLower(filepath.Ext(path)) {
+    case ".xbe": return "xbe"
+    case ".iso": return "iso"
+    case ".xiso": return "xiso"
+    case ".cci": return "cci"
+    default: return "other"
+    }
+}
+func safeCrashSourceCode(value string) string {
+    switch value {
+    case "xbe","iso","xiso","cci","other":return value
+    default:return ""
+    }
+}
+func reportCrashSourceKind(value string) string {
+    switch value {
+    case "xbe": return "loose-executable"
+    case "iso","xiso": return "disc-image"
+    case "cci": return "cerbios-cci"
+    case "other": return "other-file"
+    default: return "unspecified"
+    }
+}
+func safeCrashSourceTrail(values []string) []string {
+    trail:=make([]string,0,8)
+    for _,value:=range values {
+        if kind:=safeCrashSourceCode(value);kind!="" {trail=append(trail,kind)}
+        if len(trail)>8 {trail=trail[len(trail)-8:]}
+    }
+    return trail
+}
+func safeCrashSwitchCount(value int) int {
+    if value<0{return 0}
+    if value>1000000{return 1000000}
+    return value
+}
+func (s *CrashSession) RecordSourceSelection(path string) error {
+    if s==nil{return nil}
+    kind:=crashSourceCode(path)
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.data.Stage="game_source_open"
+    s.data.SourceKind=kind
+    s.data.SourceSwitches=safeCrashSwitchCount(s.data.SourceSwitches+1)
+    s.data.RecentSourceKinds=safeCrashSourceTrail(append(s.data.RecentSourceKinds,kind))
+    return writeCrashMarker(s.marker,s.data)
 }
 func writeCrashMarker(path string,m crashSessionMarker)error{
     data,e:=json.Marshal(m)
@@ -181,6 +234,9 @@ func (s *CrashSession) SaveRecoveredBackgroundPanic(stage, reason string, stack 
         Operation:"process.recovered_panic."+crashStage(stage)},errors.New("recovered background panic"))
     if e!=nil{return e}
     report.CrashEvidenceID=evidenceID
+    report.SourceKind=reportCrashSourceKind(s.data.SourceKind)
+    report.SourceSwitchCount=safeCrashSwitchCount(s.data.SourceSwitches)
+    report.RecentSourceKinds=safeCrashSourceTrail(s.data.RecentSourceKinds)
     if _,e=SaveFailureReport(s.root,report);e!=nil{return e}
     return recordCrashNotice(s.root,evidenceID)
 }
@@ -213,7 +269,7 @@ func RecoverAbandonedCrashSessions(root string,isAlive func(int)bool)(int,error)
         // no stack or minidump. The sanitized JSON is a separate document.
         logPath:=CrashEvidencePath(root,marker.ID)
         if _,e=os.Stat(logPath);errors.Is(e,os.ErrNotExist){
-            note:=fmt.Sprintf("MagicPatchDesk private unexpected-exit evidence — DO NOT UPLOAD WITHOUT REVIEW\nPrior session started: %s\nVersion: %s\nLast action: %s\nPID: %d\n\nThis session did not close normally; it may have crashed, been killed or lost power. The cause cannot be inferred from this marker alone. Examine runtime-%s.log or a Windows Error Reporting dump if present.\n",marker.StartedUTC,marker.AppVersion,crashStage(marker.Stage),marker.PID,marker.ID)
+            note:=fmt.Sprintf("MagicPatchDesk private unexpected-exit evidence — DO NOT UPLOAD WITHOUT REVIEW\nPrior session started: %s\nVersion: %s\nLast action: %s\nPID: %d\nLast source type: %s\nSource selections: %d\nRecent source types: %s\n\nThis session did not close normally; it may have crashed, been killed or lost power. The cause cannot be inferred from this marker alone. Examine runtime-%s.log or a Windows Error Reporting dump if present.\n",marker.StartedUTC,marker.AppVersion,crashStage(marker.Stage),marker.PID,reportCrashSourceKind(safeCrashSourceCode(marker.SourceKind)),safeCrashSwitchCount(marker.SourceSwitches),strings.Join(safeCrashSourceTrail(marker.RecentSourceKinds)," > "),marker.ID)
             if e=os.WriteFile(logPath,[]byte(note),0600);e!=nil{return count,e}
         }
         report,e:=NewFailureReport(FailureContext{
@@ -222,6 +278,9 @@ func RecoverAbandonedCrashSessions(root string,isAlive func(int)bool)(int,error)
         },errors.New("unexpected process exit"))
         if e!=nil{return count,e}
         report.CrashEvidenceID=marker.ID
+        report.SourceKind=reportCrashSourceKind(safeCrashSourceCode(marker.SourceKind))
+        report.SourceSwitchCount=safeCrashSwitchCount(marker.SourceSwitches)
+        report.RecentSourceKinds=safeCrashSourceTrail(marker.RecentSourceKinds)
         if _,e=SaveFailureReport(root,report);e!=nil{return count,e}
         if e=recordCrashNotice(root,marker.ID);e!=nil{return count,e}
         if e=os.Remove(path);e!=nil{return count,e}

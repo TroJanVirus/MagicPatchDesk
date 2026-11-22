@@ -42,6 +42,8 @@ type DiagnosticReport struct {
 	RecordNumber    int    `json:"record_number,omitempty"`
 	ByteOffset      string `json:"byte_offset,omitempty"`
     CrashEvidenceID string `json:"crash_evidence_id,omitempty"`
+    SourceSwitchCount int `json:"source_switches,omitempty"`
+    RecentSourceKinds []string `json:"recent_source_kinds,omitempty"`
 }
 
 // FailureContext includes only known-safe structured metadata; filenames are
@@ -191,11 +193,12 @@ func NewFailureReport(ctx FailureContext, failure error) (DiagnosticReport, erro
 
 func (r DiagnosticReport) Summary() string {
 	title := canonicalDiagnosticTitleID(r.TitleID)
-	return fmt.Sprintf("Magic Patch Desk %s | report %s\nGroup: %s\nSeverity: %s\nCategory: %s\nOperation: %s\nTitle ID: %s\nResult: %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nLocal crash evidence ID: %s\nNo game content, local paths, credentials or raw error strings are included.",
+	return fmt.Sprintf("Magic Patch Desk %s | report %s\nGroup: %s\nSeverity: %s\nCategory: %s\nOperation: %s\nTitle ID: %s\nResult: %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nLocal crash evidence ID: %s\nSource choices: %d; recent types: %s\nNo game content, local paths, credentials or raw error strings are included.",
 		r.AppVersion, r.ID, r.EffectiveGroupID(), r.Severity,
 		diagnosticTag(r.ErrorCode), diagnosticTag(r.Operation), title,
 		r.Explanation, r.PatchFormat, r.SourceKind, r.TargetExtension,
-		r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount, r.CrashEvidenceID)
+		r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount, r.CrashEvidenceID,
+        r.SourceSwitchCount, strings.Join(r.RecentSourceKinds," > "))
 }
 
 // SaveFailureReport creates a private JSON report, never overwriting a prior

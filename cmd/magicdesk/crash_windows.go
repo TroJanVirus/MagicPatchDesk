@@ -115,3 +115,7 @@ func runProtectedBackgroundTask(stage string, work func()) {
     }()
     work()
 }
+
+func markCrashSourceSelection(path string) {
+    if crashSession!=nil {_=crashSession.RecordSourceSelection(path)}
+}

@@ -99,3 +99,27 @@ func TestRecoveredBackgroundPanicPreservesActiveSession(t *testing.T){
     if _,err:=os.Stat(session.marker);!errors.Is(err,os.ErrNotExist){t.Fatal("clean exit marker was not cleared")}
     if crashStage("game_inspect_pending")!="game_inspect_pending"{t.Fatal("source inspection diagnostic stage discarded")}
 }
+
+func TestCrashSourceBreadcrumbsAvoidPrivatePaths(t *testing.T){
+    root:=t.TempDir()
+    session,err:=BeginCrashSession(root,"v0.14.0-test.17",31339)
+    if err!=nil{t.Fatal(err)}
+    names:=[]string{"C:\\Users\\PRIVATE-NAME\\phantom.iso",
+        "C:\\Users\\PRIVATE-NAME\\phantom.cci",
+        "C:\\Users\\PRIVATE-NAME\\default.xbe"}
+    for i:=0;i<11;i++ {
+        if err:=session.RecordSourceSelection(names[i%len(names)]);err!=nil{t.Fatal(err)}
+    }
+    body,err:=os.ReadFile(session.marker)
+    if err!=nil{t.Fatal(err)}
+    if strings.Contains(string(body),"PRIVATE-NAME")||strings.Contains(string(body),"phantom"){
+        t.Fatal("source paths leaked into recoverable crash marker")
+    }
+    var marker crashSessionMarker
+    if err:=json.Unmarshal(body,&marker);err!=nil{t.Fatal(err)}
+    if marker.SourceSwitches!=11||len(marker.RecentSourceKinds)!=8||
+        marker.RecentSourceKinds[7]!="cci"||marker.SourceKind!="cci"{
+        t.Fatalf("recent source types not captured: %+v",marker)
+    }
+    if err:=session.End();err!=nil{t.Fatal(err)}
+}
