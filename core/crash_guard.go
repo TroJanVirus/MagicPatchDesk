@@ -204,6 +204,9 @@ func (s *CrashSession) SaveCaughtCrash(reason string,stack []byte)error{
         Operation:"process.unhandled_panic."+s.data.Stage},errors.New("unhandled panic"))
     if e!=nil{return e}
     report.CrashEvidenceID=s.data.ID
+    report.SourceKind=reportCrashSourceKind(s.data.SourceKind)
+    report.SourceSwitchCount=safeCrashSwitchCount(s.data.SourceSwitches)
+    report.RecentSourceKinds=safeCrashSourceTrail(s.data.RecentSourceKinds)
     if _,e=SaveFailureReport(s.root,report);e!=nil{return e}
     if e=recordCrashNotice(s.root,s.data.ID);e!=nil{return e}
     return os.Remove(s.marker)
