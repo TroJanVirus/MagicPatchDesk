@@ -10,7 +10,7 @@ import (
 // FormatJMPNotes is a small, non-executing HTML-to-text renderer for the
 // fragments found in JMP 'notes=' headers. The native UI deliberately does
 // not run HTML, scripts, links or WebView content. It preserves line breaks,
-// paragraphs, list items and character entities for readable instructions.
+// paragraphs, list items, web link destinations and character entities for readable instructions.
 var (
     notesLineBreak = regexp.MustCompile(`(?i)<br\s*/?\s*>`)
     notesBlockOpen = regexp.MustCompile(`(?i)<(?:p|div|ul|ol|h[1-6])(?:\s+[^>]*)?>`)
@@ -36,11 +36,12 @@ type JMPNoteLink struct {
 // scripts, custom URL schemes, credentials and control characters must never
 // reach the Windows ShellExecute action.
 func SafeJMPLinkURL(raw string) (string,bool) {
-    raw=strings.TrimSpace(html.UnescapeString(raw))
+    raw=html.UnescapeString(raw)
     if len(raw)==0||len(raw)>2048{return "",false}
     for _,r:=range raw {
         if r<0x20||r==0x7f{return "",false}
     }
+    raw=strings.TrimSpace(raw)
     parsed,err:=url.Parse(raw)
     if err!=nil{return "",false}
     if (parsed.Scheme!="https"&&parsed.Scheme!="http")||parsed.Hostname()==""||parsed.User!=nil {
