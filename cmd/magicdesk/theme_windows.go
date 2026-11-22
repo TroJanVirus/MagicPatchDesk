@@ -2,10 +2,19 @@
 
 package main
 
+import "unsafe"
+
 // Native light-mode remapping. Earlier themes painted hard-coded midnight blue
 // panels/buttons over the light canvas and reused pale text, making the UI
 // unreadable. The semantic palette handles ordinary surfaces; these adapters
 // cover legacy GDI literal colours in the other screens too.
+func updateWindowsTitleBarTheme() {
+    if app.hwnd==0{return}
+    dark:=int32(1)
+    if app.theme=="Light" {dark=0}
+    sysCall(dwmAttr,app.hwnd,20,uintptr(unsafe.Pointer(&dark)),4)
+}
+
 func themeSurfaceColor(c uint32) uint32 {
     if app.theme!="Light" {return c}
     if c==blue||c==mint||c==amber||c==surface||c==surface2||c==bg||c==sidebar {return c}
