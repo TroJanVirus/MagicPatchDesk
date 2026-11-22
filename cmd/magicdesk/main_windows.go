@@ -1148,7 +1148,7 @@ func handle(action string, index int) {
         app.mu.Unlock()
         reason:=mediaDiscoveryReason(item)
         if reason==""{reason="No discovery result recorded yet."}
-        showPreviewMessage("PatchHub image lookup details:\n\n"+reason+"\n\nImages are matched to the exact game/patch/region/revision. Arbitrarily named files require a public media index on PatchHub. Retry from the selected patch after syncing the site index.",false)
+        showPreviewMessage("PatchHub image lookup details:\n\n"+reason+"\n\nImages belong to the selected game's patch folder, regardless of region or image filename. The public PatchHub media index lists all JPG/PNG files in each patch folder. Retry from the selected patch after syncing the site index.",false)
         // An explicit retry remains available by reselecting the patch.
     case "gallery-open":
         images,_:=selectedLibraryGallery()
