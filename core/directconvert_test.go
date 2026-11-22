@@ -327,3 +327,68 @@ func TestVerifiedIPStoJMPAddsOriginalChecksum(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestOffsetOnlyJMPConvertsToIPSWithoutOriginalForLibraryAndImportedInputs(t *testing.T) {
+    original:=fakeXBE()
+    raw:=sampleDirectJMP(original)
+    for _,name:=range []string{"Phantom Crash {Widescreen} (NTSC) [Jay].jmp","ImportedCustom.jmp"} {
+        t.Run(name,func(t *testing.T){
+            for _,tc:=range []struct{
+                format int
+                ext string
+                password string
+            }{{1,".ips",""},{3,".eips","correct-horse-password"}}{
+                plan,err:=PlanPatchConversion(name,raw,tc.format,tc.password)
+                if err!=nil||plan.RequiresSource{
+                    t.Fatalf("offset-only JMP unexpectedly needs original for %s: %+v %v",tc.ext,plan,err)
+                }
+                converted,_,err:=ConvertPatchBytes(name,raw,nil,tc.format,tc.password,true,"Phantom Crash")
+                if err!=nil{t.Fatalf("source-free conversion failed %s: %v",tc.ext,err)}
+                if err=VerifyPatchAgainstModified(original,mustApplyJMPFixture(t,name,raw,original),converted,"Converted"+tc.ext,tc.password);err!=nil{
+                    t.Fatalf("source-free %s output changed patch semantics: %v",tc.ext,err)
+                }
+            }
+        })
+    }
+}
+
+func mustApplyJMPFixture(t *testing.T,name string,raw,original []byte)[]byte{
+    t.Helper()
+    p,err:=ParseJMP(name,raw)
+    if err!=nil{t.Fatal(err)}
+    result,err:=p.Apply(original,false)
+    if err!=nil{t.Fatal(err)}
+    return result
+}
+
+func TestSearchReplaceJMPReportsReasonAndBlocksSourceFreeIPSAndBPS(t *testing.T){
+    original:=fakeXBE()
+    patch:=[]byte(fixtureJMP(original))
+    for _,format:=range []int{1,3,4}{
+        plan,err:=PlanPatchConversion("search.jmp",patch,format,"strong-password")
+        if err!=nil||!plan.RequiresSource||!strings.Contains(strings.ToLower(plan.Reason),"search-and-replace"){
+            t.Fatalf("format %d did not explain why search-and-replace blocks source-free conversion: %+v %v",format,plan,err)
+        }
+        _,_,err=ConvertPatchBytes("search.jmp",patch,nil,format,"strong-password",true,"Test")
+        if err==nil||!strings.Contains(strings.ToLower(err.Error()),"search-and-replace"){
+            t.Fatalf("format %d did not block with the actual reason: %v",format,err)
+        }
+    }
+}
+
+func TestOffsetOnlyJMPBPSIsSourceDependentEvenWithoutSearchReplace(t *testing.T){
+    original:=fakeXBE()
+    patch:=sampleDirectJMP(original)
+    plan,err:=PlanPatchConversion("offset.jmp",patch,4,"")
+    if err!=nil||!plan.RequiresSource||!strings.Contains(strings.ToLower(plan.Reason),"crc32"){
+        t.Fatalf("BPS source size/CRC requirement missing: %+v %v",plan,err)
+    }
+    if _,_,err=ConvertPatchBytes("offset.jmp",patch,nil,4,"",true,"Test");err==nil{
+        t.Fatal("generated BPS without real original XBE")
+    }
+    encoded,_,err:=ConvertPatchBytes("offset.jmp",patch,original,4,"",true,"Test")
+    if err!=nil{t.Fatalf("valid original BPS conversion failed: %v",err)}
+    got,err:=DecodeBPS(original,encoded)
+    if err!=nil{t.Fatalf("BPS could not decode against real original: %v",err)}
+    want:=mustApplyJMPFixture(t,"offset.jmp",patch,original)
+    if !bytes.Equal(got,want){t.Fatal("BPS lost offset-only JMP semantics")}
+}
