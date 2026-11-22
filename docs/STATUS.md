@@ -37,6 +37,8 @@
 - **Complete HTML-aware notes and UX:** word-wrap, browser-free `<br>`/list/entity formatting and Copy all notes; explicit scrollable view; cursor-specific patch/record scrollbars with draggable thumbs; IPS password and RLE controls only where relevant.
 - **Privacy:** raw stacks and local evidence logs are intentionally private. Sanitized GitHub issue payloads exclude raw failure text/paths and crash evidence IDs. Forced termination and power interruption are classified as abnormal exits, **not** automatically as a confirmed software crash. Windows Error Reporting minidumps are optional via the documented admin-controlled HKLM setup; MagicPatchDesk does not modify those registry policies.
 
+**Open follow-up:** https://github.com/TroJanVirus/MagicPatchDesk/issues/17 records the original Phantom Crash crash reproduction and real-Windows crash log / sanitized reporting acceptance tests.
+
 **Past Phantom Crash cause remains unknown.** We can confirm the previous reporter could not save fatal process crashes, not that any particular duplicate caused the original crash. Read [crash recovery and UI repair details](CRASH_RECOVERY_AND_UI.md).
 
 ## Manual QA still outstanding — do not claim completed
