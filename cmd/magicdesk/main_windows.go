@@ -727,6 +727,7 @@ func selectPatch(idx int) {
         app.parsed=nil
         app.mu.Unlock()
         notify("XBMC4Gamers PF selected: "+filepath.Base(path)+" · Choose game's default.xbe or ISO")
+        discoverSelectedPatchMedia(false)
         redraw()
         return
     }
@@ -738,6 +739,7 @@ func selectPatch(idx int) {
 	app.mu.Lock()
 	app.parsed = p
 	app.mu.Unlock()
+    discoverSelectedPatchMedia(false)
 	redraw()
 }
 
@@ -1110,6 +1112,8 @@ func handle(action string, index int) {
         setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
     case "patch-scroll-thumb","records-scroll-thumb","notes-scroll-thumb":
         // Drag handled directly by the mouse capture loop.
+    case "gallery-discover":
+        discoverSelectedPatchMedia(true)
     case "gallery-open":
         images,_:=selectedLibraryGallery()
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
