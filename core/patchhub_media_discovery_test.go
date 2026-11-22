@@ -121,6 +121,7 @@ func TestDirectoryListingExtractsArbitraryImageNamesSafely(t *testing.T){
 type patchMediaTransport struct{
     requests int
     listing string
+    manifest string
     images map[string]bool
 }
 func (f *patchMediaTransport) RoundTrip(req *http.Request)(*http.Response,error){
@@ -128,6 +129,11 @@ func (f *patchMediaTransport) RoundTrip(req *http.Request)(*http.Response,error)
     status:=http.StatusNotFound
     mime:="text/plain"
     body:=""
+    if req.Method=="GET"&&req.URL.String()==PatchHubMediaURL&&f.manifest!=""{
+        status=200
+        mime="application/json"
+        body=f.manifest
+    }
     if req.Method=="GET"&&strings.HasSuffix(req.URL.EscapedPath(),"/"){
         if f.listing!=""{status=200;mime="text/html";body=f.listing}else{status=403}
     }
@@ -191,5 +197,31 @@ func TestOwnerProvidedAMFBowlingMediaIdentity(t *testing.T) {
     shots,err:=ParsePatchHubMediaManifest([]byte(manifest))
     if err!=nil||len(shots)!=1||shots[0].URL!=ProvidedAMFBowlingImage {
         t.Fatalf("AMF image was not discoverable through the generic manifest: %+v %v",shots,err)
+    }
+}
+
+func TestManifestFirstMatchesRenamedWebsiteFolderAndRejectsWrongRevision(t *testing.T){
+    g,p:=samplePhantomMediaGame()
+    // Two USA revisions make a filename-derived folder ambiguous. The media
+    // index should still identify the exact revision, even when the website
+    // directory and the GitHub filename differ in punctuation and spacing.
+    g.Versions=append(g.Versions,HubVersion{TitleID:"504C0001",Region:"USA",Version:"6"})
+    p.Version="5"
+    filename:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20-%20Widescreen%20NTSC%20%5BJay%5D/Random%20comparison.PNG"
+    other:="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000006_504C0001/Phantom%20Crash%20-%20Widescreen%20NTSC%20%5BJay%5D/Random%20comparison.PNG"
+    fake:=&patchMediaTransport{manifest:fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q,%q]}`,filename,other)}
+    shots,err:=DiscoverPatchHubMedia(context.Background(),&http.Client{Transport:fake},g,p)
+    if err!=nil||len(shots)!=1||shots[0].URL!=filename||shots[0].Kind!="screenshot" {
+        t.Fatalf("index-first lookup failed: %+v, %v",shots,err)
+    }
+    if fake.requests!=1 {t.Fatalf("index should preempt guessed-path HTTP probes; got %d requests",fake.requests)}
+    p.Version=""
+    if got:=MatchPatchHubMedia(g,p,shots);len(got)!=0 {
+        t.Fatalf("unknown revision must not use ambiguous revision images: %+v",got)
+    }
+    p.Version="5"
+    p.TitleID="12345678"
+    if got:=MatchPatchHubMedia(g,p,shots);len(got)!=0 {
+        t.Fatalf("wrong Title ID accepted: %+v",got)
     }
 }

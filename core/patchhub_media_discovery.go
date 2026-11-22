@@ -167,58 +167,109 @@ func CommonPatchHubMediaNames()[]string{
     for _,n:=range names{out=append(out,n+".jpg",n+".png")}
     return out
 }
+// MatchPatchHubMedia resolves the selected GitHub JMP to real image paths from
+// the *website's* media index, instead of assuming its filename is also the
+// website directory name. Title ID, region, version (when known), game, and
+// patch name must agree. Unrelated patches are never handed each other's art.
+func MatchPatchHubMedia(game Game, patch CatalogPatch, all []HubScreenshot) []HubScreenshot {
+    if patch.TitleID==""||CoverMatchKey(patch.Name)=="" {return nil}
+    version:=normalizeHubVersion(patch.Version)
+    // Only interpret a numeric patch version as a revision. A JMP header's
+    // "version" field may instead hold an XBE Title ID or arbitrary text.
+    result:=make([]HubScreenshot,0,8)
+    seen:=map[string]bool{}
+    for _,shot:=range all {
+        if CoverMatchKey(game.Title)!=CoverMatchKey(shot.Game)||
+            !strings.EqualFold(patch.TitleID,shot.TitleID)||
+            !patchRegionEquivalent(patch.Region,shot.Region)||
+            CoverMatchKey(patch.Name)!=CoverMatchKey(shot.Patch) {continue}
+        if version!="" && version!=shot.Version {continue}
+        // Only indexed versions known to belong to this game are valid.
+        valid:=false
+        for _,v:=range game.Versions {
+            if strings.EqualFold(v.TitleID,shot.TitleID)&&
+                strings.EqualFold(v.Region,shot.Region)&&
+                normalizeHubVersion(v.Version)==shot.Version {valid=true;break}
+        }
+        if !valid||seen[shot.URL] {continue}
+        seen[shot.URL]=true
+        result=append(result,shot)
+        if len(result)>=32 {break}
+    }
+    if version=="" {
+        // If a title has several compatible revisions and the JMP does not
+        // specify one, an image from one revision may be wrong for another.
+        revisions:=map[string]bool{}
+        for _,v:=range game.Versions {
+            if strings.EqualFold(v.TitleID,patch.TitleID)&&patchRegionEquivalent(patch.Region,v.Region) {
+                revisions[strings.ToUpper(v.Region)+"_"+normalizeHubVersion(v.Version)]=true
+            }
+        }
+        if len(revisions)>1{return nil}
+    }
+    sort.SliceStable(result,func(i,j int)bool{
+        if result[i].Set!=result[j].Set{return result[i].Set<result[j].Set}
+        if result[i].Kind!=result[j].Kind{return result[i].Kind=="before"}
+        return result[i].URL<result[j].URL
+    })
+    return result
+}
+
+// Discovery checks the real site index FIRST: constructing a directory from a
+// GitHub patch filename is only a fallback and can be wrong or ambiguous.
+// Caller receives a diagnostic error rather than a silent "no images" result.
 func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,patch CatalogPatch)([]HubScreenshot,error){
-    folder,e:=PatchHubPatchDirectory(game,patch)
-    if e!=nil{return nil,e}
-    if client==nil{
+    // Keep a bounded and trusted HTTP client for HEAD and GET probes.
+    if client==nil {
         client=&http.Client{Timeout:5*time.Second,CheckRedirect:func(req *http.Request,via []*http.Request)error{
             if len(via)>3||!trustedPatchHubURL(req.URL){return errors.New("unsafe PatchHub redirect")}
             return nil
         }}
     }
-    results:=[]HubScreenshot{}
-    seen:=map[string]bool{}
-    add:=func(s HubScreenshot){
-        if !seen[s.URL]&&len(results)<32{seen[s.URL]=true;results=append(results,s)}
+    indexed,indexErr:=ReadPatchHubMediaManifest(ctx,client)
+    if indexErr==nil {
+        matched:=MatchPatchHubMedia(game,patch,indexed)
+        if len(matched)>0{return matched,nil}
     }
-    // Listing optional. A 403/404 is expected on servers with autoindex off.
+    folder,folderErr:=PatchHubPatchDirectory(game,patch)
+    if folderErr!=nil {
+        if indexErr!=nil {return nil,fmt.Errorf("media index unavailable (%v); filename-derived directory unavailable (%v)",indexErr,folderErr)}
+        return nil,fmt.Errorf("media index has no matching patch images; directory unavailable: %w",folderErr)
+    }
+    results:=make([]HubScreenshot,0,8)
+    seen:=map[string]bool{}
+    add:=func(s HubScreenshot) {
+        if !seen[s.URL]&&len(results)<32 {seen[s.URL]=true;results=append(results,s)}
+    }
     listing,err:=http.NewRequestWithContext(ctx,http.MethodGet,folder,nil)
-    if err==nil{
+    if err==nil {
         response,e:=client.Do(listing)
-        if e==nil{
-            if response.StatusCode==200&&strings.Contains(strings.ToLower(response.Header.Get("Content-Type")),"text/html")&&response.ContentLength<512<<10{
+        if e==nil {
+            if response.StatusCode==200&&strings.Contains(strings.ToLower(response.Header.Get("Content-Type")),"text/html")&&response.ContentLength<512<<10 {
                 content,_:=io.ReadAll(io.LimitReader(response.Body,(512<<10)+1))
                 for _,s:=range MediaLinksFromDirectoryHTML(folder,content){add(s)}
             }
             response.Body.Close()
         }
     }
-    // When there is no directory listing, make a strictly bounded set of HEAD
-    // requests for known conventions. 404s are expected and not fatal.
-    if len(results)==0{
-        for _,name:=range CommonPatchHubMediaNames(){
-            if ctx.Err()!=nil{break}
+    if len(results)==0 {
+        for _,name:=range CommonPatchHubMediaNames() {
+            if ctx.Err()!=nil {break}
             raw:=folder+url.PathEscape(name)
             req,e:=http.NewRequestWithContext(ctx,http.MethodHead,raw,nil)
-            if e!=nil{continue}
+            if e!=nil {continue}
             response,e:=client.Do(req)
-            if e!=nil{continue}
-            ok:=response.StatusCode==200&&response.ContentLength<=5<<20&&
-                trustedPatchHubURL(response.Request.URL)
+            if e!=nil {continue}
+            ok:=response.StatusCode==200&&response.ContentLength<=5<<20&&trustedPatchHubURL(response.Request.URL)
             response.Body.Close()
-            if ok{
-                s,valid:=patchhubGalleryURL(raw)
-                if valid{add(s)}
-            }
+            if ok {if shot,valid:=patchhubGalleryURL(raw);valid{add(shot)}}
         }
     }
-    // Some image hosts refuse HEAD even though GET works. Only if the
-    // ordinary checks found nothing, perform four bounded byte-range GETs
-    // for the two most common before/after names. Never infer success from
-    // status alone: require recognizable JPEG/PNG magic.
+    // Real servers can reject HEAD requests. Probe only a handful of common
+    // names with GET. Arbitrary names require a site index or directory list.
     if len(results)==0 {
         for _,name:=range []string{"1. Before.jpg","1. Before.png","2. After.jpg","2. After.png"} {
-            if ctx.Err()!=nil {break}
+            if ctx.Err()!=nil{break}
             raw:=folder+url.PathEscape(name)
             req,e:=http.NewRequestWithContext(ctx,http.MethodGet,raw,nil)
             if e!=nil {continue}
@@ -233,22 +284,15 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
             jpg:=n>=3&&header[0]==0xFF&&header[1]==0xD8&&header[2]==0xFF
             png:=n>=8&&string(header)==string([]byte{0x89,'P','N','G',0x0D,0x0A,0x1A,0x0A})
             if trusted&&statusOK&&(jpg||png) {
-                if s,valid:=patchhubGalleryURL(raw);valid {add(s)}
+                if shot,valid:=patchhubGalleryURL(raw);valid {add(shot)}
             }
         }
     }
-    // The authoritative site-published index can discover arbitrary media
-    // names that cannot be responsibly guessed. Restrict every result to the
-    // exact selected patch folder (game, region, revision and Title ID).
-    // An index 404 is non-fatal: older PatchHub deployments need the bounded
-    // filename probes above or a server-side index deployment.
-    indexed,indexErr:=ReadPatchHubMediaManifest(ctx,client)
-    if indexErr==nil {
-        for _,shot:=range indexed {
-            if strings.HasPrefix(shot.URL,folder) {
-                add(shot)
-            }
+    if len(results)==0 {
+        if indexErr!=nil {
+            return nil,fmt.Errorf("no images at exact directory; PatchHub index unavailable (%v). Publish patchhub-media-v1.json to discover arbitrary filenames",indexErr)
         }
+        return nil,errors.New("no images matched this exact patch; media index and bounded directory probes returned nothing")
     }
     sort.SliceStable(results,func(i,j int)bool{
         if results[i].Set!=results[j].Set{return results[i].Set<results[j].Set}

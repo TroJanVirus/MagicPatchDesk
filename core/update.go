@@ -21,7 +21,7 @@ import (
 
 // Keep this as an invariant in every future release. Both the portable EXE and
 // installed program use exactly the same update protocol.
-const AppVersion = "v0.14.0-test.7"
+const AppVersion = "v0.14.0-test.8"
 const UpdateProtocol = 1
 const StableReleaseAsset = "MagicPatchDesk-Windows-x64.exe"
 const ReleaseRepo = "TroJanVirus/MagicPatchDesk"

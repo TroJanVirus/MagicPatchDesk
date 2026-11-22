@@ -14,6 +14,7 @@ type patchMediaState struct {
     images []core.PatchGalleryImage
     lastAttempt time.Time
     fetching bool
+    reason string
 }
 var patchMediaMu sync.Mutex
 var patchMediaCache=map[string]patchMediaState{}
@@ -40,6 +41,11 @@ func mediaDiscoveryRunning(p core.CatalogPatch)bool{
     defer patchMediaMu.Unlock()
     return patchMediaCache[p.File].fetching
 }
+func mediaDiscoveryReason(p core.CatalogPatch)string{
+    patchMediaMu.Lock()
+    defer patchMediaMu.Unlock()
+    return patchMediaCache[p.File].reason
+}
 
 // A request is scoped to ONE explicitly selected patch. The Go library never
 // crawls every game on the server or guesses image paths for a different XBE
@@ -65,6 +71,7 @@ func discoverSelectedPatchMedia(force bool){
         return
     }
     state.fetching=true
+    state.reason=""
     state.lastAttempt=time.Now()
     patchMediaCache[patch.File]=state
     patchMediaMu.Unlock()
@@ -75,24 +82,37 @@ func discoverSelectedPatchMedia(force bool){
         defer cancel()
         images,e:=core.DiscoverPatchHubMedia(ctx,nil,game,patch)
         found:=make([]core.PatchGalleryImage,0,len(images))
+        reason:=""
+        if e!=nil{reason=e.Error()}
         if e==nil{
-            // Only present successfully fetched, validated images. A URL
-            // probe, or a user-supplied path, is not proof of image content.
+            // Return only images that passed the existing bounded, trusted
+            // JPEG/PNG validation; retain the actual failure explanation.
             for _,shot:=range images{
                 if ctx.Err()!=nil{break}
                 if _,downloadErr:=core.DownloadCover(ctx,root,shot.URL);downloadErr==nil{
                     found=append(found,core.PatchGalleryImage{Kind:shot.Kind,Set:shot.Set,URL:shot.URL})
+                }else{
+                    reason="image URL discovered but download/validation failed: "+downloadErr.Error()
                 }
             }
+        }
+        if len(found)==0&&reason==""{
+            reason="no files were found in this patch's exact website folder"
         }
         patchMediaMu.Lock()
         state:=patchMediaCache[patch.File]
         state.fetching=false
         state.images=found
+        state.reason=reason
         patchMediaCache[patch.File]=state
         patchMediaMu.Unlock()
-        if e==nil&&len(found)>0{
-            manager.log.Add("pass","PatchHub images",fmt.Sprintf("%d public JPG/PNG media links found for %s",len(found),patch.Name))
+        if len(found)>0 {
+            manager.log.Add("pass","PatchHub images",fmt.Sprintf("%d validated images for %s",len(found),patch.Name))
+        } else {
+            manager.log.Add("warning","PatchHub images","Image search: "+reason)
+            app.mu.Lock()
+            app.status="No patch images: "+reason
+            app.mu.Unlock()
         }
         if app.hwnd!=0{
             sysCall(postMsg,app.hwnd,WM_APP+1,0,0)
