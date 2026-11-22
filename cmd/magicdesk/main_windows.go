@@ -456,7 +456,7 @@ func initApp() {
 	if sysCall(regClass, uintptr(unsafe.Pointer(&class))) == 0 {
 		panic("RegisterClassEx failed")
 	}
-	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk  |  Xbox Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
+	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
 	if app.hwnd == 0 {
 		panic("CreateWindowEx failed")
 	}
