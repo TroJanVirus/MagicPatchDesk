@@ -266,9 +266,15 @@ func managerRunBatch(){
 func managerOpenInOutputs(){
     job,choice,ok:=managerSelected()
     if !ok{return}
-    // Validate full-disc vs game-partition ISO off-thread before making any
-    // output choice usable, just as the regular Patch Library picker does.
-    openInput(job.Game.Path)
+    // Validate the original game's identity off-thread before any outputs
+    // become usable. Extracted game folders are inspected through their
+    // root default.xbe, not misidentified as malformed ISO files.
+    if st,err:=os.Stat(job.Game.Path);err==nil&&st.IsDir(){
+        openInput(filepath.Join(job.Game.Path,"default.xbe"))
+        selectGameSource(job.Game.Path)
+    }else{
+        openInput(job.Game.Path)
+    }
     if job.OutputMask!=0 {gameOutputMask=job.OutputMask}
     app.directFile=chosenManagerPatch(job.Game,choice)
     app.parsed=nil
