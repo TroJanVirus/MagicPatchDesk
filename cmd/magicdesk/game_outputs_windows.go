@@ -125,17 +125,23 @@ func gameOutputAction(action string,index int) {
 func gameOriginals(source string, wanted []string) (map[string][]byte,error) {
     sourceInfo,e:=os.Stat(source)
     if e!=nil{return nil,e}
-    sourceFile:=source
-    if !sourceInfo.IsDir() && core.CCISourcePath(source){
-        scratch,e:=os.MkdirTemp("","mpd-source-cci-*")
-        if e!=nil{return nil,e}
-        defer os.RemoveAll(scratch)
-        sourceFile=filepath.Join(scratch,"decoded.iso")
-        if e=core.ExtractCCI(source,sourceFile,nil);e!=nil{return nil,e}
+    // Only the targets needed for verification/patching are read from a
+    // multi-part CCI. The selected part (including .2.cci) resolves to the
+    // entire set, and default.xbe may physically span different parts.
+    if !sourceInfo.IsDir()&&core.CCISourcePath(source) {
+        originals:=make(map[string][]byte,len(wanted))
+        for _,name:=range wanted {
+            canonical,e:=core.NormaliseTarget(name)
+            if e!=nil{return nil,e}
+            if _,exists:=originals[canonical];exists{continue}
+            originals[canonical],e=core.ReadCCIGameMember(source,canonical)
+            if e!=nil{return nil,fmt.Errorf("CCI member %s: %w",canonical,e)}
+        }
+        return originals,nil
     }
     var image *core.Image
     if !sourceInfo.IsDir() && !strings.EqualFold(filepath.Ext(source),".xbe"){
-        image,e=core.OpenXISO(sourceFile)
+        image,e=core.OpenXISO(source)
         if e!=nil{return nil,e}
     }
     out:=make(map[string][]byte,len(wanted))
