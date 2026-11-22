@@ -1245,7 +1245,8 @@ func handle(action string, index int) {
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose modified XBE", ""); p != "" {
 			app.bFile = p
 			rememberRecent("convert_modified",p)
-			app.convertPatchFile = ""
+			// If a source patch is selected, this XBE is an independent
+			// expected-result fixture, not a replacement for that patch.
 			refreshConversionHint()
 		}
 	case "ipsrle":
