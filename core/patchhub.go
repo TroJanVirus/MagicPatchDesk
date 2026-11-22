@@ -100,11 +100,34 @@ func ReadHubCache(root string) HubIndex {
 	}
 	return c
 }
+// saveHubIndex atomically; keep existing valid metadata on failures.
+func saveHubIndex(root string,hub HubIndex)error{
+    b,e:=json.Marshal(hub)
+    if e!=nil{return e}
+    f,e:=os.CreateTemp(root,"hub-index-*.json")
+    if e!=nil{return e}
+    defer os.Remove(f.Name())
+    if _,e=f.Write(b);e!=nil{f.Close();return e}
+    if e=f.Close();e!=nil{return e}
+    return os.Rename(f.Name(),filepath.Join(root,"patchhub-index.json"))
+}
+
+// Media refresh is independent of the 24-hour game-card cache. A published
+// JPG/PNG index must become visible as soon as the user selects Check + sync.
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
-	cache := ReadHubCache(root)
-	if len(cache.Games) > 0 && cache.GalleryScanVersion>=2 && time.Since(cache.Updated) < 24*time.Hour {
-		return len(cache.Games), nil
-	}
+    cache:=ReadHubCache(root)
+    if len(cache.Games)>0 && cache.GalleryScanVersion>=2 &&
+        time.Since(cache.Updated)<24*time.Hour {
+        if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil {
+            // Reconcile the latest on-server folder inventory, including
+            // image additions/removals, rather than keeping stale 24h entries.
+            for i:=range cache.Games {cache.Games[i].Screenshots=nil}
+            AppendPatchHubMedia(&cache,listed)
+            if e=saveHubIndex(root,cache);e!=nil{return 0,e}
+        }
+        // Offline mode still uses the previous game and image metadata.
+        return len(cache.Games),nil
+    }
 	req, err := http.NewRequestWithContext(ctx, "GET", PatchHubURL, nil)
 	if err != nil {
 		return 0, err
@@ -133,25 +156,7 @@ func SyncPatchHub(ctx context.Context, root string) (int, error) {
     if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil{
         AppendPatchHubMedia(&hub,listed)
     }
-	j, err := json.Marshal(hub)
-	if err != nil {
-		return 0, err
-	}
-	tmp, err := os.CreateTemp(root, "hub-index-*.json")
-	if err != nil {
-		return 0, err
-	}
-	defer os.Remove(tmp.Name())
-	if _, err = tmp.Write(j); err != nil {
-		tmp.Close()
-		return 0, err
-	}
-	if err = tmp.Close(); err != nil {
-		return 0, err
-	}
-	if err = os.Rename(tmp.Name(), filepath.Join(root, "patchhub-index.json")); err != nil {
-		return 0, err
-	}
+    if err=saveHubIndex(root,hub);err!=nil{return 0,err}
 	return len(hub.Games), nil
 }
 func CoverCachePath(root, urlString string) string {
