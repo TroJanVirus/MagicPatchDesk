@@ -673,12 +673,12 @@ func drawSettings(hdc uintptr, w, h int32) {
     y=520
     panel(hdc,ir(x,y,leftW,141),surface,15)
     textAt(hdc,"OFFLINE PATCHES",x+22,y+9,leftW-44,27,app.fonts.Title,white)
+    textAt(hdc,strLimit(app.root,64),x+22,y+38,leftW-44,22,app.fonts.Small,muted)
     button(hdc,fmt.Sprintf("Duplicates: %d · View",len(app.cat.Duplicates)),
-        ir(x+leftW-192,y+13,173,30),"duplicate-audit",0,false)
-    textAt(hdc,strLimit(app.root,64),x+22,y+44,leftW-44,22,app.fonts.Small,muted)
+        ir(x+21,y+69,leftW-42,28),"duplicate-audit",0,false)
     cell:=(leftW-60)/3
     for i,c:=range []struct{label,action string}{{"Patch folder","folder"},{"Import JMP / PF","import"},{"Rescan","refresh"}}{
-        button(hdc,c.label,ir(x+19+int32(i)*(cell+9),y+86,cell,38),c.action,0,false)
+        button(hdc,c.label,ir(x+19+int32(i)*(cell+9),y+105,cell,30),c.action,0,false)
     }
 
     y=285
