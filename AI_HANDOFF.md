@@ -1,3 +1,8 @@
+## 2026-11-22 — v0.14.0-test.11 published and verified
+
+Preview release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.11
+Successful one-shot workflow: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44991571756. Windows x64 canonical `MagicPatchDesk-Windows-x64.exe` (7,692,288 bytes, SHA256 `8124c591fde95c922977ab138705a81d923f73e14f239ad89d88634c41eeab93`) and `SHA256SUMS.txt` published. Verified updater protocol v1, image index fixture, embedded native JMP icon, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 GUI cross-build, PE signature and SHA manifest. Actual Win32 `--mpd-ui-smoke-v1` assertions for text fit at 1024px/800px and real visual rendering have **not** run on a Windows desktop in this Linux CI environment. Owner must field-check screenshots/text and can use release v0.14.0-test.10 as rollback. This release does not claim to resolve prior unrelated crashes. User-facing `README.md` unchanged.
+
 ## 2026-11-22 — v0.14.0-test.11 candidate: UI legibility at real desktop widths
 
 - Owner supplied 3 Windows screenshots showing `Widescreen` patch badges and long game names clipped, `Discover _patch` / `Updates _maintenance` headings (Windows treats `&` as an accelerator), Maintenance `CHECK + SYNC AT S...`, `App fol...`, `Data fol...` labels, and an unhelpful `OUTPUTS: Choose a source game` prompt. Request is to make buttons and relevant descriptions fully readable.
