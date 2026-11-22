@@ -13,8 +13,12 @@ func drawMaintenance(hdc uintptr,w,h int32){
     x:=int32(266)
     width:=w-298
     compact:=h<800
+    narrow:=width<665
     hUpdate,hReports,hCCI,gap:=int32(260),int32(135),int32(99),int32(12)
     if compact{hUpdate,hReports,hCCI,gap=244,113,90,8}
+    // At smaller widths, place the folder buttons on their own row. Do not
+    // squeeze every action into 80px labels or let rows overlap one another.
+    if narrow{hUpdate+=52}
     y:=int32(130)
     panel(hdc,ir(x,y,width,hUpdate),surface,16)
     textAt(hdc,"CHECK FOR UPDATES",x+24,y+8,width-48,29,app.fonts.Title,white)
@@ -33,24 +37,35 @@ func drawMaintenance(hdc uintptr,w,h int32){
     button(hdc,"Update now",ir(x+38+bw*2,by,bw,36),"maint-update",0,maintenanceUpdate.Found)
     fill(hdc,ir(x+23,y+136,width-46,1),0x354258)
     textAt(hdc,"UPDATE SETTINGS",x+24,y+146,width-48,25,app.fonts.Medium,white)
-    betaName:="STABLE ONLY"
-    if maintenancePref.Beta{betaName="PREVIEWS ON"}
-    checkName:="CHECK + SYNC AT START"
-    if maintenancePref.NoAutoCheck{checkName="MANUAL CHECK + SYNC"}
+    betaName:="Stable only"
+    if maintenancePref.Beta{betaName="Previews on"}
+    checkName:="Check + sync at start"
+    if maintenancePref.NoAutoCheck{checkName="Manual check + sync"}
     settingsY:=y+176
-    button(hdc,betaName,ir(x+22,settingsY,145,34),"maint-beta",0,maintenancePref.Beta)
-    button(hdc,checkName,ir(x+174,settingsY,192,34),"maint-autocheck",0,!maintenancePref.NoAutoCheck)
-    if width>530{
-        button(hdc,"App folder",ir(x+width-202,settingsY,81,34),"maint-program",0,false)
-        button(hdc,"Data folder",ir(x+width-114,settingsY,91,34),"maint-data",0,false)
+    if !narrow{
+        // Each folder button has room for its complete name, even at 1024px
+        // window width. Action labels use natural casing for readability.
+        button(hdc,betaName,ir(x+22,settingsY,149,35),"maint-beta",0,maintenancePref.Beta)
+        button(hdc,checkName,ir(x+180,settingsY,221,35),"maint-autocheck",0,!maintenancePref.NoAutoCheck)
+        button(hdc,"App folder",ir(x+width-244,settingsY,110,35),"maint-program",0,false)
+        button(hdc,"Data folder",ir(x+width-126,settingsY,108,35),"maint-data",0,false)
+        textAt(hdc,"At startup: check app updates, sync GitHub patches and refresh PatchHub artwork.",
+            x+24,y+216,width-45,22,app.fonts.Small,muted)
+    }else{
+        leftWidth:=int32(142)
+        rightWidth:=width-22-22-leftWidth-10
+        button(hdc,betaName,ir(x+22,settingsY,leftWidth,35),"maint-beta",0,maintenancePref.Beta)
+        button(hdc,checkName,ir(x+32+leftWidth,settingsY,rightWidth,35),"maint-autocheck",0,!maintenancePref.NoAutoCheck)
+        button(hdc,"App folder",ir(x+22,settingsY+45,119,35),"maint-program",0,false)
+        button(hdc,"Data folder",ir(x+149,settingsY+45,119,35),"maint-data",0,false)
+        textWrapped(hdc,"Startup checking also refreshes GitHub patches and PatchHub images.",
+            x+24,y+260,width-48,34,app.fonts.Small,muted)
     }
-    textAt(hdc,"Previews ON = preview builds. CHECK AT START also refreshes GitHub and PatchHub.",
-        x+24,y+214,width-45,21,app.fonts.Small,muted)
 
     y+=hUpdate+gap
     panel(hdc,ir(x,y,width,hReports),surface,16)
     textAt(hdc,"AUTOMATED DIAGNOSTIC REPORTS",x+24,y+8,width-48,27,app.fonts.Title,white)
-    info:="Not connected · Link a GitHub token to enable optional issue reports."
+    info:="Not connected · Connect GitHub to share optional reports."
     connected:=isGitHubConnected()
     if connected {
         info="Connected · reports stay private until you submit or enable Auto-report."

@@ -176,9 +176,15 @@ func drawSidebar(hdc uintptr,w,h int32){
         button(hdc,"↻ Sync GitHub",ir(25,collectionTop+70,184,32),"sync",0,false)
     }
 }
-func drawPageHeader(hdc uintptr, title, subtitle string, w int32) {
-	textAt(hdc, title, 263, 30, w-530, 45, app.fonts.Hero, white)
-	textAt(hdc, subtitle, 264, 76, w-520, 26, app.fonts.Small, muted)
+func drawPageHeader(hdc uintptr,title,subtitle string,w int32){
+    headlineWidth:=w-530
+    if headlineWidth<120{headlineWidth=120}
+    titleFont:=app.fonts.Hero
+    if textPixelWidth(hdc,title,titleFont)>headlineWidth{
+        titleFont=app.fonts.Title
+    }
+    textWrapped(hdc,title,263,27,headlineWidth,52,titleFont,white)
+    textWrapped(hdc,subtitle,264,79,w-520,39,app.fonts.Small,muted)
 }
 func drawLibrary(hdc uintptr, w, h int32) {
     app.patchViewport=rect{}
@@ -188,12 +194,16 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	drawPageHeader(hdc, "Discover & patch", "Select a source and patch, then explicitly choose one or more verified output formats.", w)
 	button(hdc, "Load patch file", ir(w-365, 38, 167, 42), "direct", 0, false)
 	button(hdc, "+  Import JMP", ir(w-186, 38, 155, 42), "import", 0, false)
-	listX := int32(255)
-	listW := int32(353)
-	listTop := int32(117)
-	listBottom := h - 178
-	rightX := int32(627)
-	rightW := w - rightX - 23
+    listX:=int32(255)
+    // Use the available width instead of trapping long game names inside an
+    // unchanging 353px sidebar on wide screens.
+    listW:=(w-275)*35/100
+    if listW<300{listW=300}
+    if listW>455{listW=455}
+    listTop:=int32(117)
+    listBottom:=h-178
+    rightX:=listX+listW+19
+    rightW:=w-rightX-23
 	panel(hdc, ir(listX, listTop, listW, listBottom-listTop), surface, 17)
 	textAt(hdc, "GAME CATALOG", listX+17, listTop+14, listW-25, 22, app.fonts.Micro, muted)
 	panel(hdc, ir(listX+15, listTop+47, listW-30, 43), 0x27364F, 11)
@@ -269,7 +279,8 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	}
 	gameStart := listTop + 160
 	gameEnd := listBottom - 12
-	perPage := int((gameEnd - gameStart) / 66)
+    gameRowH:=int32(79)
+    perPage:=int((gameEnd-gameStart)/gameRowH)
 	if perPage < 1 {
 		perPage = 1
 	}
@@ -282,19 +293,21 @@ func drawLibrary(hdc uintptr, w, h int32) {
 	for row := 0; row < perPage && row+app.gameScroll < len(filtered); row++ {
 		i := filtered[row+app.gameScroll]
 		g := catalog.Games[i]
-		y := gameStart + int32(row)*66
+        y:=gameStart+int32(row)*gameRowH
 		selected := i == app.selectedGame
 		if selected {
-			panel(hdc, ir(listX+10, y, listW-20, 61), 0x2B4468, 12)
+            panel(hdc,ir(listX+10,y,listW-20,gameRowH-5),0x2B4468,12)
 		} else if app.hoverAction == "game" && app.hoverIndex == i {
-			panel(hdc, ir(listX+10, y, listW-20, 61), 0x264666, 12)
+            panel(hdc,ir(listX+10,y,listW-20,gameRowH-5),0x264666,12)
 		} else if row%2 == 0 {
-			panel(hdc, ir(listX+10, y, listW-20, 61), 0x1D2B40, 11)
+            panel(hdc,ir(listX+10,y,listW-20,gameRowH-5),0x1D2B40,11)
 		}
-		cover(hdc, listX+18, y+5, g.Title, g.Cover, g.CoverURL)
-		textAt(hdc, strLimit(g.Title, 29), listX+80, y+6, listW-107, 26, app.fonts.Medium, white)
-		textAt(hdc, fmt.Sprintf("%d patch%s available", len(g.Patches), map[bool]string{true: "", false: "es"}[len(g.Patches) == 1]), listX+80, y+34, listW-102, 19, app.fonts.Small, muted)
-		addHit(ir(listX+10, y, listW-20, 62), "game", i)
+        cover(hdc,listX+18,y+12,g.Title,g.Cover,g.CoverURL)
+        // Real wrapping preserves long game titles rather than silently
+        // truncating the title after 29 characters.
+        textWrapped(hdc,g.Title,listX+80,y+5,listW-106,47,app.fonts.Medium,white)
+        textAt(hdc,fmt.Sprintf("%d patch%s available",len(g.Patches),map[bool]string{true:"",false:"es"}[len(g.Patches)==1]),listX+80,y+52,listW-103,18,app.fonts.Small,muted)
+        addHit(ir(listX+10,y,listW-20,gameRowH-5),"game",i)
 	}
 	if len(filtered) == 0 {
 		textAt(hdc, "No matching games yet", listX+26, gameStart+21, listW-51, 27, app.fonts.Medium, muted)
@@ -342,9 +355,11 @@ func drawLibrary(hdc uintptr, w, h int32) {
     button(hdc,"Preview",ir(w-111,h-151,83,32),"preview",0,false)
     outputStatus:="OUTPUTS: "+outputSummary()
     if source!=""&&gameOutputMask==0&&!gameOutputPreserve{
-        outputStatus="OUTPUTS: Choose format(s) before applying"
+        outputStatus="OUTPUTS: Choose the formats to create from your game and patch"
     }
-    textAt(hdc,outputStatus,272,h-104,w-656,35,app.fonts.Small,muted)
+    // Two lines where needed: do not turn the requested instruction into
+    // "OUTPUTS: Choose a source game" or squeeze it into a single short line.
+    textWrapped(hdc,outputStatus,272,h-107,w-656,43,app.fonts.Small,muted)
     button(hdc,"CHOOSE OUTPUTS",ir(w-395,h-107,181,43),"output-open",0,false)
     if libraryApplyReady(){
         button(hdc,"APPLY PATCH",ir(w-205,h-107,177,43),"apply",0,true)
@@ -356,12 +371,12 @@ func drawLibrary(hdc uintptr, w, h int32) {
     }
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
-	textAt(hdc, strLimit(g.Title, 44), x+22, top+12, width-43, 38, app.fonts.Title, white)
-	textAt(hdc, fmt.Sprintf("%d available patches · Select one", len(g.Patches)), x+23, top+50, width-42, 19, app.fonts.Small, muted)
-	listY := top + 83
+    textWrapped(hdc,g.Title,x+22,top+10,width-43,52,app.fonts.Title,white)
+    textAt(hdc,fmt.Sprintf("%d available patches · Select one",len(g.Patches)),x+23,top+63,width-42,19,app.fonts.Small,muted)
+    listY:=top+91
     listRows:=3
     if bottom-top<485 {listRows=2} // reserve record space at 720p-height
-	rowH := int32(57)
+    rowH:=int32(71)
     app.patchViewport=ir(x+16,listY,width-32,int32(listRows)*rowH)
 	if app.patchScroll > len(g.Patches)-listRows {
 		app.patchScroll = len(g.Patches) - listRows
@@ -381,7 +396,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			color = 0x2D496B
 		}
 		panel(hdc, ir(x+16, y, width-32, rowH-5), color, 11)
-		tag(hdc, strLimit(p.Type, 17), x+26, y+14, 0x3B5271)
+        tag(hdc,p.Type,x+26,y+19,0x3B5271)
 		label := p.Name
 		if len(g.Title) > 0 && strings.HasPrefix(strings.ToLower(label), strings.ToLower(g.Title)) {
 			label = strings.TrimSpace(strings.TrimPrefix(label, label[:len(g.Title)]))
@@ -390,7 +405,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		if label == "" {
 			label = p.Type
 		}
-		textAt(hdc, strLimit(label, 70), x+149, y+7, width-179, 24, app.fonts.Medium, white)
+        textWrapped(hdc,label,x+149,y+5,width-179,40,app.fonts.Medium,white)
 		detail := strings.TrimSpace(p.Region + "  ·  " + p.Author)
 		if p.TitleID != "" {
 			detail += "  ·  " + p.TitleID
@@ -399,7 +414,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			detail += "  ·  " + p.RAM
 		}
         if count:=len(galleryForPatch(p));count>0{detail+=fmt.Sprintf("  ·  %d patch images",count)}
-		textAt(hdc, strLimit(detail, 90), x+150, y+29, width-181, 17, app.fonts.Small, muted)
+        textAt(hdc,detail,x+150,y+47,width-181,19,app.fonts.Small,muted)
 
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
 	}
