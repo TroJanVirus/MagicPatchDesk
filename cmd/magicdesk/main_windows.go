@@ -236,7 +236,8 @@ type appState struct {
 	packSources map[string]string
 	ipsRLE bool
 	directFile string
-	format        int
+    format        int
+    convertFormatChosen bool // keep a deliberately chosen output across patch selections
 	password      string
 	passFocus     bool
 	hits          []hit
@@ -1154,7 +1155,15 @@ func handle(action string, index int) {
         app.galleryOpen=false
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
-		if index == 1 { refreshConversionHint() }
+        if index==1 {
+            // Source-free IPS is the useful default for a library JMP.
+            // A format deliberately selected by the user always wins.
+            if !app.convertFormatChosen && app.convertPatchFile=="" &&
+                (app.parsed!=nil||strings.EqualFold(filepath.Ext(app.directFile),".jmp")){
+                app.format=1
+            }
+            refreshConversionHint()
+        }
 		app.gameScroll = 0
 		if index == 3 { refreshDeveloperDashboardLocal() }
 	case "game":
@@ -1358,8 +1367,15 @@ func handle(action string, index int) {
 		if p := pickFile(false, "Patch files\x00*.jmp;*.pf;*.ips;*.eips;*.xdelta;*.vcdiff;*.bps\x00All files\x00*.*\x00", "Choose source patch", ""); p != "" {
 			app.convertPatchFile = p
 			rememberRecent("convert_patch",p)
-            if strings.EqualFold(filepath.Ext(p),".jmp") {app.format=core.AllPatchFormats}
-            if strings.EqualFold(filepath.Ext(p),".pf") {app.format=0}
+            if !app.convertFormatChosen {
+                // Previous builds silently switched every imported JMP to
+                // All Formats Pack, which always needs originals to create
+                // BPS/Xdelta. Do not hide the source-free IPS converter.
+                switch strings.ToLower(filepath.Ext(p)){
+                case ".jmp":app.format=1
+                case ".pf":app.format=0
+                }
+            }
 			app.packSources = nil
 			app.bFile = "" // A source patch and a modified XBE are alternative inputs.
 			refreshConversionHint()
@@ -1374,9 +1390,10 @@ func handle(action string, index int) {
 		}
 	case "ipsrle":
 		app.ipsRLE = !app.ipsRLE
-	case "format":
-		app.format = index
-		refreshConversionHint()
+    case "format":
+        app.format=index
+        app.convertFormatChosen=true
+        refreshConversionHint()
 	case "password":
 		app.passFocus = true
 		app.searchFocus = false
@@ -1624,9 +1641,10 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				app.packSources = nil
 				app.status = "Loaded patch pack: " + filepath.Base(path)
 			} else if app.tab == 1 && (ext == ".jmp" || ext == ".ips" || ext == ".eips" || ext == ".xdelta" || ext == ".vcdiff" || ext == ".bps" || ext == ".pf") {
-				app.convertPatchFile = path
-				rememberRecent("convert_patch",path)
-				app.packSources = nil
+                app.convertPatchFile=path
+                rememberRecent("convert_patch",path)
+                if !app.convertFormatChosen&&ext==".jmp"{app.format=1}
+                app.packSources=nil
 				app.bFile = ""
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
