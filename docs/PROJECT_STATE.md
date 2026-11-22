@@ -1,3 +1,10 @@
+## 2026-11-22 — v0.14.0-test.15 Windows stability preview published
+
+Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.15
+Gated scoped CI: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44996305193 — **completed success**. Verified updater protocol v1 contract, PatchHub media-index fixture, official icon, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 native GUI cross-build, PE signature and SHA256SUMS checksum. Published exact canonical portable EXE `MagicPatchDesk-Windows-x64.exe` 7,751,680 bytes SHA256 `0f5cc5f820cbf790e14a977c3ef7de7e67e507a2f17461bd965c064512e7b3ed`; published `SHA256SUMS.txt`. User-provided human README unchanged and persistent updater contract intact.
+
+**Still unverified:** real Windows `--mpd-ui-smoke-v1` execution, physical Windows interaction selecting the original XBE after a chosen JMP, and the actual fault/instruction pointer for the user's v0.14.0-test.13 exit. Their uploaded recovery marker is NOT a runtime trace; `runtime-8ace874d26c39493f96a.log` or WER minidump is needed to confirm root cause. The implementation is a grounded mitigation of a real data race and duplicate re-selection, **not a proven crash fix**. This caveat must be preserved in future release claims.
+
 ## 2026-11-22 — v0.14.0-test.15 candidate: crash on original XBE selection after choosing JMP
 
 - Owner reported an abrupt exit on choosing a known-correct XBE after a library patch was already selected. Supplied **v0.14.0-test.13** evidence: previous-session `crash-8ace874d26c39493f96a.log` only says last stage `ui_callback`; separate new `session-1d856e7d7833149fe585.json` is another process; `failure-f7fca5b403f0136752.json` is an automatically created `process.unexpected_exit.ui_callback` diagnostic, **not an exception stack**. We have NOT seen `runtime-8ace874d26c39493f96a.log` nor any WER crash dump. Do not claim root cause proven.
