@@ -216,6 +216,31 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
             }
         }
     }
+    // Some image hosts refuse HEAD even though GET works. Only if the
+    // ordinary checks found nothing, perform four bounded byte-range GETs
+    // for the two most common before/after names. Never infer success from
+    // status alone: require recognizable JPEG/PNG magic.
+    if len(results)==0 {
+        for _,name:=range []string{"1. Before.jpg","1. Before.png","2. After.jpg","2. After.png"} {
+            if ctx.Err()!=nil {break}
+            raw:=folder+url.PathEscape(name)
+            req,e:=http.NewRequestWithContext(ctx,http.MethodGet,raw,nil)
+            if e!=nil {continue}
+            req.Header.Set("Range","bytes=0-15")
+            response,e:=client.Do(req)
+            if e!=nil {continue}
+            trusted:=trustedPatchHubURL(response.Request.URL)
+            statusOK:=response.StatusCode==http.StatusOK||response.StatusCode==http.StatusPartialContent
+            header:=make([]byte,8)
+            n,_:=io.ReadFull(io.LimitReader(response.Body,8),header)
+            response.Body.Close()
+            jpg:=n>=3&&header[0]==0xFF&&header[1]==0xD8&&header[2]==0xFF
+            png:=n>=8&&string(header)==string([]byte{0x89,'P','N','G',0x0D,0x0A,0x1A,0x0A})
+            if trusted&&statusOK&&(jpg||png) {
+                if s,valid:=patchhubGalleryURL(raw);valid {add(s)}
+            }
+        }
+    }
     sort.SliceStable(results,func(i,j int)bool{
         if results[i].Set!=results[j].Set{return results[i].Set<results[j].Set}
         if results[i].Kind!=results[j].Kind{return results[i].Kind=="before"}
