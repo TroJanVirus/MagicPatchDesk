@@ -91,7 +91,9 @@ func paint(hdc uintptr) {
 		fill(hdc, ir(232, h-43, int32(float64(w-232)*progress), 3), blue)
 	}
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
-	textAt(hdc, strLimit(status, 155), 273, h-35, w-340, 24, app.fonts.Small, muted)
+    statusColor:=uint32(muted)
+    if strings.HasPrefix(status,"Duplicate patch found!") {statusColor=0xFF667C}
+    textAt(hdc,strLimit(status,155),273,h-35,w-340,24,app.fonts.Small,statusColor)
 	textAt(hdc, "v0.14", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
 func drawSidebar(hdc uintptr, w, h int32) {
