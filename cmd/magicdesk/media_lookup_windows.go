@@ -74,18 +74,15 @@ func discoverSelectedPatchMedia(force bool){
         ctx,cancel:=context.WithTimeout(context.Background(),25*time.Second)
         defer cancel()
         images,e:=core.DiscoverPatchHubMedia(ctx,nil,game,patch)
-        if e==nil{
-            // Real image downloads are verified (JPEG/PNG/GIF magic,
-            // dimensions, max 5 MiB, trusted HTTPS redirects) before caching.
-            for _,shot:=range images{
-                if ctx.Err()!=nil{break}
-                _,_ = core.DownloadCover(ctx,root,shot.URL)
-            }
-        }
         found:=make([]core.PatchGalleryImage,0,len(images))
         if e==nil{
+            // Only present successfully fetched, validated images. A URL
+            // probe, or a user-supplied path, is not proof of image content.
             for _,shot:=range images{
-                found=append(found,core.PatchGalleryImage{Kind:shot.Kind,Set:shot.Set,URL:shot.URL})
+                if ctx.Err()!=nil{break}
+                if _,downloadErr:=core.DownloadCover(ctx,root,shot.URL);downloadErr==nil{
+                    found=append(found,core.PatchGalleryImage{Kind:shot.Kind,Set:shot.Set,URL:shot.URL})
+                }
             }
         }
         patchMediaMu.Lock()

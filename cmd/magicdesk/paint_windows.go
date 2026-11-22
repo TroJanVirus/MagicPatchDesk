@@ -11,17 +11,37 @@ import (
 	"unsafe"
 )
 
-const (
-	bg       = 0x0C111C
-	sidebar  = 0x111A29
-	surface  = 0x182335
-	surface2 = 0x1F2D44
-	muted    = 0x91A3BD
-	white    = 0xF5F8FF
-	blue     = 0x6C9CFF
-	mint     = 0x5AD5BF
-	amber    = 0xFFC678
+var (
+	bg uint32       = 0x0C111C
+	sidebar uint32  = 0x111A29
+	surface uint32  = 0x182335
+	surface2 uint32 = 0x1F2D44
+	muted uint32    = 0x91A3BD
+	white uint32    = 0xF5F8FF
+	blue uint32     = 0x6C9CFF
+	mint uint32     = 0x5AD5BF
+	amber uint32    = 0xFFC678
 )
+
+// GDI colours use COLORREF BGR. Preserve high-contrast text across presets.
+func setTheme(name string) {
+    switch name {
+    case "Forest":
+        bg,sidebar,surface,surface2=0x11201A,0x193027,0x264238,0x305447
+        muted,white,blue,mint,amber=0xB1CDBF,0xF1FAF5,0xC5DA92,0x91E3BD,0xB9D8EF
+    case "Plum":
+        bg,sidebar,surface,surface2=0x1D1320,0x291B2D,0x3A2940,0x4C3652
+        muted,white,blue,mint,amber=0xBCB0CA,0xFCF4FF,0xE8A6D6,0xC6D8FF,0xD6AFEA
+    case "Light":
+        // GDI COLORREF BGR. Light backgrounds and genuinely dark foreground
+        // text, not a pale background with leftover white typography.
+        bg,sidebar,surface,surface2=0xF7F4F0,0xE8E4DE,0xFFFFFF,0xEEEAE5
+        muted,white,blue,mint,amber=0x67564C,0x211B17,0xB45F29,0x566D15,0x5C4BA4
+    default:
+        bg,sidebar,surface,surface2=0x0C111C,0x111A29,0x182335,0x1F2D44
+        muted,white,blue,mint,amber=0x91A3BD,0xF5F8FF,0x6C9CFF,0x5AD5BF,0xFFC678
+    }
+}
 
 func cover(hdc uintptr, x, y int32, title, art, artURL string) {
 	h := uint32(2166136261)
@@ -152,7 +172,7 @@ func drawSidebar(hdc uintptr,w,h int32){
         remote:=app.remoteCount
         count:=app.cat.PatchCount
         app.mu.Unlock()
-        textAt(hdc,fmt.Sprintf("%d patches · %d online",count,remote),31,collectionTop+34,170,24,app.fonts.Small,white)
+        textAt(hdc,fmt.Sprintf("%d unique patches · %d source files",count,remote),31,collectionTop+34,170,24,app.fonts.Small,white)
         button(hdc,"↻ Sync GitHub",ir(25,collectionTop+70,184,32),"sync",0,false)
     }
 }
@@ -486,7 +506,21 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
         app.groupScroll,len(rows),visible,"records")
 	foot := bottom - 72
 	fill(hdc, ir(x+18, foot-7, width-36, 1), 0x354258)
-	textAt(hdc, "AUTHOR  "+strLimit(p.Headers["author"], 25)+"     •     CRC32  "+strLimit(p.ExpectedCRC(), 37), x+23, foot, width-46, 20, app.fonts.Small, mint)
+	crcLabel := "CRC32 "+p.ExpectedCRC()
+    crcColor := mint
+    if len(p.CRCs)>0 && app.inputInfo.CRC32!="" {
+        match:=false
+        for _,expected:=range p.CRCs {
+            if fmt.Sprintf("%08X",expected)==strings.ToUpper(app.inputInfo.CRC32) {match=true;break}
+        }
+        if !match {
+            crcLabel="CRC32 MISMATCH! expected "+p.ExpectedCRC()+" / loaded "+strings.ToUpper(app.inputInfo.CRC32)
+            crcColor=0x5A73FF // GDI COLORREF: bright red (BGR)
+        } else {
+            crcLabel="CRC32 MATCH · "+app.inputInfo.CRC32
+        }
+    }
+    textAt(hdc, "AUTHOR "+strLimit(p.Headers["author"], 20)+"  •  "+strLimit(crcLabel, 80), x+23, foot, width-46, 20, app.fonts.Small, crcColor)
     if p.Headers["notes"]!="" {
         button(hdc,"READ FULL NOTES · formatted + scrollable",ir(x+18,foot+24,width-36,32),"notes-open",0,false)
     }else{
@@ -584,6 +618,8 @@ func drawSettings(hdc uintptr, w, h int32) {
 	panel(hdc, ir(x, 129, width, 115), surface, 17)
 	textAt(hdc, "PARALLEL FILE WORKERS", x+28, 142, width-55, 29, app.fonts.Title, white)
 	textAt(hdc, "Copying ISO images and indexing patches (1–8 workers).", x+29, 179, width-255, 28, app.fonts.Regular, muted)
+    textAt(hdc,"COLOUR THEME",x+29,216,180,20,app.fonts.Small,white)
+    button(hdc,app.theme+"  ·  Change",ir(x+width-227,214,199,30),"theme",0,false)
 	button(hdc, "−", ir(x+width-217, 173, 48, 43), "workers", -1, false)
 	textAt(hdc, fmt.Sprintf("%d", app.workers), x+width-158, 175, 50, 38, app.fonts.Title, white)
 	button(hdc, "+", ir(x+width-95, 173, 48, 43), "workers", 1, false)
@@ -593,6 +629,7 @@ func drawSettings(hdc uintptr, w, h int32) {
 	button(hdc, map[bool]string{true: "OVERRIDE ON", false: "ENFORCED"}[app.override], ir(x+width-180, 302, 152, 43), "override", 0, app.override)
 	panel(hdc, ir(x, 380, width, 130), surface, 17)
 	textAt(hdc, "OFFLINE PATCHES", x+28, 386, width-55, 28, app.fonts.Title, white)
+    button(hdc,fmt.Sprintf("Duplicates: %d · View",len(app.cat.Duplicates)),ir(x+width-220,391,190,30),"duplicate-audit",0,false)
 	textAt(hdc, strLimit(app.root, 100), x+29, 421, width-57, 23, app.fonts.Small, muted)
 	cell := (width - 80) / 3
 	for i, action := range []struct{ label, id string }{{"Patch folder", "folder"}, {"Import JMP / PF", "import"}, {"Rescan", "refresh"}} {

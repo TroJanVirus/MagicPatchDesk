@@ -130,8 +130,6 @@ func SyncPatchHub(ctx context.Context, root string) (int, error) {
     // Every photo published by the server is matched against the actual
     // game+region+version+Title ID; optional media index absence must not
     // make the ordinary game cover/catalogue sync fail.
-    supplied,valid:=patchhubGalleryURL(ProvidedPhantomCrashImage)
-    if valid{AppendPatchHubMedia(&hub,[]HubScreenshot{supplied})}
     if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil{
         AppendPatchHubMedia(&hub,listed)
     }

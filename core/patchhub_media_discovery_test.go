@@ -10,6 +10,9 @@ import (
     "testing"
 )
 
+const ProvidedPhantomCrashImage = "https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
+const ProvidedAMFBowlingImage = "https://www.jayxbox.com/All-Patches/titles/AMF%20Xtreme%20Bowling/USA_00000001_42530014/AMF%20Xtreme%20Bowling%20%7BWidescreen%7D%20%28NTSC%29%20%5BEsppiral%5D/1.%20Before.jpg"
+
 func samplePhantomMediaGame() (Game,CatalogPatch) {
     g:=Game{Title:"Phantom Crash",Versions:[]HubVersion{
         {TitleID:"504C0001",Region:"USA",Version:"5"},
@@ -150,12 +153,12 @@ func TestBoundedPatchMediaDiscoveryFindsProvidedNumberedPatterns(t *testing.T){
     if len(shots)!=2||shots[0].Kind!="before"||shots[1].Kind!="after"{
         t.Fatalf("bounded filename probe did not find both actual conventions: %+v",shots)
     }
-    if fake.requests>1+len(CommonPatchHubMediaNames()){
+    if fake.requests>2+len(CommonPatchHubMediaNames()){
         t.Fatalf("discovery became an unbounded server crawler: %d",fake.requests)
     }
     fake=&patchMediaTransport{listing:`<a href="Gallery%20Example.png">image</a>`}
     shots,err=DiscoverPatchHubMedia(context.Background(),&http.Client{Transport:fake},g,p)
-    if err!=nil||len(shots)!=1||shots[0].Kind!="screenshot"||fake.requests!=1{
+    if err!=nil||len(shots)!=1||shots[0].Kind!="screenshot"||fake.requests!=2{
         t.Fatalf("directory listing should discover custom names without HEAD guessing: %+v %v %d",shots,err,fake.requests)
     }
 }
@@ -171,5 +174,22 @@ func TestGalleryURLRejectsUnsafeFolders(t *testing.T){
         if shot,ok:=patchhubGalleryURL(raw);ok{
             t.Fatalf("untrusted folder/media accepted: %s %+v",raw,shot)
         }
+    }
+}
+
+func TestOwnerProvidedAMFBowlingMediaIdentity(t *testing.T) {
+    shot,ok:=patchhubGalleryURL(ProvidedAMFBowlingImage)
+    if !ok||shot.Game!="AMF Xtreme Bowling"||shot.Version!="00000001"||
+        shot.TitleID!="42530014"||shot.Region!="USA"||
+        shot.Patch!="AMF Xtreme Bowling {Widescreen} (NTSC) [Esppiral]"||
+        shot.Kind!="before"||shot.Set!=1 {
+        t.Fatalf("AMF image identity invalid: %+v (ok=%t)",shot,ok)
+    }
+    // Actual image filenames may be arbitrarily named. They are obtained
+    // through the published manifest, not a special-case game table.
+    manifest:=fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q]}`,ProvidedAMFBowlingImage)
+    shots,err:=ParsePatchHubMediaManifest([]byte(manifest))
+    if err!=nil||len(shots)!=1||shots[0].URL!=ProvidedAMFBowlingImage {
+        t.Fatalf("AMF image was not discoverable through the generic manifest: %+v %v",shots,err)
     }
 }

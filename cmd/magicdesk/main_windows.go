@@ -218,6 +218,7 @@ type appState struct {
 	patchScroll   int
 	groupScroll   int
 	workers       int
+    theme         string
 	override      bool
 	status        string
 	syncStatus    string
@@ -429,6 +430,7 @@ func initApp() {
     }()
 	runtime.LockOSThread()
 	app.workers = 4
+    app.theme="Midnight"
 	app.ipsRLE = true
 	app.expandedGroup = -1
 	app.selectedGame = -1
@@ -444,8 +446,10 @@ func initApp() {
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
+        app.theme=prefs.Theme
         if prefs.GameOutputFormats!=nil {gameOutputFormats=prefs.GameOutputFormats}
 	}
+	setTheme(app.theme)
 	app.status = "Loading local patch library…"
 	app.syncStatus = "Connecting to GitHub…"
 	initArtwork()
@@ -791,7 +795,7 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 
 // Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
 func savePreferences() {
-	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, GameOutputFormats: gameOutputFormats}); err != nil {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, GameOutputFormats: gameOutputFormats}); err != nil {
 		notify("Could not save interface preferences: " + err.Error())
 	}
 }
@@ -1210,9 +1214,37 @@ func handle(action string, index int) {
 		path := filepath.Join(app.root, "Custom")
 		os.MkdirAll(path, 0755)
 		sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(path))), 0, 0, SW_SHOW)
+    case "duplicate-audit":
+        app.mu.Lock()
+        duplicates:=append([]core.CatalogDuplicate(nil),app.cat.Duplicates...)
+        root:=app.root
+        app.mu.Unlock()
+        var report strings.Builder
+        fmt.Fprintf(&report,"Magic Patch Desk - deduplicated catalogue entries\\nCount: %d\\n\\n",len(duplicates))
+        for i,d:=range duplicates {
+            kept,_:=filepath.Rel(root,d.Kept)
+            collapsed,_:=filepath.Rel(root,d.Collapsed)
+            fmt.Fprintf(&report,"%d. Kept: %s\\n   Collapsed: %s\\n\\n",i+1,kept,collapsed)
+        }
+        destination:=filepath.Join(root,"duplicate-patch-audit.txt")
+        if err:=os.WriteFile(destination,[]byte(report.String()),0600);err!=nil {
+            notify("Cannot create duplicate audit: "+err.Error())
+        }else {
+            sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(destination))),0,0,SW_SHOW)
+            notify(fmt.Sprintf("Catalogue deduplication audit: %d collapsed entries",len(duplicates)))
+        }
 	case "refresh":
 		go reloadCatalog()
-	case "workers":
+	case "theme":
+        switch app.theme {
+        case "Midnight":app.theme="Forest"
+        case "Forest":app.theme="Plum"
+        case "Plum":app.theme="Light"
+        default:app.theme="Midnight"
+        }
+        setTheme(app.theme)
+        savePreferences()
+    case "workers":
 		app.workers += index
 		if app.workers < 1 {
 			app.workers = 1
@@ -1245,7 +1277,8 @@ func handle(action string, index int) {
 		if p := pickFile(false, "XBE files\x00*.xbe\x00", "Choose modified XBE", ""); p != "" {
 			app.bFile = p
 			rememberRecent("convert_modified",p)
-			app.convertPatchFile = ""
+			// If a source patch is selected, this XBE is an independent
+			// expected-result fixture, not a replacement for that patch.
 			refreshConversionHint()
 		}
 	case "ipsrle":

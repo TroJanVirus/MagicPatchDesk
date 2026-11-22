@@ -43,10 +43,6 @@ func ParsePatchHubMediaManifest(body []byte)([]HubScreenshot,error){
     return out,nil
 }
 
-// This is the user's provided actual public filename, not a guessed URL.
-// Fetching the image remains best-effort and is verified as a real image.
-const ProvidedPhantomCrashImage="https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
-
 func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot){
     if hub==nil{return}
     byTitle:=map[string][]int{}
@@ -213,6 +209,44 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
             if ok{
                 s,valid:=patchhubGalleryURL(raw)
                 if valid{add(s)}
+            }
+        }
+    }
+    // Some image hosts refuse HEAD even though GET works. Only if the
+    // ordinary checks found nothing, perform four bounded byte-range GETs
+    // for the two most common before/after names. Never infer success from
+    // status alone: require recognizable JPEG/PNG magic.
+    if len(results)==0 {
+        for _,name:=range []string{"1. Before.jpg","1. Before.png","2. After.jpg","2. After.png"} {
+            if ctx.Err()!=nil {break}
+            raw:=folder+url.PathEscape(name)
+            req,e:=http.NewRequestWithContext(ctx,http.MethodGet,raw,nil)
+            if e!=nil {continue}
+            req.Header.Set("Range","bytes=0-15")
+            response,e:=client.Do(req)
+            if e!=nil {continue}
+            trusted:=trustedPatchHubURL(response.Request.URL)
+            statusOK:=response.StatusCode==http.StatusOK||response.StatusCode==http.StatusPartialContent
+            header:=make([]byte,8)
+            n,_:=io.ReadFull(io.LimitReader(response.Body,8),header)
+            response.Body.Close()
+            jpg:=n>=3&&header[0]==0xFF&&header[1]==0xD8&&header[2]==0xFF
+            png:=n>=8&&string(header)==string([]byte{0x89,'P','N','G',0x0D,0x0A,0x1A,0x0A})
+            if trusted&&statusOK&&(jpg||png) {
+                if s,valid:=patchhubGalleryURL(raw);valid {add(s)}
+            }
+        }
+    }
+    // The authoritative site-published index can discover arbitrary media
+    // names that cannot be responsibly guessed. Restrict every result to the
+    // exact selected patch folder (game, region, revision and Title ID).
+    // An index 404 is non-fatal: older PatchHub deployments need the bounded
+    // filename probes above or a server-side index deployment.
+    indexed,indexErr:=ReadPatchHubMediaManifest(ctx,client)
+    if indexErr==nil {
+        for _,shot:=range indexed {
+            if strings.HasPrefix(shot.URL,folder) {
+                add(shot)
             }
         }
     }
