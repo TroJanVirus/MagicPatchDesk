@@ -211,6 +211,7 @@ type appState struct {
 	parsed        *core.Patch
 	input         string
 	inputInfo     core.XBEInfo
+    inputPartSummary string
 	inputErr      string
 	search        string
 	searchFocus   bool
@@ -738,6 +739,7 @@ func openInput(path string) {
     app.input=path
     app.inputErr="Reading game executable…"
     app.inputInfo=core.XBEInfo{}
+    app.inputPartSummary=""
     app.status="Inspecting game image and matching the patch library…"
     app.mu.Unlock()
     redraw()
@@ -745,11 +747,13 @@ func openInput(path string) {
         defer catchFatalPanic()
         var info core.XBEInfo
         var err error
+        partSummary:=""
         if core.CCISourcePath(path) {
+            partSummary,err=core.CCIPartSummary(path)
             // A CCIM split set is one logical stream, regardless of which
             // numbered part the user selected. Parse XDVDFS and read only
             // default.xbe rather than decoding gigabytes of game content.
-            info,err=core.InspectCCIExecutable(path)
+            if err==nil{info,err=core.InspectCCIExecutable(path)}
         }else{
             var data []byte
             if strings.EqualFold(filepath.Ext(path),".xbe"){
@@ -768,12 +772,14 @@ func openInput(path string) {
         app.mu.Lock()
         if app.input!=path{app.mu.Unlock();return}
         app.inputInfo=info
+        app.inputPartSummary=partSummary
         if err!=nil {
             app.inputErr=err.Error()
             app.status="Cannot identify game: "+err.Error()
         }else{
             app.inputErr=""
             app.status="Loaded: "+info.Title+" · "+info.TitleID+" · CRC32 "+info.CRC32
+            if partSummary!=""{app.status+=" · "+partSummary}
         }
         app.mu.Unlock()
         if err==nil{
