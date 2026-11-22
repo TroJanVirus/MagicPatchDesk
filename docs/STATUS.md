@@ -6,17 +6,24 @@
 
 **v0.14.0-test.5 passed synthetic Linux and native Windows CI, but a user reported TWO CTDs immediately after launch. Do not call the desktop runtime stable.** Private uploaded evidence (`crashes.zip`) contains one native Windows **0xC0000005 access violation** during `DispatchMessageW` (`cmd/magicdesk/main_windows.go:483`) and one additional unexpected exit with no runtime trace; the process marker reports `startup` for both, but this stage has not been updated for ordinary UI dispatch/paint. It is **not** possible to identify the faulting Windows DLL or the precise crashing callback from this Go trace alone. The crash may be in a Win32 callback, GDI/GDI+, external DLL or hook; none is confirmed. The second crash cannot be assumed identical to the first. No game assets or user paths should be posted to public GitHub Issues. **Open regression issue:** https://github.com/TroJanVirus/MagicPatchDesk/issues/19.
 
-**Next check:** Windows Reliability Monitor (`perfmon /rel`) or Event Viewer Application Error event around `2026-11-22 15:31 NZDT`: retrieve *faulting module name* and *fault offset* before attributing a specific root cause. Preserve v1 updater and non-overwrite safety. No speculative repaired build should be labelled verified without real Windows startup/field evidence.
+**Evidence boundary:** the user checked Windows Reliability Monitor (`perfmon /rel`) and found **no record** at the time. Do not repeat that request. New private app traces or a Windows Event Viewer error (only if one exists) could add a native faulting-module name. Preserve v1 updater and non-overwrite safety. No speculative repaired build should be labelled verified without real Windows startup/field evidence.
+
+## Newly verified in v0.14.0-test.6
+
+- **Full unsigned preview release and native Windows gate passed:** [release v0.14.0-test.6](https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.6) and [full gated Actions #44979391498](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44979391498), both Linux and native Windows tests and publisher successful. Canonical Windows EXE SHA256 `639747d63f6deb63add495d352fb8fdd182284a511d8c23979d9c2759434c9a7`; SHA256SUMS.txt attached. Existing v1 updater contract unchanged; one-time publisher removed.
+- **User's uploaded JMP logo:** fully embedded Win64 icon via b64 asset `assets/jmp-logo.ico.b64`, Python resource generator and Go linker, visible in native Windows taskbar/window. Windows EXE smoke confirmed real embedded RT_GROUP_ICON/RT_ICON and exact caption **Magic Patch Desk | Powered by Patch Hub**. Sidebar labels **Convert Patch** and **Batch Process** implemented.
+- **PatchHub pictures:** accepts the exact owner-supplied `1. Before.jpg` from Phantom Crash USA version5, numbered/uppercase Before and After JPG/PNG/JPEG/GIF, arbitrary patch-specific photo names (labelled Screenshot), safe URL/TitleID/region/revision attribution. Downloads are verified/cached per selected patch. A bounded directory listing /20 HEAD request fallback finds only common filenames; a new optional **media-index JSON** reads all real filenames if the user deploys it on PatchHub. The repository includes `scripts/build_patchhub_media_index.py`. **This index has NOT been deployed to the website** and no complete all-game download was verified: it is not possible to infer arbitrary filenames from one URL alone.
+- **Windows CTD remains an open release blocker:** user checked Reliability Monitor and found no corresponding event. Application-private first native 0xC0000005 trace is genuine; second exit no stack. No root cause confirmed, and **test6 is NOT a verified CTD fix**. Crash stage marker now identifies normal UI dispatch as `ui_callback` for future diagnostics. [Issue #19](https://github.com/TroJanVirus/MagicPatchDesk/issues/19) stays open. Real user Windows startup and image rendering must be tested before claiming stability. Full context: [branding and gallery implementation](PATCHHUB_MEDIA_AND_BRANDING.md).
 
 ## Latest verified distribution
 
 | Area | Evidence / confidence |
 |---|---|
-| Released Windows preview | **v0.14.0-test.5** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.5 |
-| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `76d1edb3da73cb7a9896c3938820f48802cd4d2237985571411a10545f1c19a4` |
+| Released Windows preview | **v0.14.0-test.6** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.6 |
+| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `639747d63f6deb63add495d352fb8fdd182284a511d8c23979d9c2759434c9a7` |
 | Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
-| Latest source-feature PR | **#18:** https://github.com/TroJanVirus/MagicPatchDesk/pull/18 (v0.14.0-test.5; source merged after publication) |
-| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44976120121 — Linux, native Windows and publisher |
+| Latest source-feature PR | **#20:** https://github.com/TroJanVirus/MagicPatchDesk/pull/20 (v0.14.0-test.6, merged after publication) |
+| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44979391498 — Linux, native Windows and publisher |
 | Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
 | Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
 
