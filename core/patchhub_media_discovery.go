@@ -138,7 +138,7 @@ func PatchHubPatchDirectory(g Game,p CatalogPatch)(string,error){
     return "https://www.jayxbox.com/"+strings.Join(segments,"/")+"/",nil
 }
 
-var listingHref=regexp.MustCompile(`(?is)\bhref\s*=\s*["']([^"'<>]{1,1024})["']`)
+var listingHref=regexp.MustCompile(`(?is)\bhref\s*=\s*["']([^"'<>]{1,1000})["']`)
 
 // Detect exact arbitrary filenames from directory listings when the site
 // enables them. Never trust a result which escapes this one patch directory.
