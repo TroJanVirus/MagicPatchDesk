@@ -44,8 +44,12 @@ func selectGameSource(source string) {
     if effective==""{effective=app.input}
     if effective==""{return}
     if info,err:=os.Stat(effective);err==nil&&info.IsDir(){
+        // The folder itself may exist, but its root XBE still needs to pass
+        // inspection before we allow a patch/export operation.
         gameOutputKind="folder"
-        gameOutputValidated=true
+        gameOutputValidated=app.inputInfo.Valid&&app.inputKind=="xbe"&&
+            strings.EqualFold(filepath.Clean(app.input),
+                filepath.Clean(filepath.Join(effective,"default.xbe")))
         return
     }
     // Reusing an already validated and unchanged loaded game is safe.
