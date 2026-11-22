@@ -7,7 +7,6 @@ import (
     "errors"
     "os"
     "path/filepath"
-    "strconv"
     "strings"
 )
 
@@ -97,4 +96,3 @@ func UpdateTargetBackup(target,managed string)(string,error){
 func IsPortableUpdateAuthorized(staged,target,digest string,pid int)error{
     return VerifyPortableUpdateIntent(staged,target,digest,pid)
 }
-func _unusedPortableUpdatePID(p int)string {return strconv.Itoa(p)}
