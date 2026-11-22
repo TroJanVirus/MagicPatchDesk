@@ -19,8 +19,8 @@ var (
     notesItemClose = regexp.MustCompile(`(?i)</li\s*>`)
     notesTag = regexp.MustCompile(`<[^>]{1,512}>`)
     notesWhitespace = regexp.MustCompile(`[\t\v\f ]+`)
-    notesAnchor = regexp.MustCompile(`(?is)<a\b([^>]{0,2048})>(.*?)</a\s*>`)
-    notesHref = regexp.MustCompile(`(?i)\bhref\s*=\s*(?:"([^"]{1,2048})"|'([^']{1,2048})'|([^\s>]{1,2048}))`)
+    notesAnchor = regexp.MustCompile(`(?is)<a\b([^>]*)>(.*?)</a\s*>`)
+    notesHref = regexp.MustCompile(`(?i)\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`)
     notesURL = regexp.MustCompile(`(?i)https?://[^\s<>"'\x00-\x1f]+`)
     notesMarkdownLink = regexp.MustCompile(`\[([^\]\n]{1,200})\]\((https?://[^\s)]+)\)`)
 
