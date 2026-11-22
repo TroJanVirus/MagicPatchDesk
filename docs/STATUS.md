@@ -6,11 +6,11 @@
 
 | Area | Evidence / confidence |
 |---|---|
-| Released Windows preview | **v0.14.0-test.2** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.2 |
-| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `1de2630882342e57bfb9958c3cb8bdfc46fb74d93732ade159e695d0d48d427f` |
+| Released Windows preview | **v0.14.0-test.3** (prerelease, unsigned): https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
+| Published EXE | `MagicPatchDesk-Windows-x64.exe`, SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
 | Updater-compatible assets | EXE and `SHA256SUMS.txt` present, validated; updater protocol v1 preserved |
 | Latest source-feature PR | #13 merged: https://github.com/TroJanVirus/MagicPatchDesk/pull/13 |
-| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44923406249 |
+| Release QA | **PASS** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 |
 | Previously validated image and Game Manager previews | v0.13.0-test.2 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44916327760 ; v0.14.0-test.1 https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44921737286 |
 | Curated compatibility reports | **0 reviewed entries** at this snapshot: `confidence/reports.v1.json` revision 1 |
 
@@ -20,6 +20,14 @@
 - Native Windows runner: complete Go tests, release EXE SHA-256 verification, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1`, including all five Game Manager tabs and hit-tested Xbox revision/RAM/CPU selection buttons in a 1024×720 window.
 - Core synthetic tests include source identity and no-overwrite, CCI split/error handling, game output verification, JMP conflicts and source-relative byte hex windows, curated confidence cache sync and old/new hardware report schemas.
 - Automated results **do not** guarantee a visually appealing GUI, correct dialogs under a real Windows desktop session, boots on actual Xbox hardware, or compatibility with each retail release/JMP.
+
+## Newly verified in v0.14.0-test.3
+
+- Full-byte duplicate JMP/PF import protection across Custom and synced GitHub library; harmless red-footer/no-op behavior, separate numbering for differing same-named patches, no overwritten files. Synthetic Go tests passed.
+- Safe PatchHub screenshot URL discovery and local per-patch images: before/after pairing, multiple images, conservative Title ID / patch-name association and offline cache metadata. These are validated against **synthetic fixtures**, not an exhaustive live-site screenshot corpus.
+- Native Windows EXE smoke now creates a synthetic three-image patch and verifies Patch Library View images, modal navigation/close, and layout at a 720p-height outer window. Linux unit, race and vet; native Windows unit/smoke; EXE SHA verification passed in [run #44971296368](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368).
+
+**Not established:** whether the current public PatchHub PHP page emits screenshot URLs for every patch. The public JMP GitHub corpus does not contain the screenshots. Locally imported PatchHub `titles/` screenshots are supported. Do not fabricate image links or claim complete remote gallery coverage.
 
 ## Manual QA still outstanding — do not claim completed
 
