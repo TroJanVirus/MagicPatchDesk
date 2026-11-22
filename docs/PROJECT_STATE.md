@@ -1,3 +1,7 @@
+## v0.14.0-test.10 release evidence — 2026-11-22
+
+Published preview: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.10. Canonical 64-bit Windows PE asset `MagicPatchDesk-Windows-x64.exe` (7,683,072 bytes, SHA256 `992ec908323efb259b45064df8cd2deb0d8cb2577269bd75e90061920947d7f4`) and `SHA256SUMS.txt` present. Verified single scoped workflow completed **success**: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44990975380, including updater v1 contract, media generator tests, native icon generation, `go test -count=1 ./...` (new JMP/IPS/BPS/Xdelta/EIPS round-trip cases passed), `go test -race -count=1 ./core`, `go vet ./...`, native Windows x64 cross-build and SHA checksum validation. Earlier run failed **only** because a workflow step assumed `go test -c` emits an EXE for a package with no `_test.go` files; removed that invalid check, no code/test fix was needed. Windows native smoke compiled but could not be run on Linux CI. No real Windows GUI or Xbox hardware operation has been confirmed. Crash cause remains unknown without private runtime log or WER minidump.
+
 ## 2026-11-22 — v0.14.0-test.10 candidate (README, converter, crash evidence)
 
 - User-supplied end-user `README.md` has been installed **byte-for-byte as parsed text**, without AI rewriting or added boilerplate. All future detailed technical notes go under `docs/` and `PROJECT_CONTEXT.md`, not into the user-focused README. Source numbering changes and About wording are implemented in `cmd/magicdesk/paint_windows.go`.
