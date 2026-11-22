@@ -1,3 +1,7 @@
+## 2026-11-23 — v0.14.0-test.19 regional alias gallery correction (candidate; verification pending)
+
+The prior v0.14.0-test.18 crash regression was confirmed **working as intended** by the owner on their real ISO/CCI/XBE workflow. New issue: GitHub Bad Boys JMP uses `(NTSC)`, whereas published artwork folder uses `(NTSC+PAL)` despite matching full game, Widescreen feature, author Esppiral and XBE Title ID `454D0016`. `patchhub-media-v1.json` already supplies precise URLs; both `AttachHubGallery` and `MatchPatchHubMedia` used exact full label equality and so missed these. Implemented shared `galleryFolderOwners` with precedence exact > semantically compatible explicit region superset > unique abbreviation, conservative author/feature/ID checks and duplicate same-region refusal. Tests cover the real owner URL in manifest parsing, cached attachment, and one-request selected-patch lookup; PAL vs NTSC constraints, different author/feature/TitleID, duplicate source ambiguity, exact priority and paired NTSC/PAL variants. **Not yet compiled, CI-tested, or published until gated workflow completes.** User website and GitHub JMP unchanged, read-only local caches; updater protocol v1, README and assets unchanged.
+
 ## 2026-11-22 — v0.14.0-test.18 RELEASED and merged; native Windows smoke PASSED
 
 - **Verified preview release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.18
