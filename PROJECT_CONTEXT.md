@@ -22,11 +22,18 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 6. **`docs/UPDATE_CONTRACT.md`**, **`CREDITS.md`** and task-specific `docs/*.md`; inspect actual source and tests for final truth.
 7. Latest `main` HEAD, GitHub Releases, Issues/PRs and CI run results. Do not infer a future release from version strings or assume that a passing test confirms Xbox game bootability.
 
-## Current in-progress reliability fix (2026-11-22)
+## v0.14.0-test.4 — crash evidence and reliability repairs (verified developer preview)
 
-The user reported a Phantom Crash original-XBE selection crash which produced **no previous diagnostic**, ongoing duplicate JMP imports, truncated notes with literal HTML br tags, unrelated IPS controls, and simultaneous patch/record scrolling. Previous code only saved reports for handled errors, compared JMP byte equality rather than semantic equivalence, omitted folder deduplication, drew notes on one line, and modified two scroll offsets on each right-side wheel event.
+**Published:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4
+**Gated release verification:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561 (**all Linux, native Windows and publish jobs passed**).
+**Merged source:** https://github.com/TroJanVirus/MagicPatchDesk/pull/16 — merge `8a4dcadc40e92a1a2044c2ff489f633a9b4d4ea6`.
+**EXE SHA-256:** `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b`; canonical `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` present, updater protocol v1 unchanged.
 
-**v0.14.0-test.4 source candidate:** durable crash session markers and best-effort private panic stderr/stacks with recovered privacy-filtered diagnostic reports and next-launch notice; duplicate import and existing-catalogue semantic deduplication; full formatted/scrollable/copied JMP notes; conditional RLE/password inputs; independently draggable and mouse-targeted patch/record scrollbars. See docs/CRASH_RECOVERY_AND_UI.md, core/crash_dedup_notes_test.go and cmd/magicdesk/ui_smoke_windows.go. **Do not mark this candidate released or hardware-tested until CI verifies and the release assets actually exist.** The exact cause of the past Phantom Crash crash remains unknown because no prior trace was captured.
+The user reported a silent crash when selecting a Phantom Crash XBE after importing a duplicate JMP, along with continued duplicate imports, truncated and literally HTML-formatted JMP notes, irrelevant IPS/EIPS controls and coupled patch/record scrolling. Prior diagnostics could only save handled errors. Implemented durable private process-session markers, best-effort caught-panic stacks/runtime stderr, next-launch **unexpected_exit** diagnostic JSON and private crash log, visible red crash notice and Settings → Problem Reports log-view/review/issue flow. Only sanitized failure category/stage goes to GitHub; raw stacks/dumps never upload automatically. A forcibly killed process/power loss can also be an "unexpected exit" and is not proof of a specific crash. Native Windows system minidumps are not automatically enabled, because documented WER configuration requires administrator-controlled HKLM policy.
+
+Import JMP and folder imports now check conservative **semantic equivalence** (source/game identity, ordered byte changes, groups and targets) beyond file hashes; already-existing duplicate JMPs are collapsed in the visible catalogue without deleting old files. `READ FULL NOTES` displays line-break/HTML-entity aware word-wrapped scrollable instructions and a Copy action. Patch/record lists have separate cursor-targeted scrolling and visible draggable thumb/track bars. Convert & Create shows IPS RLE only for IPS/EIPS/pack, and password only when encrypted IPS input/output needs it.
+
+**Not verified:** the original Phantom Crash failure's precise cause—the previous release captured no stack—and actual clicking/file-dialog behavior on a real user Windows installation, OS-native fatal exception trace availability, commercial Xbox game bootability or full PatchHub gallery coverage. The CI includes synthetic forced exit/panic reporting tests and actual Windows executable UI paint/navigation smoke, not a real Phantom Crash boot test. Consult `docs/CRASH_RECOVERY_AND_UI.md`, `docs/STATUS.md` and the open QA tracker.
 
 ## Verified release and repository snapshot
 
@@ -34,11 +41,11 @@ The user reported a Phantom Crash original-XBE selection crash which produced **
 |---|---|
 | Primary repository | https://github.com/TroJanVirus/MagicPatchDesk |
 | Development source | `main`, native Go and Win32; **not** the older HTML app |
-| Latest published release at this snapshot | **v0.14.0-test.3**, an **unsigned developer prerelease**, https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
-| Published canonical Windows executable | `MagicPatchDesk-Windows-x64.exe`; SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
+| Latest published release at this snapshot | **v0.14.0-test.4**, an **unsigned developer prerelease**, https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.4 |
+| Published canonical Windows executable | `MagicPatchDesk-Windows-x64.exe`; SHA-256 `5cb91f4afe17ca45efe5593b8c004c1f2873fab3455629e37adea3da186ced3b` |
 | Required published manifest | `SHA256SUMS.txt` in the same release |
-| Latest feature implementation | PR #15: https://github.com/TroJanVirus/MagicPatchDesk/pull/15 — v0.14.0-test.3 duplicate-safe import and PatchHub galleries |
-| Release verification | https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 — Linux unit/race/vet, Win64 build, native Windows unit tests, EXE SHA-256, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1` all **passed** |
+| Latest merged source | PR #16: https://github.com/TroJanVirus/MagicPatchDesk/pull/16 — crash recovery and UX repairs, with v0.14.0-test.3 gallery work retained |
+| Release verification | https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44973558561 — Linux unit/race/vet, Win64 build, native Windows unit tests, EXE SHA-256, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1` all **passed** |
 | Public patch-confidence index | `confidence/reports.v1.json`: revision 1 and **no reviewed user reports** at this snapshot |
 | Open field-QA/format issue | #9, https://github.com/TroJanVirus/MagicPatchDesk/issues/9 — its original request text predates features implemented in v0.13/v0.14; read subsequent issue comments before deciding what is still open |
 | CI policy | Only manual `.github/workflows/one-shot-verify.yml` retained; one-time release publisher workflows removed to conserve GitHub Actions time |
@@ -91,7 +98,7 @@ Read **`docs/DECISIONS.md`** for the durable, explicit product choices and exclu
 
 **Do not mistake completed implementation for completed field validation.** The v0.14.0-test.2 release passed code, checksum and native Windows headless paint checks; it did *not* establish the following:
 
-0. **Current v0.14.0-test.3 feature QA:** verify the Import JMP duplicate red footer on physical Windows, distinct same-name patch preservation, and **real** PatchHub before/after screenshot availability / linkage across multiple images. Parsing tests and native GUI smoke passed, but website image discovery cannot be certified from HTML fixtures alone.
+0. **Current v0.14.0-test.4 feature QA:** reproduce the Phantom Crash original-XBE selection scenario on actual Windows, verify private next-launch crash report/view/upload paths, independent patch vs record scrollbar clicking, full JMP notes and converter controls; also verify the Import JMP duplicate red footer and **real** PatchHub before/after screenshot coverage. Parsing tests and native GUI smoke passed, but website image discovery cannot be certified from HTML fixtures alone.
 1. **Highest priority: hands-on Windows QA** (Windows 10/11): folder-picker and file dialogs, DPI/scaling, all workspace controls, scanned catalogue selection and scrolling, 720p-height UI, multiple per-game output choices, Auto/Review/Skip, manual approval dialogs, no-overwrite and insufficient-disk-space behavior.
 2. **Real game/image QA** against legitimately supplied source files: XISO/CCI split sets, extracted folders, named-file JMP, PF/pack conversion, full-disc refusal cases and independent output byte/hash verification.
 3. **Game boot QA:** xemu and actual Original Xbox/Cerbios; differentiate emulator from console results. No automated emulator-launch or FTP module is requested.
