@@ -6,7 +6,6 @@ import (
     "fmt"
     "magicpatchdesk/core"
     "os"
-    "path/filepath"
     "runtime/debug"
     "syscall"
     "unsafe"
@@ -20,7 +19,7 @@ var (
     procOpenCrashProcess = k32.NewProc("OpenProcess")
     procGetExitCode = k32.NewProc("GetExitCodeProcess")
     procCloseCrashHandle = k32.NewProc("CloseHandle")
-    crashAdvapi = syscall.NewLazyDLL("advapi32.dll")
+)
     procRegCrashCreate = crashAdvapi.NewProc("RegCreateKeyExW")
     procRegCrashSet = crashAdvapi.NewProc("RegSetValueExW")
     procRegCrashClose = crashAdvapi.NewProc("RegCloseKey")
@@ -37,37 +36,12 @@ func crashProcessAlive(pid int) bool {
     return ok!=0&&code==259 // STILL_ACTIVE
 }
 
-// WER LocalDumps is a Windows-supported best-effort fallback when Go's panic
-// recovery does not run (including a native access violation). It is scoped
-// to this executable under HKCU; no administrator rights or third-party DLL
-// are required. Dumps may contain private memory and are NEVER uploaded.
-func configureCrashWER(root string) error {
-    exe,e:=os.Executable()
-    if e!=nil{return e}
-    folder:=filepath.Join(core.CrashDirectory(root),"Dumps")
-    if e=os.MkdirAll(folder,0700);e!=nil{return e}
-    key:="Software\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\"+filepath.Base(exe)
-    utfKey,e:=syscall.UTF16PtrFromString(key)
-    if e!=nil{return e}
-    var handle uintptr
-    result,_,_:=procRegCrashCreate.Call(0x80000001,uintptr(unsafe.Pointer(utfKey)),0,0,0,0x0002,0,uintptr(unsafe.Pointer(&handle)),0)
-    if result!=0||handle==0{return fmt.Errorf("WER registry access returned status %d",result)}
-    defer procRegCrashClose.Call(handle)
-    setDWORD:=func(name string,value uint32)error{
-        keyName,_:=syscall.UTF16PtrFromString(name)
-        ret,_,_:=procRegCrashSet.Call(handle,uintptr(unsafe.Pointer(keyName)),0,4,uintptr(unsafe.Pointer(&value)),4)
-        if ret!=0{return fmt.Errorf("WER %s returned status %d",name,ret)}
-        return nil
-    }
-    folderName,_:=syscall.UTF16PtrFromString("DumpFolder")
-    wide,e:=syscall.UTF16FromString(folder)
-    if e!=nil{return e}
-    ret,_,_:=procRegCrashSet.Call(handle,uintptr(unsafe.Pointer(folderName)),0,1,uintptr(unsafe.Pointer(&wide[0])),uintptr(len(wide)*2))
-    if ret!=0{return fmt.Errorf("WER DumpFolder returned status %d",ret)}
-    if e=setDWORD("DumpType",1);e!=nil{return e} // limited minidump
-    return setDWORD("DumpCount",10)
-}
-
+// Microsoft documents automatic local minidumps under an administrative HKLM
+// WER LocalDumps registry key. The app never silently writes an undocumented
+// HKCU substitute or changes system crash-dump policy. Session markers,
+// runtime stderr and caught-panic traces work without administrator access.
+// If stronger native crash dumps are needed, docs/CRASH_RECOVERY_AND_UI.md
+// describes how to opt in through the documented Windows configuration.
 func beginCrashProtection(root string) (int,error) {
     count,e:=core.RecoverAbandonedCrashSessions(root,crashProcessAlive)
     if e!=nil{return 0,e}
@@ -82,9 +56,6 @@ func beginCrashProtection(root string) (int,error) {
         os.Stderr=f
         procSetStdHandle.Call(^uintptr(11),f.Fd()) // STD_ERROR_HANDLE == -12
     }
-    // WER is best-effort. Session recovery and caught-panic logs still work
-    // if local policy disables it or registry access fails.
-    _=configureCrashWER(root)
     notices,e:=core.PendingCrashNotices(root)
     if e!=nil{return count,e}
     return notices,nil
