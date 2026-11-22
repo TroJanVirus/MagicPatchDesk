@@ -238,6 +238,7 @@ type appState struct {
 	w, h          int32
 	fonts         fonts
 	lastErr       string
+    recoveredCrashes int
 	recentFiles []core.RecentFile
 	recentSelected int
 	recentOffset int
@@ -408,13 +409,21 @@ func notify(s string) {
 	sysCall(postMsg, app.hwnd, WM_APP+1, 0, 0)
 }
 func initApp() {
+    defer func(){
+        if p:=recover();p!=nil{captureFatalPanic(p)}
+        endCrashProtection()
+    }()
 	runtime.LockOSThread()
 	app.workers = 4
 	app.ipsRLE = true
 	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
-	app.root, _ = core.GetLibraryDir()
+    app.root, _ = core.GetLibraryDir()
+    if !smokeWindowsUI {
+        recovered,e:=beginCrashProtection(app.root)
+        if e==nil{app.recoveredCrashes=recovered}
+    }
 	loadMaintenanceSettings(app.root)
 	refreshRecentFiles()
 	refreshDiagnosticGroups()
@@ -468,6 +477,7 @@ func main() {
         smokeWindowsUI=true
     }
     if helperMode(){return}
+    defer catchFatalPanic()
     initApp()
 }
 func reloadCatalog() {
@@ -524,6 +534,7 @@ func reloadCatalog() {
 // Match by the embedded XBE Title ID and its whole-file CRC32 when possible.
 // Suggest a patch, never apply it automatically.
 func autoSelectXBE(info core.XBEInfo) {
+    markCrashStage("auto_match")
 	app.mu.Lock()
 	catalog := app.cat
 	app.mu.Unlock()
@@ -617,6 +628,7 @@ func pickFile(save bool, filter, title, defaultName string) string {
 	return syscall.UTF16ToString(name)
 }
 func openInput(path string) {
+    markCrashStage("read_xbe")
     if core.CCISourcePath(path) {
         reader,err:=core.OpenCCI(path)
         if err!=nil {notify("Cannot load CCI: "+err.Error());return}
@@ -637,6 +649,7 @@ func openInput(path string) {
 	app.inputInfo = core.XBEInfo{}
 	redraw()
 	go func() {
+        defer catchFatalPanic()
 		var data []byte
 		var err error
 		if strings.EqualFold(filepath.Ext(path), ".xbe") {
@@ -657,6 +670,7 @@ func openInput(path string) {
 			info, err = core.InspectXBE(data)
 		}
 		app.mu.Lock()
+        if app.input!=path {app.mu.Unlock();return} // drop a stale asynchronous read
 		app.inputInfo = info
 		if err != nil {
 			app.inputErr = err.Error()
@@ -666,6 +680,9 @@ func openInput(path string) {
 		}
 		app.mu.Unlock()
 		if err == nil {
+            // Another input may have been chosen while this I/O completed.
+            app.mu.Lock();same:=app.input==path;app.mu.Unlock()
+            if !same{return}
 			rememberRecent("input",path)
 			autoSelectXBE(info)
 		}
@@ -673,6 +690,7 @@ func openInput(path string) {
 	}()
 }
 func selectPatch(idx int) {
+    markCrashStage("parse_patch")
 	app.mu.Lock()
 	if app.selectedGame < 0 || app.selectedGame >= len(app.cat.Games) || idx < 0 || idx >= len(app.cat.Games[app.selectedGame].Patches) {
 		app.mu.Unlock()
@@ -1100,6 +1118,7 @@ func handle(action string, index int) {
 		app.searchFocus = true
 		app.passFocus = false
 	case "import":
+        markCrashStage("import_patch")
 		if p := pickFile(false, "Magic patches\x00*.jmp;*.pf\x00All files\x00*.*\x00", "Import JMP or XBMC4Gamers PF", ""); p != "" {
             if saved,err:=core.ImportJMP(app.root,p);err!=nil{
                 if errors.Is(err,core.ErrDuplicatePatch){
@@ -1181,7 +1200,11 @@ func handle(action string, index int) {
 	}
 	redraw()
 }
-func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
+func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) (out uintptr) {
+    defer catchFatalPanic()
+    return windowProcBody(hwnd,msg,wp,lp)
+}
+func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	switch msg {
 	case WM_DESTROY:
 		sysCall(postQuit, 0)
