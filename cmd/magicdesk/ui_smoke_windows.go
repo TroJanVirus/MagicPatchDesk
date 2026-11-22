@@ -70,48 +70,57 @@ func smokePaintAndExit() {
         panic(fmt.Sprintf("Converter source patch must precede original XBE (patch=%d original=%d)",sourceTop,originalTop))
     }
 
-    // Text must be fully visible on compact Maintenance controls. Earlier
-    // builds drew 17px labels inside 81px buttons, clipping "App folder",
-    // "Data folder" and "Check + sync at start" even at desktop widths.
-    app.tab=6
-    redraw()
-    sysCall(updateWindow,app.hwnd)
-    required:=map[string]string{
-        "maint-beta":"Previews on",
-        "maint-autocheck":"Check + sync at start",
-        "maint-program":"App folder",
-        "maint-data":"Data folder",
-    }
-    if !maintenancePref.Beta{required["maint-beta"]="Stable only"}
-    if maintenancePref.NoAutoCheck{required["maint-autocheck"]="Manual check + sync"}
-    smokeDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
-    if smokeDC==0{panic("Cannot measure Win32 Maintenance text")}
-    defer sysCall(user32.NewProc("ReleaseDC"),app.hwnd,smokeDC)
-    buttonBounds:=map[string]rect{}
-    for _,hit:=range app.hits {
-        if name,ok:=required[hit.Action];ok{
-            buttonBounds[hit.Action]=hit.R
-            if textPixelWidth(smokeDC,name,app.fonts.ButtonTiny)>hit.R.R-hit.R.L-20{
-                panic(fmt.Sprintf("Maintenance button %s still clips %q",hit.Action,name))
+    // Test the real Win32 button hit rectangles and Segoe UI text metrics at
+    // the usual 1024px workspace and the narrower stacked-settings layout.
+    for _,windowWidth:=range []int32{1024,800} {
+        if sysCall(user32.NewProc("MoveWindow"),app.hwnd,55,55,uintptr(windowWidth),720,1)==0 {
+            panic("Cannot resize Maintenance smoke-test window")
+        }
+        app.tab=6
+        redraw()
+        sysCall(updateWindow,app.hwnd)
+        required:=map[string]string{
+            "maint-beta":"Previews on",
+            "maint-autocheck":"Check + sync at start",
+            "maint-program":"App folder",
+            "maint-data":"Data folder",
+        }
+        if !maintenancePref.Beta{required["maint-beta"]="Stable only"}
+        if maintenancePref.NoAutoCheck{required["maint-autocheck"]="Manual check + sync"}
+        smokeDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
+        if smokeDC==0{panic("Cannot measure native Maintenance button text")}
+        bounds:=map[string]rect{}
+        for _,hit:=range app.hits{
+            if label,ok:=required[hit.Action];ok {
+                bounds[hit.Action]=hit.R
+                // The compact fallback is the smallest font the button code
+                // actually uses; if it still cannot fit, reflow is required.
+                if textPixelWidth(smokeDC,label,app.fonts.ButtonTiny)>hit.R.R-hit.R.L-20 {
+                    panic(fmt.Sprintf("Maintenance caption clipped at %dpx: %s = %q",windowWidth,hit.Action,label))
+                }
+            }
+        }
+        sysCall(user32.NewProc("ReleaseDC"),app.hwnd,smokeDC)
+        for name:=range required {
+            if _,ok:=bounds[name];!ok{panic("Missing Maintenance control "+name)}
+        }
+        for a,ra:=range bounds{
+            for b,rb:=range bounds{
+                if a>=b{continue}
+                if ra.L<rb.R&&ra.R>rb.L&&ra.T<rb.B&&ra.B>rb.T {
+                    panic(fmt.Sprintf("Maintenance controls overlap at %dpx: %s and %s",windowWidth,a,b))
+                }
             }
         }
     }
-    for name:=range required{
-        if _,ok:=buttonBounds[name];!ok{panic("Maintenance button missing: "+name)}
-    }
-    for a,ra:=range buttonBounds{
-        for b,rb:=range buttonBounds{
-            if a>=b{continue}
-            if ra.L<rb.R&&ra.R>rb.L&&ra.T<rb.B&&ra.B>rb.T{
-                panic(fmt.Sprintf("Maintenance buttons overlap: %s and %s",a,b))
-            }
-        }
+    if sysCall(user32.NewProc("MoveWindow"),app.hwnd,55,55,1024,720,1)==0 {
+        panic("Cannot restore Win32 smoke-test window")
     }
     app.tab=0
-    if chosenGameSource()==""{
+    if chosenGameSource()=="" {
         help:=outputSummary()
-        if !strings.Contains(strings.ToLower(help),"formats")||strings.Contains(help,"source game"){
-            panic("Patch Library OUTPUTS hint does not explain format selection")
+        if !strings.Contains(strings.ToLower(help),"formats")||strings.Contains(help,"source game") {
+            panic("OUTPUTS prompt does not explain format selection")
         }
     }
 
