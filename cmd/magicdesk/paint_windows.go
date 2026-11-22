@@ -486,7 +486,21 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
         app.groupScroll,len(rows),visible,"records")
 	foot := bottom - 72
 	fill(hdc, ir(x+18, foot-7, width-36, 1), 0x354258)
-	textAt(hdc, "AUTHOR  "+strLimit(p.Headers["author"], 25)+"     •     CRC32  "+strLimit(p.ExpectedCRC(), 37), x+23, foot, width-46, 20, app.fonts.Small, mint)
+	crcLabel := "CRC32 "+p.ExpectedCRC()
+    crcColor := mint
+    if len(p.CRCs)>0 && app.inputInfo.CRC32!="" {
+        match:=false
+        for _,expected:=range p.CRCs {
+            if fmt.Sprintf("%08X",expected)==strings.ToUpper(app.inputInfo.CRC32) {match=true;break}
+        }
+        if !match {
+            crcLabel="CRC32 MISMATCH! expected "+p.ExpectedCRC()+" / loaded "+strings.ToUpper(app.inputInfo.CRC32)
+            crcColor=0x5A73FF // GDI COLORREF: bright red (BGR)
+        } else {
+            crcLabel="CRC32 MATCH · "+app.inputInfo.CRC32
+        }
+    }
+    textAt(hdc, "AUTHOR "+strLimit(p.Headers["author"], 20)+"  •  "+strLimit(crcLabel, 80), x+23, foot, width-46, 20, app.fonts.Small, crcColor)
     if p.Headers["notes"]!="" {
         button(hdc,"READ FULL NOTES · formatted + scrollable",ir(x+18,foot+24,width-36,32),"notes-open",0,false)
     }else{
