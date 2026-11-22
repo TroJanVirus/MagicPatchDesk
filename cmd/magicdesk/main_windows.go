@@ -201,6 +201,8 @@ type appState struct {
 	cat           core.Catalog
 	selectedGame  int
 	selectedPatch int
+    galleryOpen bool
+    galleryPage int
 	expandedGroup int
 	parsed        *core.Patch
 	input         string
@@ -1023,6 +1025,7 @@ func handle(action string, index int) {
 	case "manager-scan", "manager-mode", "manager-select", "manager-patch-prev", "manager-patch-next", "manager-auto", "manager-review", "manager-skip", "manager-all-safe", "manager-run", "manager-format", "manager-open", "manager-image-choose", "manager-image-current", "manager-image-select", "manager-image-extract", "manager-log-clear", "manager-log-prev", "manager-log-next", "manager-confidence-refresh", "manager-confidence-result", "manager-confidence-xemu", "manager-confidence-hardware", "manager-confidence-revision", "manager-confidence-ram", "manager-confidence-cpu", "manager-merge":
         managerAction(action,index)
 	case "tab":
+        app.galleryOpen=false
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
 		if index == 1 { refreshConversionHint() }
@@ -1032,15 +1035,29 @@ func handle(action string, index int) {
 		app.packSources = nil
 		app.directFile = ""
 		app.selectedGame = index
+        app.galleryOpen=false
+        app.galleryPage=0
 		app.selectedPatch = -1
 		app.parsed = nil
 		app.patchScroll = 0
 		app.groupScroll = 0
 		app.expandedGroup = -1
 	case "patch":
+        app.galleryOpen=false
+        app.galleryPage=0
 		app.packSources = nil
 		app.directFile = ""
 		selectPatch(index)
+    case "gallery-open":
+        images,_:=selectedLibraryGallery()
+        if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
+    case "gallery-close":
+        app.galleryOpen=false
+    case "gallery-prev":
+        if app.galleryPage>0{app.galleryPage--}
+    case "gallery-next":
+        images,_:=selectedLibraryGallery()
+        if app.galleryPage+1<(len(images)+1)/2{app.galleryPage++}
 	case "group":
 		if !app.busy && app.parsed != nil && index >= 0 && index < len(app.parsed.Groups) {
 			g := app.parsed.Groups[index]
@@ -1330,6 +1347,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	case WM_KEYDOWN:
 		if handleQuickShortcut(wp) {return 0}
 		if wp == 27 {
+            app.galleryOpen=false
 			app.searchFocus = false
 			app.passFocus = false
 			redraw()
