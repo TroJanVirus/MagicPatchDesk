@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
-	"path/filepath"
 )
 
 func drawMaintenance(hdc uintptr,w,h int32){
