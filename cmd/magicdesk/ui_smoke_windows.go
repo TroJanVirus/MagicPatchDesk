@@ -134,6 +134,11 @@ func smokePaintAndExit() {
     app.convertPatchFile,app.bFile,app.aFile=savedInput,savedModified,savedSelected
     app.format,app.convertFormatChosen=savedFormat,savedExplicit
 
+    // Reproduce reported sequence: select a real library patch first, then
+    // choose its matching XBE. The parsed patch and record toggles remain
+    // intact; an older inspector result must be dropped.
+    smokePreselectedPatchThenXBE()
+
     // Test the real Win32 button hit rectangles and Segoe UI text metrics at
     // the usual 1024px workspace and the narrower stacked-settings layout.
     for _,windowWidth:=range []int32{1024,800} {
