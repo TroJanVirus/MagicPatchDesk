@@ -43,30 +43,34 @@ func ParsePatchHubMediaManifest(body []byte)([]HubScreenshot,error){
     return out,nil
 }
 
-func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot){
+// AppendPatchHubMedia merges the website's actual patch-folder image inventory
+// into the cached game index. Neither an exact HTML revision record nor the
+// image's region is needed: the directory already establishes image ownership.
+// Choose a single game by exact title first, then safe alias/known Title ID.
+func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot) {
     if hub==nil{return}
     byTitle:=map[string][]int{}
-    for i:=range hub.Games{
-        key:=CoverMatchKey(hub.Games[i].Title)
-        if key!=""{byTitle[key]=append(byTitle[key],i)}
+    for i:=range hub.Games {
+        k:=CoverMatchKey(hub.Games[i].Title)
+        if k!="" {byTitle[k]=append(byTitle[k],i)}
     }
-    for _,shot:=range urls{
-        gameMatch:=byTitle[CoverMatchKey(shot.Game)]
-        if len(gameMatch)!=1{continue}
-        g:=&hub.Games[gameMatch[0]]
-        matchVersion:=false
-        for _,v:=range g.Versions{
-            if strings.EqualFold(v.TitleID,shot.TitleID)&&strings.EqualFold(v.Region,shot.Region)&&normalizeHubVersion(v.Version)==shot.Version{
-                matchVersion=true
-                break
+    for _,shot:=range urls {
+        matches:=byTitle[CoverMatchKey(shot.Game)]
+        if len(matches)==0 {
+            for i:=range hub.Games {
+                g:=Game{Title:hub.Games[i].Title,Versions:hub.Games[i].Versions}
+                if MediaGameMatches(g,shot){matches=append(matches,i)}
             }
         }
-        if !matchVersion{continue}
-        found:=false
-        for _,old:=range g.Screenshots{if old.URL==shot.URL{found=true;break}}
-        if !found {g.Screenshots=append(g.Screenshots,shot)}
+        if len(matches)!=1{continue}
+        g:=&hub.Games[matches[0]]
+        exists:=false
+        for _,old:=range g.Screenshots {
+            if old.URL==shot.URL{exists=true;break}
+        }
+        if !exists {g.Screenshots=append(g.Screenshots,shot)}
     }
-    for i:=range hub.Games{
+    for i:=range hub.Games {
         sort.SliceStable(hub.Games[i].Screenshots,func(a,b int)bool{
             x,y:=hub.Games[i].Screenshots[a],hub.Games[i].Screenshots[b]
             if x.Patch!=y.Patch{return x.Patch<y.Patch}
