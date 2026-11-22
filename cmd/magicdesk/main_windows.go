@@ -493,6 +493,7 @@ func initApp() {
 	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
+    app.tab=9 // Home is the initial landing workspace; existing tab IDs stay stable
     app.root, _ = core.GetLibraryDir()
     if !smokeWindowsUI {
         recovered,e:=beginCrashProtection(app.root)
@@ -1137,7 +1138,20 @@ func convertFiles() { runConversion() }
 
 func handle(action string, index int) {
 	switch action {
-	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
+    case "home-library":
+        app.tab=0
+    case "home-convert":
+        app.tab=1
+        refreshConversionHint()
+    case "home-open-game":
+        if p:=pickFile(false,"Xbox game files\x00*.xbe;*.iso;*.xiso;*.cci\x00All files\x00*.*\x00","Choose an Xbox executable or complete game disc (CCI parts supported)","");p!=""{
+            app.tab=0
+            openInput(p)
+        }
+    case "home-patchhub":
+        url:="https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php"
+        sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(url))),0,0,SW_SHOW)
+    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
 		maintenanceAction(action)
 	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-preserve", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
@@ -1620,7 +1634,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 			path := syscall.UTF16ToString(buf)
 			ext := strings.ToLower(filepath.Ext(path))
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
-                if app.tab==0 {
+                if app.tab==0 || app.tab==9 {
                     xbe:=filepath.Join(path,"default.xbe")
                     if st,e:=os.Stat(xbe);e==nil&&st.Mode().IsRegular(){
                         openInput(xbe)
@@ -1653,6 +1667,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" || ext == ".pf" {
+                app.tab=0
                 if _,err:=core.ImportJMP(app.root,path);err!=nil {
                     if errors.Is(err,core.ErrDuplicatePatch){
                         app.mu.Lock()
@@ -1665,6 +1680,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                     notify("Imported "+filepath.Base(path))
                 }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
+                app.tab=0 // dropped discs must reveal the matched game in Patch Library
                 openInput(path)
 			}
 		}
