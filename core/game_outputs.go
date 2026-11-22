@@ -109,9 +109,21 @@ func ExtractGameXISO(image, destination string) error {
     if err := ensureNewOutput(destination); err != nil { return err }
     im, err := OpenXISO(image)
     if err != nil { return err }
-    src, err := os.Open(image)
-    if err != nil { return err }
-    defer src.Close()
+    var src io.ReaderAt
+    if IsNumberedRawImagePart(image) {
+        // Read from the complete logical disc, not the selected numbered
+        // fragment. Otherwise extraction might silently truncate files or
+        // substitute bytes from the wrong location.
+        split,e:=openRawDiscParts(image)
+        if e!=nil{return e}
+        defer split.Close()
+        src=split
+    }else{
+        f,e:=os.Open(image)
+        if e!=nil{return e}
+        defer f.Close()
+        src=f
+    }
     tmp, err := os.MkdirTemp(filepath.Dir(destination), ".mpd-extract-*")
     if err != nil { return err }
     defer os.RemoveAll(tmp)
@@ -535,7 +547,10 @@ func ExportGameOutputs(source, destination string, mask uint32, replacements map
         }
         im,e:=OpenXISO(inputISO)
         if e!=nil{return e}
-        fullDisc=im.Base!=0
+        // A numbered raw ISO can supply a complete game for extraction, but
+        // must not be promoted into a full-disc/Redump-style output by copying
+        // only its selected part. Rebuild a new game-partition XISO instead.
+        fullDisc=im.Base!=0&&!IsNumberedRawImagePart(source)
         err=ExtractGameXISO(inputISO,root)
     }
     if err!=nil{return err}
