@@ -95,7 +95,10 @@ func paint(hdc uintptr) {
 	textAt(hdc, "●", 253, h-35, 14, 22, app.fonts.Regular, mint)
     statusColor:=uint32(muted)
     if strings.HasPrefix(status,"Duplicate patch found!") {statusColor=0xFF667C}
-    if app.recoveredCrashes>0 {
+    if app.crashSetupWarning{
+        status="CRASH LOGGING UNAVAILABLE · App data cannot be written; please check permissions"
+        statusColor=0xFF667C
+    }else if app.recoveredCrashes>0{
         status=fmt.Sprintf("%d unexpected previous exit(s) logged · Click here to review and report",app.recoveredCrashes)
         statusColor=0xFF667C
         addHit(ir(249,h-42,w-330,42),"crash-open-reports",0)
