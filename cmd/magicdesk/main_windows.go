@@ -483,8 +483,7 @@ func initApp() {
 	if app.hwnd == 0 {
 		panic("CreateWindowEx failed")
 	}
-	dark := int32(1)
-	sysCall(dwmAttr, app.hwnd, 20, uintptr(unsafe.Pointer(&dark)), 4)
+	updateWindowsTitleBarTheme()
 	sysCall(dragAccept, app.hwnd, 1)
 	sysCall(showWindow, app.hwnd, SW_SHOW)
     if smokeWindowsUI {
@@ -1264,6 +1263,7 @@ func handle(action string, index int) {
         if index>=0 && index<len(names) {
             app.theme=names[index]
             setTheme(app.theme)
+            updateWindowsTitleBarTheme()
             savePreferences()
             redraw()
         }
