@@ -1,3 +1,21 @@
+## 2026-11-22 — v0.14.0-test.18 release gate initiated (pending verification)
+
+Owner requested publishing the PR #32 crash mitigations. Source version increments to v0.14.0-test.18. A ONE-SHOT release workflow runs only when its own file is first pushed to the exact candidate branch. It gates any GitHub Release on portable Go tests, race, vet, updater contract, PatchHub media fixtures, official icon, Windows PE build, native UI source-switch stress and healthcheck; only then attaches canonical MagicPatchDesk-Windows-x64.exe and SHA256SUMS.txt. **Do not mark this as released or tested until the workflow succeeds and GitHub confirms the release and asset digest.** Remove the one-shot workflow afterward. Keep #19 open pending physical user field test. Human-written README unchanged.
+
+### 2026-11-22 added guard coverage (candidate)
+
+All Patch Library background catalogue reload and user-triggered sync entry points, not just the initial updater check, use panic recovery. Portable AST test checks mandatory sysCall `//go:uintptrescapes` annotation. No app-level tests or user hardware validation executed yet.
+
+### Further 2026-11-22 finding — native sysCall pointer-lifetime defect (candidate correction)
+
+Custom `sysCall(p *syscall.LazyProc, a ...uintptr)` accepted Go-managed Win32 pointers without the `//go:uintptrescapes` compiler annotation that standard `syscall.LazyProc.Call` uses. This unsafe wrapper could leave transient Go-owned UTF-16 and GDI structs unrooted across a native call under GC pressure; actual crashing at that point is unproven. An independent Go 1.23.2 cross-compile probe verified that adding the annotation changes compiler escape analysis to retain the referenced allocation. Applied annotation to wrapper, and forced GC in native UI smoke paint. **No app-level automated Go/Windows test or user field test has been executed for this candidate.** See docs/CRASH_RECOVERY_AND_UI.md and PR #32.
+
+## 2026-11-22 — crash archive root-cause evidence / candidate hardening (not released)
+
+User-supplied `crashs.zip` contains **v0.14.0-test.17** `runtime-217a3d1812a10646d1c2.log` with an actual unhandled Go panic: `JSON decoder out of sync - data changing underfoot?`. Stack points to `encoding/json.Unmarshal` within `core.ReadHubCache` line 99, entered by `RefreshCachedPatchHubMedia` → `SyncPatchHub` → `syncPatchHubMetadata` → `checkForNewRelease` background goroutine. Thus at least one observed CTD was **outside** ISO/CCI/XBE inspection; prior bounded-worker fix alone cannot address this. Go's diagnostic indicates an inconsistent JSON parse, but the archive **does not prove** whether its root cause was a decoder defect, mutated memory, or another unsafe interaction. Two other unexpected-exit markers lack a usable stack.
+
+Candidate fix also captures up to eight privacy-filtered ISO/CCI/XBE source hops and a bounded source-selection count in recovered crash reports (no paths). Bounded and checked optional cached-index decoding (panic converted to explicit cache failure, no overwrite), serialized PatchHub sync/refresh, durable atomic cache writes, independent recovered-background-panic private stacks and sanitized reports, isolated library/metadata maintenance jobs, allowlisted precise game-inspection stage names and synthetic regression tests. Preserve original game assets, self-updater protocol v1 and app offline behavior. **Not yet compiled or field-tested on Windows; no new test release published.** The original Phantom Crash user ISO/CCI/XBE were not uploaded. Do not close issue #19 until actual Windows mixed-source field test and report verification.
+
 ## 2026-11-22 — v0.14.0-test.17 released; real Windows 360-switch stress passed
 
 Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.17

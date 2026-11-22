@@ -93,3 +93,29 @@ func endCrashProtection(){
         if info,e:=os.Stat(path);e==nil&&info.Size()==0{_ =os.Remove(path)}
     }
 }
+
+// runProtectedBackgroundTask confines recoverable panics to optional
+// maintenance goroutines. The private stack and a sanitized shareable report
+// are retained, while an active ISO/CCI/XBE inspection is left untouched.
+func runProtectedBackgroundTask(stage string, work func()) {
+    defer func(){
+        if value:=recover();value!=nil {
+            if crashSession!=nil {
+                if err:=crashSession.SaveRecoveredBackgroundPanic(stage,fmt.Sprint(value),debug.Stack());err==nil {
+                    return
+                }
+            }
+            // Recovery logging is best effort when a Reports directory cannot
+            // be written. Keep raw details private, never in telemetry.
+            if crashStderr!=nil {
+                _,_=fmt.Fprintf(crashStderr,"Recovered background panic (%s): %v\n%s\n",stage,value,debug.Stack())
+                _=crashStderr.Sync()
+            }
+        }
+    }()
+    work()
+}
+
+func markCrashSourceSelection(path string) {
+    if crashSession!=nil {_=crashSession.RecordSourceSelection(path)}
+}

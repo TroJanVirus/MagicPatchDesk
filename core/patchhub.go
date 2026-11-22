@@ -20,10 +20,18 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 const PatchHubURL = "https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php"
+
+// Patch Hub metadata updates must not race with one another. Source selection,
+// Patch Library browsing and game-image inspection never need this lock.
+var hubSyncMu sync.Mutex
+
+// Invalid local metadata is a recoverable cache error, not an application crash.
+var ErrHubCacheInvalid = errors.New("Patch Hub cached index rejected")
 
 type HubVersion struct {
 	TitleID string `json:"title_id"`
@@ -92,13 +100,59 @@ func ParsePatchHubHTML(doc []byte) (HubIndex, error) {
 	}
 	return result, nil
 }
+// decodeHubCache guards the entire decoding boundary: a malformed or otherwise
+// inconsistent cache must not bring down the GUI through an uncaught decoder
+// panic. The caller can report ErrHubCacheInvalid without exposing game data.
+func decodeHubCache(body []byte, decode func([]byte, any) error) (cache HubIndex, err error) {
+    defer func() {
+        if recover() != nil {
+            cache = HubIndex{}
+            err = fmt.Errorf("%w: JSON decoder panic", ErrHubCacheInvalid)
+        }
+    }()
+    if e := decode(body, &cache); e != nil {
+        return HubIndex{}, fmt.Errorf("%w: malformed JSON", ErrHubCacheInvalid)
+    }
+    if cache.Games == nil {
+        return HubIndex{}, fmt.Errorf("%w: missing games array", ErrHubCacheInvalid)
+    }
+    return cache, nil
+}
+
+// ReadHubCacheChecked bounds disk reads and returns explicit cache errors. A
+// missing cache is normal on first launch; a broken one is NOT silently
+// rewritten by SyncPatchHub (the original remains available for diagnosis).
+func ReadHubCacheChecked(root string) (HubIndex, error) {
+    f, err := os.Open(filepath.Join(root, "patchhub-index.json"))
+    if errors.Is(err, os.ErrNotExist) {
+        return HubIndex{}, nil
+    }
+    if err != nil {
+        return HubIndex{}, err
+    }
+    defer f.Close()
+    st, err := f.Stat()
+    if err != nil {
+        return HubIndex{}, err
+    }
+    if !st.Mode().IsRegular() || st.Size() == 0 || st.Size() > 24<<20 {
+        return HubIndex{}, fmt.Errorf("%w: invalid cache size or file type", ErrHubCacheInvalid)
+    }
+    body, err := io.ReadAll(io.LimitReader(f, (24<<20)+1))
+    if err != nil {
+        return HubIndex{}, err
+    }
+    if len(body) > 24<<20 {
+        return HubIndex{}, fmt.Errorf("%w: oversized cache", ErrHubCacheInvalid)
+    }
+    return decodeHubCache(body, json.Unmarshal)
+}
+
+// Retain the historical read-only API used by catalogue painting. A bad cache
+// results in no optional art; checked refresh paths report the actual failure.
 func ReadHubCache(root string) HubIndex {
-	var c HubIndex
-	b, err := os.ReadFile(filepath.Join(root, "patchhub-index.json"))
-	if err == nil {
-		_ = json.Unmarshal(b, &c)
-	}
-	return c
+    cache, _ := ReadHubCacheChecked(root)
+    return cache
 }
 // saveHubIndex atomically; keep existing valid metadata on failures.
 func saveHubIndex(root string,hub HubIndex)error{
@@ -108,6 +162,7 @@ func saveHubIndex(root string,hub HubIndex)error{
     if e!=nil{return e}
     defer os.Remove(f.Name())
     if _,e=f.Write(b);e!=nil{f.Close();return e}
+    if e=f.Sync();e!=nil{f.Close();return e}
     if e=f.Close();e!=nil{return e}
     return os.Rename(f.Name(),filepath.Join(root,"patchhub-index.json"))
 }
@@ -117,7 +172,13 @@ func saveHubIndex(root string,hub HubIndex)error{
 // Check + sync without waiting for the 24-hour card-cache expiry. The HTTP
 // client can be injected for deterministic offline regression tests.
 func RefreshCachedPatchHubMedia(ctx context.Context, root string, client *http.Client)(int,error){
-    cache:=ReadHubCache(root)
+    hubSyncMu.Lock()
+    defer hubSyncMu.Unlock()
+    return refreshCachedPatchHubMedia(ctx,root,client)
+}
+func refreshCachedPatchHubMedia(ctx context.Context, root string, client *http.Client)(int,error){
+    cache,e:=ReadHubCacheChecked(root)
+    if e!=nil{return 0,e}
     if len(cache.Games)==0{return 0,errors.New("PatchHub game index is empty")}
     shots,e:=ReadPatchHubMediaManifest(ctx,client)
     if e!=nil{return 0,e}
@@ -132,12 +193,15 @@ func RefreshCachedPatchHubMedia(ctx context.Context, root string, client *http.C
 // Media refresh is independent of the 24-hour game-card cache. A published
 // JPG/PNG index must become visible as soon as the user selects Check + sync.
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
-    cache:=ReadHubCache(root)
+    hubSyncMu.Lock()
+    defer hubSyncMu.Unlock()
+    cache,cacheErr:=ReadHubCacheChecked(root)
+    if cacheErr!=nil{return 0,cacheErr}
     if len(cache.Games)>0 && cache.GalleryScanVersion>=2 &&
         time.Since(cache.Updated)<24*time.Hour {
         // Missing internet/media index must not make the offline game list
         // unusable. Preserve the previous photo cache on request failure.
-        _,_ = RefreshCachedPatchHubMedia(ctx,root,nil)
+        _,_ = refreshCachedPatchHubMedia(ctx,root,nil)
         // Offline mode still uses the previous game and image metadata.
         return len(cache.Games),nil
     }

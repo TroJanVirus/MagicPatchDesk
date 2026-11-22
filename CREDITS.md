@@ -46,3 +46,11 @@ The Xbox DVD filesystem technical descriptions by **Andrew de Quincey** and **pu
 ## v0.14.0-test.6 — owner-supplied JMP logo and website comparison media
 
 **JayYardley / original Jay's Magic Patch branding** — the transparent JMP logo was explicitly uploaded for embedding in the application's Windows EXE. Its text-encoded source lives in `assets/jmp-logo.ico.b64`; resource conversion is implemented in-house using `scripts/build_windows_icon.py` (Python standard library). The embedded logo is the only newly bundled artwork; no third-party font or screenshot is embedded. PatchHub comparison images remain externally hosted on the author's PatchHub site, downloaded and validated only as needed and cached locally on the user's device. The optional media-index generator reads public website images, not copyrighted game content.
+
+## v0.14.0-test.17 crash investigation (2026-11-22)
+
+**The Go authors / Go team — `encoding/json` documentation and source** ([decoder](https://go.dev/src/encoding/json/decode.go), [package documentation](https://pkg.go.dev/encoding/json)) — referenced to interpret a Go runtime decoder invariant panic found in an uploaded Magic Patch Desk crash trace. **Reference only**; no Go standard-library implementation code copied. Go source: [BSD-style licence](https://github.com/golang/go/blob/master/LICENSE). The new recovery boundary and private crash breadcrumbs are independently authored Go code.
+
+## 2026-11-22 Win32 pointer lifetime reference
+
+**Go team — standard Go Windows syscall and unsafe.Pointer rules** ([`syscall.LazyProc.Call` with `//go:uintptrescapes`](https://go.dev/src/syscall/dll_windows.go), [official `unsafe.Pointer` documentation](https://pkg.go.dev/unsafe#Pointer)) — reference-only evidence for preserving the compiler's pointer lifetime semantics through the application's custom Win32 `sysCall` helper. The helper now explicitly has the same compiler pragma. No external implementation code was copied; Go language/runtime project [BSD-style licence](https://github.com/golang/go/blob/master/LICENSE).
