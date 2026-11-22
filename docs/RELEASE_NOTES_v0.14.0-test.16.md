@@ -11,6 +11,8 @@ The v0.14.0-test.15 fix moved XBE identification and patch matching onto a backg
 - **Stale scans remain rejected.** The previous generation/path guard continues to prevent results from superseded file choices enabling incorrect formats or changing the selected patch.
 - **Game Manager manual-review sources** use the same background verification rather than bypassing this safety gate. Extracted folders and already validated loaded sources remain usable.
 
+- **Extracted game folder safeguards:** exporting from an extracted folder is now held until its root default.xbe has passed identity validation. The Game Manager manual-review action supports both folders and disc images through the same asynchronous inspection route.
+
 ## XDVDFS parser hardening
 
 - Replaced the per-directory recursive binary-tree traversal with an **iterative stack**, avoiding unbounded Go call-stack growth from deeply skewed or hostile directory tables.
