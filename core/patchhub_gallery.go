@@ -40,7 +40,49 @@ var hubGalleryBare=regexp.MustCompile(`(?is)["']((?:https://(?:www\.)?jayxbox\.c
 // have a trailing index ("before_1.png"), or be named "After.jpg". Neither
 // filename order nor the case of its extension is fixed by PatchHub.
 var validScreenshotFile=regexp.MustCompile(`(?i)\.(?:jpg|jpeg|png|gif)$`)
-var mediaPhase=regexp.MustCompile(`(?i)(?:^|[._\s-])(before|after)(?:$|[._\s-])`)
+var mediaPhase=regexp.MustCompile(`(?i)^(?:(?:[0-9]{1,3}|screenshot|shot|image|comparison)[._\s-]*)*(before|after)(?:[._\s-]*[0-9]{1,3})?package core
+
+import (
+    "html"
+    "net/url"
+    "path"
+    "path/filepath"
+    "regexp"
+    "sort"
+    "strconv"
+    "strings"
+    "os"
+)
+
+// PatchGalleryImage represents one BEFORE or AFTER image from PatchHub or a
+// locally imported PatchHub titles tree. No executable patch data is involved.
+type PatchGalleryImage struct {
+    Kind string `json:"kind"` // before / after
+    Set int `json:"set,omitempty"`
+    URL string `json:"url,omitempty"`
+    Local string `json:"local,omitempty"`
+}
+type HubScreenshot struct {
+    Game string `json:"game,omitempty"`
+    Region string `json:"region,omitempty"`
+    Version string `json:"version,omitempty"`
+    Patch string `json:"patch,omitempty"`
+    TitleID string `json:"title_id,omitempty"`
+    Kind string `json:"kind"`
+    Set int `json:"set,omitempty"`
+    URL string `json:"url"`
+}
+
+// PatchHub may emit source images as img src/data-src, clickable anchors or
+// data-* attributes. Only explicitly named before/after JPEG/PNG/GIF images
+// under the same site's /All-Patches/titles tree are accepted.
+var hubGalleryAttr=regexp.MustCompile(`(?is)\b(?:src|data-src|href|data-full|data-image|data-before|data-after)\s*=\s*["']([^"'<>]{1,1000})["']`)
+var hubGalleryBare=regexp.MustCompile(`(?is)["']((?:https://(?:www\.)?jayxbox\.com)?/All-Patches/titles/[^"'<>\s]{1,1000}\.(?:jpg|jpeg|png|gif))["']`)
+// Image files may begin with an ordinal ("1. Before.jpg", "2. After.png"),
+// have a trailing index ("before_1.png"), or be named "After.jpg". Neither
+// filename order nor the case of its extension is fixed by PatchHub.
+var validScreenshotFile=regexp.MustCompile(`(?i)\.(?:jpg|jpeg|png|gif)$`)
+)
 var leadingMediaNumber=regexp.MustCompile(`^\s*([0-9]{1,3})[._\s-]+`)
 var trailingMediaNumber=regexp.MustCompile(`(?i)(?:^|[._\s-])(?:before|after)[._\s-]*([0-9]{1,3})(?:$|[._\s-])`)
 
