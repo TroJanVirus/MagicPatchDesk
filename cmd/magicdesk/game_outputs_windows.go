@@ -101,7 +101,7 @@ func gameOutputAction(action string,index int) {
     case "game-format":
         if index>=0&&index<=4 && chosenGameSource()!="" {
             bit:=uint32(1)<<uint(index)
-            if availableGameOutputs()&bit!=0 {
+            if availableGameOutputs()&bit!=0 || gameOutputMask&bit!=0 {
                 gameOutputMask^=bit
                 if gameOutputFormats==nil{gameOutputFormats=map[string]uint32{}}
                 gameOutputFormats[currentGameOutputKind()]=gameOutputMask
