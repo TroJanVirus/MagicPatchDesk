@@ -1,3 +1,11 @@
+## v0.14.0-test.7 release evidence — 2026-11-22
+
+Preview release published: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.7
+
+Verified successfully by a one-shot GitHub Actions run https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44982148517: updater contract, PatchHub index-generator fixture, Windows icon embedding, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 cross-build, EXE PE signature, SHA256SUMS checksum validation and GitHub preview release upload. The canonical EXE and SHA256SUMS assets are present.
+
+Not yet verified: native interactive Windows testing, a real loaded PAL XBE mismatch, live PatchHub media-index deployment, or physical Xbox game boots. The one-shot workflow is constrained to its own exact workflow file path; do not add continuous CI. The three exact deduplication pairs are available from new Settings -> Duplicates -> View after catalogue refresh; of upstream 803 JMP files, the identical-content GoldenEye Rogue Agent pair has been individually verified.
+
 ## 2026-11-22 — v0.14.0-test.7 candidate (release QA pending)
 
 - Owner reports no recent crashes; CTD work is deprioritized, not asserted resolved.
