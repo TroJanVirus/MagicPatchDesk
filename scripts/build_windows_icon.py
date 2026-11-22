@@ -8,6 +8,7 @@ The ICO is multi-resolution; no separate runtime artwork file is required.
 """
 import argparse
 import base64
+import hashlib
 import pathlib
 import struct
 
@@ -83,11 +84,18 @@ def main():
     parser.add_argument("--asset",default="assets/jmp-logo.ico.b64")
     parser.add_argument("--output",default="cmd/magicdesk/jmp_windows_amd64.syso")
     args=parser.parse_args()
-    asset=pathlib.Path(args.asset).read_text(encoding="ascii")
+    root=pathlib.Path(__file__).resolve().parent.parent
+    asset_path=pathlib.Path(args.asset)
+    output_path=pathlib.Path(args.output)
+    if not asset_path.is_absolute():asset_path=root/asset_path
+    if not output_path.is_absolute():output_path=root/output_path
+    asset=asset_path.read_text(encoding="ascii")
     icon=base64.b64decode("".join(asset.split()),validate=True)
+    if hashlib.sha256(icon).hexdigest()!="f0d72a8f212f656df607234262f4501a5ee66ee482d1a5f1632f24f5db8c3b63":
+        raise ValueError("Official JMP logo asset hash mismatch")
     frames=parse_ico(icon)
     data=resource_object(frames)
-    pathlib.Path(args.output).write_bytes(data)
+    output_path.write_bytes(data)
     print(f"Embedded official JMP logo: {len(frames)} sizes, {len(data)}-byte PE resource")
 
 if __name__=="__main__":
