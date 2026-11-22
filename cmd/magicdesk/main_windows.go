@@ -591,6 +591,7 @@ func queueAutoMatch(info core.XBEInfo){
 // Suggest a patch, never apply it automatically.
 func autoSelectXBE(info core.XBEInfo) {
     markCrashStage("auto_match")
+    defer markCrashStage("ui_callback")
 	app.mu.Lock()
 	catalog := app.cat
 	app.mu.Unlock()
@@ -748,6 +749,7 @@ func openInput(path string) {
 }
 func selectPatch(idx int) {
     markCrashStage("parse_patch")
+    defer markCrashStage("ui_callback")
 	app.mu.Lock()
 	if app.selectedGame < 0 || app.selectedGame >= len(app.cat.Games) || idx < 0 || idx >= len(app.cat.Games[app.selectedGame].Patches) {
 		app.mu.Unlock()
@@ -1225,6 +1227,8 @@ func handle(action string, index int) {
 		app.searchFocus = true
 		app.passFocus = false
 	case "import":
+        func(){
+            defer markCrashStage("ui_callback")
         markCrashStage("import_patch")
 		if p := pickFile(false, "Magic patches\x00*.jmp;*.pf\x00All files\x00*.*\x00", "Import JMP or XBMC4Gamers PF", ""); p != "" {
             if saved,err:=core.ImportJMP(app.root,p);err!=nil{
@@ -1246,6 +1250,7 @@ func handle(action string, index int) {
                 notify("Imported local patch: "+filepath.Base(saved))
             }
 		}
+        }()
 	case "dev-refresh", "dev-sort", "dev-select", "dev-prev", "dev-next", "dev-github", "dev-view", "dev-copy", "dev-root", "dev-report", "dev-fixpr", "dev-copygroups", "dev-copyroot", "dev-create":
 		developerAction(action,index)
 	case "diagnostics-folder", "diagnostics-crashfolder", "diagnostics-view", "diagnostics-copy", "diagnostics-find", "diagnostics-prev", "diagnostics-next", "diagnostics-github":
