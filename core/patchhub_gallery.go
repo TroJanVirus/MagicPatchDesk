@@ -32,6 +32,7 @@ type HubScreenshot struct {
 // data-* attributes. Only explicitly named before/after JPEG/PNG/GIF images
 // under the same site's /All-Patches/titles tree are accepted.
 var hubGalleryAttr=regexp.MustCompile(`(?is)\b(?:src|data-src|href|data-full|data-image|data-before|data-after)\s*=\s*["']([^"'<>]{1,2048})["']`)
+var hubGalleryBare=regexp.MustCompile(`(?is)["']((?:https://(?:www\\.)?jayxbox\\.com)?/All-Patches/titles/[^"'<>\\s]{1,1500}\\.(?:jpg|jpeg|png|gif))["']`)
 var galleryNumber=regexp.MustCompile(`(?:^|[-_.\s])(?:before|after)[-_.\s]*([0-9]{1,3})(?:[-_.\s]|$)`)
 var validScreenshotFile=regexp.MustCompile(`(?i)\.(?:jpg|jpeg|png|gif)$`)
 
@@ -44,7 +45,8 @@ func galleryPhase(p string)(string,int){
         for _,phase:=range []string{"before","after"}{
             if part==phase||strings.HasPrefix(part,phase+".")||
                 strings.HasPrefix(part,phase+"_")||strings.HasPrefix(part,phase+"-")||
-                strings.HasPrefix(part,phase+" ") {
+                strings.HasPrefix(part,phase+" ") ||
+                (len(part)>len(phase) && strings.HasPrefix(part,phase) && part[len(phase)]>='0'&&part[len(phase)]<='9'){
                 n:=1
                 if match:=galleryNumber.FindStringSubmatch(part);len(match)>1{
                     if parsed,e:=strconv.Atoi(match[1]);e==nil&&parsed>0{n=parsed}
@@ -76,15 +78,19 @@ func patchhubGalleryURL(raw string)(HubScreenshot,bool) {
     shot:=HubScreenshot{Kind:phase,Set:n,URL:u.String()}
     version:=strings.Split(segments[pos+2],"_")
     if len(version)>=3&&len(version[2])==8{shot.TitleID=strings.ToUpper(version[2])}
-    if pos+4<len(segments){shot.Patch=segments[pos+3]}
+    if pos+4<len(segments) {if stage,_:=galleryPhase(segments[pos+3]);stage==""{shot.Patch=segments[pos+3]}}
     return shot,true
 }
 func parseHubGameScreenshots(fragment string)[]HubScreenshot{
     shots:=[]HubScreenshot{}
     seen:=map[string]bool{}
-    for _,match:=range hubGalleryAttr.FindAllStringSubmatch(fragment,256){
-        if len(match)<2{continue}
-        image,ok:=patchhubGalleryURL(match[1])
+    candidates:=[]string{}
+    for _,match:=range hubGalleryAttr.FindAllStringSubmatch(fragment,256){if len(match)>1{candidates=append(candidates,match[1])}}
+    // Some PatchHub pages construct image galleries in a small inline JSON
+    // block instead of IMG elements. Still require trusted, known paths.
+    for _,match:=range hubGalleryBare.FindAllStringSubmatch(fragment,128){if len(match)>1{candidates=append(candidates,match[1])}}
+    for _,raw:=range candidates{
+        image,ok:=patchhubGalleryURL(raw)
         if !ok||seen[image.URL]{continue}
         seen[image.URL]=true
         shots=append(shots,image)
@@ -138,7 +144,13 @@ func AttachHubGallery(patches []CatalogPatch,shots []HubScreenshot) {
         shotKey:=CoverMatchKey(shot.Patch)
         for i,p:=range patches{
             if shot.TitleID!="" && !strings.EqualFold(shot.TitleID,p.TitleID){continue}
-            if shotKey!=""&&shotKey!=CoverMatchKey(p.Name){continue}
+            if shotKey!=""{
+                patchKey:=CoverMatchKey(p.Name)
+                // PatchHub folder labels may be shorter than the filename.
+                // Prefix/substring matches are only accepted when UNIQUE
+                // within this game and the same original Title ID.
+                if shotKey!=patchKey && (len(shotKey)<5||!strings.Contains(patchKey,shotKey)){continue}
+            }
             matches=append(matches,i)
         }
         if len(matches)!=1{continue}
