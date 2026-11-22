@@ -1,3 +1,4 @@
+- Audit follow-up: extracted game folders also await root `default.xbe` verification before outputs unlock; Game Manager manual review distinguishes folders and inspects their root XBE, not the directory as an ISO.
 ## 2026-11-22 — v0.14.0-test.16 candidate: precise ISO picker audit and additional hardening
 
 - Owner clarified reliably reproducible older Windows exit: **Phantom Crash → select library JMP → Open file → choose ISO → immediate CTD**, not a loose XBE. They report `v0.14.0-test.15` no longer crashes and request a thorough ISO-focused audit. Source ISO itself was **not uploaded**; prior abnormal-exit recovery marker `v0.14.0-test.13` has no runtime crash stack or WER exception pointer. Do not claim confirmed root cause or actual real-ISO reproduction.
