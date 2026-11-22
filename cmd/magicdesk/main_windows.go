@@ -775,28 +775,9 @@ func openInput(path string) {
     app.status="Inspecting game image and matching the patch library…"
     app.mu.Unlock()
     redraw()
-    go func(){
-        defer catchFatalPanic()
-        info,summary,kind,err:=inspectGamePath(path)
-        result:=gameInspection{
-            path:path,
-            generation:generation,
-            info:info,
-            partSummary:summary,
-            sourceKind:kind,
-            err:err,
-        }
-        // A stale worker may finish after a newly selected game. Keep only
-        // the newest results when full, and always check the generation on
-        // the owner thread before committing state.
-        select{
-        case gameInspectReady<-result:
-        default:
-            select{case <-gameInspectReady:default:}
-            select{case gameInspectReady<-result:default:}
-        }
-        if app.hwnd!=0{sysCall(postMsg,app.hwnd,WM_APP+4,0,0)}
-    }()
+    // At most ONE inspection runs globally, with only the newest pending
+    // selection retained. Earlier ISO/CCI scans are actively cancelled.
+    queueGameInspection(path,generation,app.hwnd)
     // Remain at a precise operation stage until WM_APP+4 receives a result.
     // The older code reset the marker immediately, so native file-selection
     // exits were all labelled only "ui_callback".
@@ -1476,6 +1457,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) (out uintptr) {
 func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	switch msg {
 	case WM_DESTROY:
+        stopGameInspections()
 		sysCall(postQuit, 0)
 		return 0
 	case WM_CLOSE:
