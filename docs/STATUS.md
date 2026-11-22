@@ -1,3 +1,11 @@
+## 2026-11-22 — CRC warnings, image discovery, theme and converter follow-up (development branch; NOT field verified)
+
+- Main Patch Library output preflight now compares the exact original `default.xbe` CRC32 against selected JMP constraints before ordinary export confirmation. A mismatch produces an explicit warning and optional one-operation override, without persisting unsafe bypass settings. The selected patch footer displays expected versus loaded CRC in red when mismatched.
+- Patch list count is deduplicated entries while sync reports downloaded source files (e.g. 800 versus 803 can reflect three collapsed entries); exact duplicate identities still require a live catalogue audit.
+- Convert Patch permits a selected script alongside an optional known pre-patched XBE. With the original source supplied, the script output is compared byte-for-byte to the reference before saving converted output; the converter's existing internal round-trip check still applies. This is single-file verification, not proof of multi-file/PF equivalence.
+- Settings adds persisted Midnight, Forest and Plum palettes. PatchHub media lookup adds a small GET range fallback for HEAD-blocking servers, known owner-provided AMF Bowling URL (and existing Phantom Crash URL), and displays only successfully downloaded/validated images. Live AMF HTTP delivery and actual GUI display are not verified.
+- This branch has NOT been compiled, tested on Windows, or released. Do not mark as shipped or close the prior CTD issue. Avoid unnecessary Actions churn; run tests, vet, Windows cross-build, updater checks and real GUI QA before merge/release.
+
 # Current QA and release status — MagicPatchDesk
 
 **Last confirmed:** 2026-11-22 NZ. This is the **current QA status**, not the 2026-11-21 first-build snapshot that previously occupied this file. For the self-contained development handoff and exact next-conversation prompt, see [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md); for user product requirements, see [DECISIONS.md](DECISIONS.md).
