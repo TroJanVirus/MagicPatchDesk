@@ -75,7 +75,8 @@ func AppendPatchHubMedia(hub *HubIndex,urls []HubScreenshot){
             x,y:=hub.Games[i].Screenshots[a],hub.Games[i].Screenshots[b]
             if x.Patch!=y.Patch{return x.Patch<y.Patch}
             if x.Set!=y.Set{return x.Set<y.Set}
-            return x.Kind=="before"
+            if x.Kind!=y.Kind{return x.Kind=="before"}
+            return x.URL<y.URL
         })
     }
 }
