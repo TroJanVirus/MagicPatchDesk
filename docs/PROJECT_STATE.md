@@ -1,3 +1,12 @@
+## 2026-11-22 — v0.14.0-test.13 published successfully
+
+Preview: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.13
+One-shot CI: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44994029736 — **completed success**. `scripts/verify_release_contract.sh`, PatchHub image index fixture, native JMP icon resource, `go test -count=1 ./...` including new synthetic multipart CCI and numbered raw ISO/XISO cross-boundary/member/output tests, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 GUI cross-build, PE check and `SHA256SUMS.txt` checksum verification all passed.
+
+Canonical Windows EXE `MagicPatchDesk-Windows-x64.exe` (7,727,104 bytes, SHA256 `82da5c57e4f5d33320f2cbe2a41bb35df96c3d4524e7c63bf202d62236a31fda`) and `SHA256SUMS.txt` are published. The owner-supplied `README.md` remains unchanged. Updater protocol `1`, exact asset naming and rollback contract are preserved.
+
+**Still unverified:** native Windows `--mpd-ui-smoke-v1` execution, live Win32 clicking/dragging and rendering, retail split-image compatibility, physical Cerbios/Xbox bootability and elimination of prior unexpected exits. Linux Go unit tests / Windows cross-build do NOT establish those claims. Unknown absent trailing parts cannot always be detected without an external manifest, and arbitrary split naming formats are not supported. Source-safety and test details: `docs/RELEASE_NOTES_v0.14.0-test.13.md`.
+
 ## 2026-11-22 — v0.14.0-test.13 candidate: Home, drag-and-drop, multipart images
 
 - User requests: (1) complete multi-part image awareness, including correct embedded `default.xbe` extraction regardless of which numbered part is supplied, (2) dropping ISO/XISO/CCI must identify the game and jump into Patch Library, like loose XBE, (3) a friendly Home landing page with brief features, prominent drag/drop guidance and a direct Patch Hub link. Owner-provided `README.md` must remain the human-oriented file, unchanged unless justified.
