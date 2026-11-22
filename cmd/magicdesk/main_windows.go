@@ -239,6 +239,16 @@ type appState struct {
 	fonts         fonts
 	lastErr       string
     recoveredCrashes int
+    notesOpen bool
+    notesScroll int
+    mouseY int32
+    scrollDragStartY int32
+    scrollDragStartValue int
+    patchViewport rect
+    recordViewport rect
+    patchBar listScrollBar
+    recordBar listScrollBar
+    notesBar listScrollBar
 	recentFiles []core.RecentFile
 	recentSelected int
 	recentOffset int
@@ -1043,6 +1053,7 @@ func handle(action string, index int) {
 	case "manager-scan", "manager-mode", "manager-select", "manager-patch-prev", "manager-patch-next", "manager-auto", "manager-review", "manager-skip", "manager-all-safe", "manager-run", "manager-format", "manager-open", "manager-image-choose", "manager-image-current", "manager-image-select", "manager-image-extract", "manager-log-clear", "manager-log-prev", "manager-log-next", "manager-confidence-refresh", "manager-confidence-result", "manager-confidence-xemu", "manager-confidence-hardware", "manager-confidence-revision", "manager-confidence-ram", "manager-confidence-cpu", "manager-merge":
         managerAction(action,index)
 	case "tab":
+        app.notesOpen=false
         app.galleryOpen=false
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
@@ -1053,6 +1064,8 @@ func handle(action string, index int) {
 		app.packSources = nil
 		app.directFile = ""
 		app.selectedGame = index
+        app.notesOpen=false
+        app.notesScroll=0
         app.galleryOpen=false
         app.galleryPage=0
 		app.selectedPatch = -1
@@ -1061,11 +1074,28 @@ func handle(action string, index int) {
 		app.groupScroll = 0
 		app.expandedGroup = -1
 	case "patch":
+        app.notesOpen=false
+        app.notesScroll=0
         app.galleryOpen=false
         app.galleryPage=0
 		app.packSources = nil
 		app.directFile = ""
 		selectPatch(index)
+    case "crash-open-reports":
+        app.tab=2
+        app.recoveredCrashes=0
+        refreshDiagnosticGroups()
+    case "notes-open":
+        if selectedPatchNoteText()!="" {app.notesOpen=true;app.notesScroll=0}
+    case "notes-close":
+        app.notesOpen=false
+    case "notes-copy":
+        if e:=copyDiagnosticText(selectedPatchNoteText());e!=nil{notify("Cannot copy notes: "+e.Error())}
+    case "patch-scroll-track","records-scroll-track","notes-scroll-track":
+        section:=strings.TrimSuffix(action,"-scroll-track")
+        setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
+    case "patch-scroll-thumb","records-scroll-thumb","notes-scroll-thumb":
+        // Drag handled directly by the mouse capture loop.
     case "gallery-open":
         images,_:=selectedLibraryGallery()
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
@@ -1246,7 +1276,16 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		sysCall(endPaint, hwnd, uintptr(unsafe.Pointer(&ps)))
 		return 0
 	case WM_MOUSEMOVE:
-		hoverAt(hwnd, lo(lp), hi(lp))
+        x,y:=lo(lp),hi(lp)
+        app.mouseY=y
+        if app.mouseDown && strings.HasSuffix(app.pressedAction,"-scroll-thumb"){
+            section:=strings.TrimSuffix(app.pressedAction,"-scroll-thumb")
+            value:=valueFromThumbDrag(scrollSectionBar(section),app.scrollDragStartValue,app.scrollDragStartY,y)
+            setScrollSection(section,value)
+            redraw()
+            return 0
+        }
+		hoverAt(hwnd,x,y)
 		return 0
 	case WM_MOUSELEAVE:
 		app.mouseTracked = false
@@ -1282,8 +1321,18 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		}
 	case WM_LBUTTONDOWN:
 		x, y := lo(lp), hi(lp)
+        app.mouseY=y
 		h, ok := mouseHit(x, y)
 		app.mouseDown = ok
+        if ok&&strings.HasSuffix(h.Action,"-scroll-thumb"){
+            section:=strings.TrimSuffix(h.Action,"-scroll-thumb")
+            app.scrollDragStartY=y
+            switch section{
+            case "patch":app.scrollDragStartValue=app.patchScroll
+            case "records":app.scrollDragStartValue=app.groupScroll
+            case "notes":app.scrollDragStartValue=app.notesScroll
+            }
+        }
 		if ok {
 			app.pressedAction, app.pressedIndex = h.Action, h.Index
 			sysCall(setCapture, hwnd)
@@ -1292,6 +1341,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		return 0
 	case WM_LBUTTONUP:
 		x, y := lo(lp), hi(lp)
+        app.mouseY=y
 		pressedAction, pressedIndex := app.pressedAction, app.pressedIndex
 		wasDown := app.mouseDown
 		app.mouseDown = false
@@ -1299,6 +1349,12 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		sysCall(releaseCapture)
 		app.searchFocus = false
 		app.passFocus = false
+        if wasDown&&strings.HasSuffix(pressedAction,"-scroll-thumb"){
+            section:=strings.TrimSuffix(pressedAction,"-scroll-thumb")
+            setScrollSection(section,valueFromThumbDrag(scrollSectionBar(section),app.scrollDragStartValue,app.scrollDragStartY,y))
+            redraw()
+            return 0
+        }
 		h, ok := mouseHit(x, y)
 		if ok && wasDown && h.Action == pressedAction && h.Index == pressedIndex {
 			handle(h.Action, h.Index)
@@ -1307,39 +1363,40 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		redraw()
 		return 0
 	case WM_MOUSEWHEEL:
-		delta := hi(wp)
-        if app.tab==8 {managerWheel(int(delta));redraw();return 0}
-		if app.tab == 3 {
-			app.mu.Lock()
-			app.dashboardSelected -= int(delta / 120) * 2
-			if app.dashboardSelected < 0 { app.dashboardSelected = 0 }
-			if app.dashboardSelected >= len(app.dashboardCases) && len(app.dashboardCases) > 0 { app.dashboardSelected = len(app.dashboardCases)-1 }
-			app.mu.Unlock()
-			redraw()
-			return 0
-		}
-		if delta != 0 {
-			var p point
-			sysCall(user32.NewProc("GetCursorPos"), uintptr(unsafe.Pointer(&p)))
-			sysCall(user32.NewProc("ScreenToClient"), hwnd, uintptr(unsafe.Pointer(&p)))
-			if p.X < 610 {
-				app.gameScroll -= int(delta/120) * 3
-				if app.gameScroll < 0 {
-					app.gameScroll = 0
-				}
-			} else {
-				app.patchScroll -= int(delta/120) * 2
-				if app.patchScroll < 0 {
-					app.patchScroll = 0
-				}
-				app.groupScroll -= int(delta / 120)
-				if app.groupScroll < 0 {
-					app.groupScroll = 0
-				}
-			}
-			redraw()
-		}
-		return 0
+        delta:=int(int16(hi(wp)))
+        if delta==0{return 0}
+        if app.tab==8{managerWheel(delta);redraw();return 0}
+        if app.tab==3{
+            app.mu.Lock()
+            app.dashboardSelected-=delta/120*2
+            if app.dashboardSelected<0{app.dashboardSelected=0}
+            if app.dashboardSelected>=len(app.dashboardCases)&&len(app.dashboardCases)>0{app.dashboardSelected=len(app.dashboardCases)-1}
+            app.mu.Unlock()
+            redraw()
+            return 0
+        }
+        if app.tab==0{
+            if app.notesOpen{
+                changeScrollByWheel("notes",delta)
+                redraw()
+                return 0
+            }
+            if app.galleryOpen{return 0}
+            var pos point
+            sysCall(user32.NewProc("GetCursorPos"),uintptr(unsafe.Pointer(&pos)))
+            sysCall(user32.NewProc("ScreenToClient"),hwnd,uintptr(unsafe.Pointer(&pos)))
+            switch{
+            case inRect(app.patchViewport,pos.X,pos.Y):
+                changeScrollByWheel("patch",delta)
+            case inRect(app.recordViewport,pos.X,pos.Y):
+                changeScrollByWheel("records",delta)
+            case pos.X>=255&&pos.X<608:
+                app.gameScroll-=delta/120*3
+                if app.gameScroll<0{app.gameScroll=0}
+            }
+            redraw()
+        }
+        return 0
 	case WM_CHAR:
 		if app.passFocus {
 			if wp == 8 {
@@ -1370,6 +1427,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	case WM_KEYDOWN:
 		if handleQuickShortcut(wp) {return 0}
 		if wp == 27 {
+            app.notesOpen=false
             app.galleryOpen=false
 			app.searchFocus = false
 			app.passFocus = false
