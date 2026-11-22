@@ -218,3 +218,19 @@ func TestPackPreservesDefaultJMPChecksumWithoutOriginalAtExport(t *testing.T) {
 		t.Fatal("source-free export failed to preserve original checksum constraint")
 	}
 }
+
+func TestJMPPackSearchReplaceReasonDoesNotGetHiddenByBPSRequirement(t *testing.T){
+    patch:=jmpForPack("Edit config.cfg",
+        "#Find and replace (config.cfg)\n68656C6C6F\n574F524C44\n")
+    for _,fmtN:=range []int{1,4}{
+        plan,err:=PlanJMPPack("mixed.jmp",patch,fmtN)
+        if err!=nil||len(plan.Targets)!=1{
+            t.Fatalf("format %d did not plan target: %+v %v",fmtN,plan,err)
+        }
+        item:=plan.Targets[0]
+        if !item.RequiresSource||!strings.Contains(strings.ToLower(item.Reason),"search-and-replace"){
+            t.Fatalf("format %d must block without original and explain search-and-replace: %+v",fmtN,item)
+        }
+        if len(plan.MissingSources(nil))!=1{t.Fatalf("format %d allowed missing original",fmtN)}
+    }
+}
