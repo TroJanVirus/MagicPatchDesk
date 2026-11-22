@@ -1,6 +1,7 @@
 package core
 
 import (
+    "context"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -42,12 +43,37 @@ func readAt(f io.ReaderAt, where int64, n int) ([]byte, error) {
     if count!=n{return nil,io.ErrUnexpectedEOF}
     return b,nil
 }
+// OpenXISOContext allows superseded UI source inspections to stop before a
+// large directory walk or member read finishes. Existing callers keep the
+// original non-cancellable OpenXISO entry point.
+// readAtContext stops between bounded reads and rejects short reads. This
+// avoids a superseded scan holding onto a large XBE read unnecessarily.
+func readAtContext(ctx context.Context,f io.ReaderAt,where int64,n int)([]byte,error){
+    if err:=ctx.Err();err!=nil{return nil,err}
+    if where<0||n<0{return nil,errors.New("negative image read range")}
+    b:=make([]byte,n)
+    const chunk=1<<20
+    for done:=0;done<n;{
+        if err:=ctx.Err();err!=nil{return nil,err}
+        count:=n-done
+        if count>chunk{count=chunk}
+        got,err:=f.ReadAt(b[done:done+count],where+int64(done))
+        if err!=nil{return nil,err}
+        if got!=count{return nil,io.ErrUnexpectedEOF}
+        done+=count
+    }
+    return b,nil
+}
 func OpenXISO(path string) (*Image,error) {
+    return OpenXISOContext(context.Background(),path)
+}
+func OpenXISOContext(ctx context.Context,path string) (*Image,error) {
+    if err:=ctx.Err();err!=nil{return nil,err}
     if IsNumberedRawImagePart(path) {
         parts,err:=openRawDiscParts(path)
         if err!=nil{return nil,err}
         defer parts.Close()
-        return openXDVDFSReaderAt(parts,parts.size,path)
+        return openXDVDFSReaderAtContext(ctx,parts,parts.size,path)
     }
     f,err:=os.Open(path)
     if err!=nil{return nil,err}
@@ -55,7 +81,7 @@ func OpenXISO(path string) (*Image,error) {
     st,err:=f.Stat()
     if err!=nil{return nil,err}
     if !st.Mode().IsRegular(){return nil,errors.New("disc image is not a regular file")}
-    return openXDVDFSReaderAt(f,st.Size(),path)
+    return openXDVDFSReaderAtContext(ctx,f,st.Size(),path)
 }
 
 // Use the same bounded XDVDFS parser for ordinary ISOs and for a logical
@@ -70,12 +96,17 @@ type imageScanLimits struct {
 }
 
 func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,error) {
+    return openXDVDFSReaderAtContext(context.Background(),f,imageSize,path)
+}
+func openXDVDFSReaderAtContext(ctx context.Context,f io.ReaderAt, imageSize int64, path string) (*Image,error) {
+    if err:=ctx.Err();err!=nil{return nil,err}
     if imageSize<0{return nil,errors.New("negative Xbox image size")}
 	for _, base := range partitionBases {
+        if err:=ctx.Err();err!=nil{return nil,err}
         if base+0x10800>imageSize {
 			continue
 		}
-		v, err := readAt(f, base+0x10000, int(sectorSize))
+		v, err := readAtContext(ctx,f, base+0x10000, int(sectorSize))
 		if err != nil || !bytes.Equal(v[:20], volumeMagic) || !bytes.Equal(v[0x7EC:0x800], volumeMagic) {
 			continue
 		}
@@ -87,7 +118,7 @@ func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,err
 		im := &Image{Path: path, Base: base, RootSector: root, RootSize: rs}
         visited:=map[string]bool{}
         limits:=&imageScanLimits{}
-        if err:=im.walk(f,imageSize,"",root,rs,visited,0,limits);err!=nil{
+        if err:=im.walk(ctx,f,imageSize,"",root,rs,visited,0,limits);err!=nil{
 			return nil, err
 		}
 		if len(im.Files) == 0 {
@@ -97,7 +128,8 @@ func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,err
 	}
 	return nil, errors.New("no recognized original Xbox XDVDFS volume (XISO / XGD1 / XGD2 / XGD3)")
 }
-func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint32, size uint32, visited map[string]bool, depth int, limits *imageScanLimits) error {
+func (im *Image) walk(ctx context.Context,f io.ReaderAt, imageSize int64, prefix string, sector uint32, size uint32, visited map[string]bool, depth int, limits *imageScanLimits) error {
+    if err:=ctx.Err();err!=nil{return err}
 	if depth > 24 {
 		return errors.New("XISO directory nesting too deep")
 	}
@@ -118,7 +150,7 @@ func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint
 	if dirAt < 0 || dirAt+int64(size) > imageSize {
 		return errors.New("directory table outside image")
 	}
-	table, err := readAt(f, dirAt, int(size))
+	table, err := readAtContext(ctx,f, dirAt, int(size))
 	if err != nil {
 		return err
 	}
@@ -127,6 +159,7 @@ func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint
     nodes:=map[int]bool{}
     pending:=[]int{0}
     for len(pending)>0{
+        if err:=ctx.Err();err!=nil{return err}
         off:=pending[len(pending)-1]
         pending=pending[:len(pending)-1]
         if nodes[off]{return errors.New("directory tree cycle")}
@@ -156,7 +189,7 @@ func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint
         if attr&0x10!=0{
             im.Directories=append(im.Directories,pth)
             if sector!=0&&filesize!=0 {
-                if err:=im.walk(f,imageSize,pth,sector,filesize,visited,depth+1,limits);err!=nil{
+                if err:=im.walk(ctx,f,imageSize,pth,sector,filesize,visited,depth+1,limits);err!=nil{
                     return err
                 }
             }
@@ -197,27 +230,30 @@ func (im *Image) DefaultXBE() (ImageFile, error) {
 	return ImageFile{}, fmt.Errorf("multiple XBEs found; default.xbe is absent (cannot auto-select safely)")
 }
 func (im *Image) ReadFile(entry ImageFile) ([]byte, error) {
+    return im.ReadFileContext(context.Background(),entry)
+}
+func (im *Image) ReadFileContext(ctx context.Context,entry ImageFile)([]byte,error){
+    if err:=ctx.Err();err!=nil{return nil,err}
     if entry.Size>512<<20{return nil,errors.New("XDVDFS member exceeds 512 MiB safety limit")}
+    offset:=im.Base+int64(entry.StartSector)*sectorSize
     if IsNumberedRawImagePart(im.Path){
         parts,err:=openRawDiscParts(im.Path)
         if err!=nil{return nil,err}
         defer parts.Close()
-        offset:=im.Base+int64(entry.StartSector)*sectorSize
-        if offset<0 || offset+int64(entry.Size)>parts.size {
+        if offset<0||offset+int64(entry.Size)>parts.size{
             return nil,errors.New("split ISO member extends outside the complete disc")
         }
-        return readAt(parts,offset,int(entry.Size))
+        return readAtContext(ctx,parts,offset,int(entry.Size))
     }
     f,err:=os.Open(im.Path)
     if err!=nil{return nil,err}
     defer f.Close()
     st,err:=f.Stat()
     if err!=nil{return nil,err}
-    offset:=im.Base+int64(entry.StartSector)*sectorSize
     if !st.Mode().IsRegular()||offset<0||offset+int64(entry.Size)>st.Size(){
         return nil,errors.New("XDVDFS member is outside the current disc image")
     }
-    return readAt(f,offset,int(entry.Size))
+    return readAtContext(ctx,f,offset,int(entry.Size))
 }
 
 // CopyImage performs bounded parallel ReadAt/WriteAt copies. The caller chooses worker count (1-8).
