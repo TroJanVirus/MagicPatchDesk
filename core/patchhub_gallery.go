@@ -203,6 +203,7 @@ func AttachHubGallery(patches []CatalogPatch,shots []HubScreenshot) {
         shotKey:=CoverMatchKey(shot.Patch)
         for i,p:=range patches{
             if shot.TitleID!="" && !strings.EqualFold(shot.TitleID,p.TitleID){continue}
+            if shot.Region!=""&&p.Region!=""&&!patchRegionEquivalent(p.Region,shot.Region){continue}
             if shotKey!=""{
                 patchKey:=CoverMatchKey(p.Name)
                 // PatchHub folder labels may be shorter than the filename.
