@@ -444,13 +444,18 @@ func hoverAt(hwnd uintptr, x, y int32) {
 	sysCall(setCursor, sysCall(loadCursor, 0, cursor))
 }
 
-func tag(hdc uintptr, label string, x, y int32, bg uint32) {
-	wd := int32(12 + len([]rune(label))*7)
-	if wd > 170 {
-		wd = 170
-	}
-	panel(hdc, ir(x, y, wd, 23), bg, 11)
-	txt(hdc, label, ir(x+6, y, wd-12, 22), app.fonts.Micro, 0xE5EEFF, DT_SINGLELINE|DT_VCENTER|DT_CENTER)
+// The old 7px-per-character estimate clipped the "Widescreen" badge
+// because Segoe UI glyph widths are not constant. Measure with real GDI.
+func tagWidth(hdc uintptr,label string)int32{
+    wd:=textPixelWidth(hdc,label,app.fonts.Micro)+18
+    if wd<48{wd=48}
+    if wd>190{wd=190}
+    return wd
+}
+func tag(hdc uintptr,label string,x,y int32,bg uint32){
+    wd:=tagWidth(hdc,label)
+    panel(hdc,ir(x,y,wd,23),bg,11)
+    txt(hdc,label,ir(x+7,y,wd-14,23),app.fonts.Micro,0xE5EEFF,DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
 }
 func mark(hdc uintptr, r rect, active bool) {
 	panel(hdc, r, 0x2D3951, 8)
