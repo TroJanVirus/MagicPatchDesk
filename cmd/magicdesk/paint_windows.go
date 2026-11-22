@@ -64,6 +64,7 @@ func paint(hdc uintptr) {
 	switch app.tab {
 	case 0:
 		drawLibrary(hdc, w, h)
+        if app.galleryOpen{drawPatchGallery(hdc,w,h)}
 	case 1:
 		drawConvert(hdc, w, h)
 	case 2:
@@ -338,6 +339,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			detail += "  ·  " + p.RAM
 		}
 		textAt(hdc, strLimit(detail, 90), x+150, y+29, width-181, 17, app.fonts.Small, muted)
+        if len(p.Gallery)>0{tag(hdc,fmt.Sprintf("%d IMAGE(S)",len(p.Gallery)),x+width-112,y+3,0x33537E)}
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
 	}
 	p := app.parsed
@@ -347,7 +349,13 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		txt(hdc, "Choose a patch above to review and toggle its records.", ir(x+25, groupY+16, width-51, 55), app.fonts.Regular, muted, DT_WORDBREAK)
 		return
 	}
-	textAt(hdc, fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS", len(p.Records)), x+23, groupY, width-43, 23, app.fonts.Micro, muted)
+    textAt(hdc,fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS",len(p.Records)),x+23,groupY,width-199,23,app.fonts.Micro,muted)
+    if app.selectedPatch>=0&&app.selectedPatch<len(g.Patches){
+        shots:=g.Patches[app.selectedPatch].Gallery
+        if len(shots)>0 {
+            button(hdc,fmt.Sprintf("View images (%d)",len(shots)),ir(x+width-168,groupY-1,150,30),"gallery-open",0,false)
+        }
+    }
 	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
 	rowY := groupY + 56
 	visible := int((bottom - rowY - 88) / 38)
