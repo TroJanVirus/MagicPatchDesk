@@ -101,3 +101,21 @@ func TestRawSplitPartNeverCopiedOrCompressedAsStandaloneISO(t *testing.T){
         t.Fatal("single numbered raw fragment was compressed as complete CCI")
     }
 }
+
+func TestNumberedXISOSuffixSupportsPartTwoAndMissingParts(t *testing.T){
+    selected,xbe,_:=makeRawSplitGameFixture(t)
+    stem:=strings.TrimSuffix(selected,".2.iso")
+    for i:=1;i<=3;i++{
+        old:=stem+"."+string(rune('0'+i))+".iso"
+        neu:=stem+"."+string(rune('0'+i))+".xiso"
+        if err:=os.Rename(old,neu);err!=nil{t.Fatal(err)}
+    }
+    path:=stem+".2.xiso"
+    if !IsNumberedRawImagePart(path){t.Fatal("numbered XISO extension ignored")}
+    im,err:=OpenXISO(path)
+    if err!=nil{t.Fatal(err)}
+    entry,err:=im.DefaultXBE()
+    if err!=nil{t.Fatal(err)}
+    data,err:=im.ReadFile(entry)
+    if err!=nil||!bytes.Equal(data,xbe){t.Fatalf("selected .2.xiso gave wrong default.xbe: %v",err)}
+}
