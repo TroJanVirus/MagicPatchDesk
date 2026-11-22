@@ -732,66 +732,61 @@ func pickFile(save bool, filter, title, defaultName string) string {
 func openInput(path string) {
     selectGameSource(path)
     markCrashStage("read_xbe")
-    if core.CCISourcePath(path) {
-        reader,err:=core.OpenCCI(path)
-        if err!=nil {notify("Cannot load CCI: "+err.Error());return}
-        reader.Close()
-        app.mu.Lock()
-        app.input=path
-        app.inputErr="CCI source ready; XBE is checked during preview"
-        app.inputInfo=core.XBEInfo{}
-        app.status="CCI loaded; select patch and preview"
-        app.mu.Unlock()
-        rememberRecent("input",path)
-        redraw()
-        return
-    }
-
-	app.input = path
-	app.inputErr = "Reading executable…"
-	app.inputInfo = core.XBEInfo{}
-	redraw()
-	go func() {
+    defer markCrashStage("ui_callback")
+    app.mu.Lock()
+    app.input=path
+    app.inputErr="Reading game executable…"
+    app.inputInfo=core.XBEInfo{}
+    app.status="Inspecting game image and matching the patch library…"
+    app.mu.Unlock()
+    redraw()
+    go func() {
         defer catchFatalPanic()
-		var data []byte
-		var err error
-		if strings.EqualFold(filepath.Ext(path), ".xbe") {
-			data, err = os.ReadFile(path)
-		} else {
-			var im *core.Image
-			im, err = core.OpenXISO(path)
-			if err == nil {
-				var entry core.ImageFile
-				entry, err = im.DefaultXBE()
-				if err == nil {
-					data, err = im.ReadFile(entry)
-				}
-			}
-		}
-		var info core.XBEInfo
-		if err == nil {
-			info, err = core.InspectXBE(data)
-		}
-		app.mu.Lock()
-        if app.input!=path {app.mu.Unlock();return} // drop a stale asynchronous read
-		app.inputInfo = info
-		if err != nil {
-			app.inputErr = err.Error()
-		} else {
-			app.inputErr = ""
-			app.status = "Loaded: " + info.Title + " · " + info.TitleID + " · CRC32 " + info.CRC32
-		}
-		app.mu.Unlock()
-		if err == nil {
-            // Another input may have been chosen while this I/O completed.
+        var info core.XBEInfo
+        var err error
+        if core.CCISourcePath(path) {
+            // A CCIM split set is one logical stream, regardless of which
+            // numbered part the user selected. Parse XDVDFS and read only
+            // default.xbe rather than decoding gigabytes of game content.
+            info,err=core.InspectCCIExecutable(path)
+        }else{
+            var data []byte
+            if strings.EqualFold(filepath.Ext(path),".xbe"){
+                data,err=os.ReadFile(path)
+            }else{
+                var im *core.Image
+                im,err=core.OpenXISO(path)
+                if err==nil{
+                    var entry core.ImageFile
+                    entry,err=im.DefaultXBE()
+                    if err==nil {data,err=im.ReadFile(entry)}
+                }
+            }
+            if err==nil{info,err=core.InspectXBE(data)}
+        }
+        app.mu.Lock()
+        if app.input!=path{app.mu.Unlock();return}
+        app.inputInfo=info
+        if err!=nil {
+            app.inputErr=err.Error()
+            app.status="Cannot identify game: "+err.Error()
+        }else{
+            app.inputErr=""
+            app.status="Loaded: "+info.Title+" · "+info.TitleID+" · CRC32 "+info.CRC32
+        }
+        app.mu.Unlock()
+        if err==nil{
             app.mu.Lock();same:=app.input==path;app.mu.Unlock()
             if !same{return}
-			rememberRecent("input",path)
-			queueAutoMatch(info)
-		}
-		redraw()
-	}()
+            rememberRecent("input",path)
+            queueAutoMatch(info)
+        }else{
+            recordWarning("game.inspect",err,path,"","")
+        }
+        redraw()
+    }()
 }
+
 func selectPatch(idx int) {
     markCrashStage("parse_patch")
     defer markCrashStage("ui_callback")
