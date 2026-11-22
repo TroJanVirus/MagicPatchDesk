@@ -70,6 +70,51 @@ func smokePaintAndExit() {
         panic(fmt.Sprintf("Converter source patch must precede original XBE (patch=%d original=%d)",sourceTop,originalTop))
     }
 
+    // Text must be fully visible on compact Maintenance controls. Earlier
+    // builds drew 17px labels inside 81px buttons, clipping "App folder",
+    // "Data folder" and "Check + sync at start" even at desktop widths.
+    app.tab=6
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    required:=map[string]string{
+        "maint-beta":"Previews on",
+        "maint-autocheck":"Check + sync at start",
+        "maint-program":"App folder",
+        "maint-data":"Data folder",
+    }
+    if !maintenancePref.Beta{required["maint-beta"]="Stable only"}
+    if maintenancePref.NoAutoCheck{required["maint-autocheck"]="Manual check + sync"}
+    smokeDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
+    if smokeDC==0{panic("Cannot measure Win32 Maintenance text")}
+    defer sysCall(user32.NewProc("ReleaseDC"),app.hwnd,smokeDC)
+    controls:=map[string]rect{}
+    for _,hit:=range app.hits {
+        if name,ok:=required[hit.Action];ok{
+            controls[hit.Action]=hit.R
+            if textPixelWidth(smokeDC,name,app.fonts.ButtonTiny)>hit.R.R-hit.R.L-20{
+                panic(fmt.Sprintf("Maintenance button %s still clips %q",hit.Action,name))
+            }
+        }
+    }
+    for name:=range required{
+        if _,ok:=controls[name];!ok{panic("Maintenance button missing: "+name)}
+    }
+    for a,ra:=range controls{
+        for b,rb:=range controls{
+            if a>=b{continue}
+            if ra.L<rb.R&&ra.R>rb.L&&ra.T<rb.B&&ra.B>rb.T{
+                panic(fmt.Sprintf("Maintenance buttons overlap: %s and %s",a,b))
+            }
+        }
+    }
+    app.tab=0
+    if chosenGameSource()==""{
+        help:=outputSummary()
+        if !strings.Contains(strings.ToLower(help),"formats")||strings.Contains(help,"source game"){
+            panic("Patch Library OUTPUTS hint does not explain format selection")
+        }
+    }
+
     // A standalone Game Outputs tab must NOT be navigable: its previous
     // single-game functionality now belongs to Patch Library.
     app.tab=0
