@@ -32,6 +32,11 @@ func setTheme(name string) {
     case "Plum":
         bg,sidebar,surface,surface2=0x1D1320,0x291B2D,0x3A2940,0x4C3652
         muted,white,blue,mint,amber=0xBCB0CA,0xFCF4FF,0xE8A6D6,0xC6D8FF,0xD6AFEA
+    case "Light":
+        // GDI COLORREF BGR. Light backgrounds and genuinely dark foreground
+        // text, not a pale background with leftover white typography.
+        bg,sidebar,surface,surface2=0xF7F4F0,0xE8E4DE,0xFFFFFF,0xEEEAE5
+        muted,white,blue,mint,amber=0x67564C,0x211B17,0xB45F29,0x566D15,0x5C4BA4
     default:
         bg,sidebar,surface,surface2=0x0C111C,0x111A29,0x182335,0x1F2D44
         muted,white,blue,mint,amber=0x91A3BD,0xF5F8FF,0x6C9CFF,0x5AD5BF,0xFFC678
