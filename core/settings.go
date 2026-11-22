@@ -13,12 +13,14 @@ import (
 type Preferences struct {
 	Workers int `json:"workers"`
 	Filter  int `json:"catalog_filter"`
+    Theme string `json:"theme,omitempty"`
 	GameOutputFormats map[string]uint32 `json:"game_output_formats,omitempty"`
 }
 
 func DefaultPreferences() Preferences { return Preferences{Workers: 4, Filter: 0} }
 
 func (p Preferences) Validate() Preferences {
+	if p.Theme!="Midnight" && p.Theme!="Forest" && p.Theme!="Plum" {p.Theme="Midnight"}
 	if p.Workers < 1 || p.Workers > 8 {
 		p.Workers = 4
 	}
