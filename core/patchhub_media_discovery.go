@@ -196,6 +196,17 @@ func MatchPatchHubMedia(game Game, patch CatalogPatch, all []HubScreenshot) []Hu
         result=append(result,shot)
         if len(result)>=32 {break}
     }
+    if version=="" {
+        // If a title has several compatible revisions and the JMP does not
+        // specify one, an image from one revision may be wrong for another.
+        revisions:=map[string]bool{}
+        for _,v:=range game.Versions {
+            if strings.EqualFold(v.TitleID,patch.TitleID)&&patchRegionEquivalent(patch.Region,v.Region) {
+                revisions[strings.ToUpper(v.Region)+"_"+normalizeHubVersion(v.Version)]=true
+            }
+        }
+        if len(revisions)>1{return nil}
+    }
     sort.SliceStable(result,func(i,j int)bool{
         if result[i].Set!=result[j].Set{return result[i].Set<result[j].Set}
         if result[i].Kind!=result[j].Kind{return result[i].Kind=="before"}
