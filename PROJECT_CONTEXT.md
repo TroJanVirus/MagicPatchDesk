@@ -1,3 +1,7 @@
+### 2026-11-22 added guard coverage (candidate)
+
+All Patch Library background catalogue reload and user-triggered sync entry points, not just the initial updater check, use panic recovery. Portable AST test checks mandatory sysCall `//go:uintptrescapes` annotation. No app-level tests or user hardware validation executed yet.
+
 ### Further 2026-11-22 finding — native sysCall pointer-lifetime defect (candidate correction)
 
 Custom `sysCall(p *syscall.LazyProc, a ...uintptr)` accepted Go-managed Win32 pointers without the `//go:uintptrescapes` compiler annotation that standard `syscall.LazyProc.Call` uses. This unsafe wrapper could leave transient Go-owned UTF-16 and GDI structs unrooted across a native call under GC pressure; actual crashing at that point is unproven. An independent Go 1.23.2 cross-compile probe verified that adding the annotation changes compiler escape analysis to retain the referenced allocation. Applied annotation to wrapper, and forced GC in native UI smoke paint. **No app-level automated Go/Windows test or user field test has been executed for this candidate.** See docs/CRASH_RECOVERY_AND_UI.md and PR #32.

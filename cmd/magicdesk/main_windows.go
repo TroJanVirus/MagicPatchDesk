@@ -552,8 +552,8 @@ func initApp() {
     // The single Check at Start preference now governs BOTH the application
     // update check and public GitHub/PatchHub library refresh. Offline users
     // still see the cached catalogue and can run either check manually.
-    if maintenancePref.NoAutoCheck {go reloadCatalog()}else{checkForNewRelease(true)}
-	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
+    if maintenancePref.NoAutoCheck {go runProtectedBackgroundTask("library_sync",reloadCatalog)}else{checkForNewRelease(true)}
+	if maintenancePref.AutoReports && isGitHubConnected() {go runProtectedBackgroundTask("library_sync",syncStoredReports)}
 	sysCall(updateWindow, app.hwnd)
     markCrashStage("ui_callback")
 	var m msg
@@ -1315,7 +1315,7 @@ func handle(action string, index int) {
             openInput(p)
         }
 	case "sync":
-		go reloadAndSync()
+		go runProtectedBackgroundTask("library_sync",reloadAndSync)
 	case "apply":
         if !libraryApplyReady(){
             notify("Choose a source game, a patch, and at least one supported output format before applying.")
@@ -1351,7 +1351,7 @@ func handle(action string, index int) {
                 }
             }else{
                 manager.log.Add("pass","Import JMP","Imported independent patch copy: "+filepath.Base(saved))
-                go reloadCatalog()
+                go runProtectedBackgroundTask("library_sync",reloadCatalog)
                 notify("Imported local patch: "+filepath.Base(saved))
             }
 		}
@@ -1386,7 +1386,7 @@ func handle(action string, index int) {
             notify(fmt.Sprintf("Catalogue deduplication audit: %d collapsed entries",len(duplicates)))
         }
 	case "refresh":
-		go reloadCatalog()
+		go runProtectedBackgroundTask("library_sync",reloadCatalog)
 	case "theme":
         names:=[]string{"Midnight","Forest","Plum","Light"}
         if index>=0 && index<len(names) {
@@ -1725,7 +1725,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                         manager.log.Add("error","Import JMP","Duplicate patch found! No need to add.")
                     }else{notify("Import error: "+err.Error())}
                 }else{
-                    go reloadCatalog()
+                    go runProtectedBackgroundTask("library_sync",reloadCatalog)
                     notify("Imported "+filepath.Base(path))
                 }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
