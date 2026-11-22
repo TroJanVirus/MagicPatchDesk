@@ -1,3 +1,15 @@
+## 2026-11-22 — v0.14.0-test.17 released; real Windows 360-switch stress passed
+
+Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.17
+One-shot CI: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44999014598 — **completed SUCCESS**, including:
+- `go test -count=1 ./...` with 120 repeated actual ISO/CCI/XBE inspections, byte-identical source checks and context cancellation cases; `go test -race -count=1 ./core`; `go vet ./...`; updater protocol-v1 contract and media-index tests; native Windows x64 cross-build, PE verification and SHA256SUMS validation.
+- **Actual Windows executable `--mpd-ui-smoke-v1` exit code 0 on Windows runner**, exercising 360 rapid actual on-disk ISO/CCI/XBE switches with a selected synthetic patch. The smoke validated final source wins, patch group/record toggle states unchanged, **`inspectorMaximum<=1`**, idle inspector, bounded memory and Windows file handle counts, as well as all prior UI smoke assertions.
+- Windows `--mpd-healthcheck-v1` updater health check passed.
+- Published exact canonical `MagicPatchDesk-Windows-x64.exe` (**7,788,544 bytes**, SHA256 `1185454a98e612b3833353c5d3819dec76c275fc3a562dd87c3b026acd4720d3`) plus `SHA256SUMS.txt`. No ZIP required.
+- The confirmed code defect was **unbounded concurrent background inspections**: old `openInput` spawned one independent goroutine every time a file was chosen, while stale-result checks did not cancel parsing/decompression/memory retention. v0.14.0-test.17 now uses one worker plus one replaceable pending job, cooperatively stops old work during ISO/CCI/XBE reads and reduces per-part CCI index peak memory by eliminating the duplicate raw index buffer. App shutdown cancels the pending/running job.
+- Human owner-written `README.md` unchanged, all old v1 updater entry points/assets and source read-only guarantees intact. The original user's exact **Phantom Crash ISO/CCI/XBE** was NOT provided for test. Therefore this **is not proof that a particular real image can never trigger a separate crash**, nor proof of the historical Windows exception address; user should field-test repeated selection on actual files. Source stress reproduction + Windows synthetic stress provides strong structural verification.
+- Release notes: `docs/RELEASE_NOTES_v0.14.0-test.17.md`. A one-shot CI workflow was used and should be removed from `main` after merging so it cannot consume future Actions minutes.
+
 ## 2026-11-22 — v0.14.0-test.17 candidate: repeated mixed-source crash overload
 
 - Owner clarified an actual reproducible workflow: **Phantom Crash patch selected → Open file ISO → CCI → XBE → repeat**; application exits on repeated rapid switches, including CCI, despite v0.14.0-test.15/16 fixing previous single-selection race and synchronous ISO classification.
