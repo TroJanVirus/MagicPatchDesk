@@ -1140,6 +1140,18 @@ func handle(action string, index int) {
         // Drag handled directly by the mouse capture loop.
     case "gallery-discover":
         discoverSelectedPatchMedia(true)
+    case "gallery-explain":
+        app.mu.Lock()
+        var item core.CatalogPatch
+        if app.selectedGame>=0 && app.selectedGame<len(app.cat.Games) {
+            group:=app.cat.Games[app.selectedGame]
+            if app.selectedPatch>=0&&app.selectedPatch<len(group.Patches) {item=group.Patches[app.selectedPatch]}
+        }
+        app.mu.Unlock()
+        reason:=mediaDiscoveryReason(item)
+        if reason==""{reason="No discovery result recorded yet."}
+        showPreviewMessage("PatchHub image lookup details:\n\n"+reason+"\n\nImages are matched to the exact game/patch/region/revision. Arbitrarily named files require a public media index on PatchHub. Retry from the selected patch after syncing the site index.",false)
+        // An explicit retry remains available by reselecting the patch.
     case "gallery-open":
         images,_:=selectedLibraryGallery()
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
