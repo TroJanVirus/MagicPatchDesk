@@ -51,7 +51,9 @@ type Game struct {
 	CoverURL string
 	Versions []HubVersion
 }
+type CatalogDuplicate struct { Kept, Collapsed string }
 type Catalog struct {
+    Duplicates []CatalogDuplicate
 	Games      []Game
 	PatchCount int
 	GameCount  int
@@ -267,6 +269,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
         if p.Fingerprint!=""{
             if prior,ok:=seen[p.Fingerprint];ok{
                 old:=&prior.game.Patches[prior.index]
+                c.Duplicates=append(c.Duplicates,CatalogDuplicate{Kept:old.File,Collapsed:p.File})
                 old.Gallery=append(old.Gallery,p.Gallery...)
                 SortGallery(old.Gallery)
                 continue
