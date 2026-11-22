@@ -338,8 +338,9 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		if p.RAM != "" {
 			detail += "  ·  " + p.RAM
 		}
+        if len(p.Gallery)>0{detail+=fmt.Sprintf("  ·  %d patch images",len(p.Gallery))}
 		textAt(hdc, strLimit(detail, 90), x+150, y+29, width-181, 17, app.fonts.Small, muted)
-        if len(p.Gallery)>0{tag(hdc,fmt.Sprintf("%d IMAGE(S)",len(p.Gallery)),x+width-112,y+3,0x33537E)}
+
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
 	}
 	p := app.parsed
