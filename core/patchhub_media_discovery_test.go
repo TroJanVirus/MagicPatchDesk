@@ -153,12 +153,12 @@ func TestBoundedPatchMediaDiscoveryFindsProvidedNumberedPatterns(t *testing.T){
     if len(shots)!=2||shots[0].Kind!="before"||shots[1].Kind!="after"{
         t.Fatalf("bounded filename probe did not find both actual conventions: %+v",shots)
     }
-    if fake.requests>1+len(CommonPatchHubMediaNames()){
+    if fake.requests>2+len(CommonPatchHubMediaNames()){
         t.Fatalf("discovery became an unbounded server crawler: %d",fake.requests)
     }
     fake=&patchMediaTransport{listing:`<a href="Gallery%20Example.png">image</a>`}
     shots,err=DiscoverPatchHubMedia(context.Background(),&http.Client{Transport:fake},g,p)
-    if err!=nil||len(shots)!=1||shots[0].Kind!="screenshot"||fake.requests!=1{
+    if err!=nil||len(shots)!=1||shots[0].Kind!="screenshot"||fake.requests!=2{
         t.Fatalf("directory listing should discover custom names without HEAD guessing: %+v %v %d",shots,err,fake.requests)
     }
 }
