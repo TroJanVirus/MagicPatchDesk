@@ -22,6 +22,14 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 6. **`docs/UPDATE_CONTRACT.md`**, **`CREDITS.md`** and task-specific `docs/*.md`; inspect actual source and tests for final truth.
 7. Latest `main` HEAD, GitHub Releases, Issues/PRs and CI run results. Do not infer a future release from version strings or assume that a passing test confirms Xbox game bootability.
 
+## RELEASE BLOCKER — 2026-11-22: real Windows startup CTDs in v0.14.0-test.5
+
+**User supplied `crashes.zip` with evidence of two unexpected exits immediately after launch. This supersedes any implication that the successful automated release gate proves desktop startup is stable.** Full private trace must not be uploaded to the public repository. Issue: https://github.com/TroJanVirus/MagicPatchDesk/issues/19.
+
+One session (2026-11-22 02:31:42 UTC) contains Windows **0xC0000005 access violation**, PC `0x7ffb695e1548`. Go trace passes through `main.initApp` at `cmd/magicdesk/main_windows.go:483`, but that line calls `DispatchMessageW` in the normal Windows message loop — **not** evidence that initialization specifically caused the exception. The native DLL/module and callback are not named in the Go trace. Second session (02:31:45 UTC) had an empty runtime log, so its exact cause cannot be determined. Both local session markers remained at `startup`, illustrating that current stage tracking does not identify routine Win32 dispatch/paint. A third live session marker was present in the supplied ZIP. No claim is justified that both CTDs share one root cause.
+
+**Next actionable evidence**: the faulting module name and fault offset from Windows Application Error Event ID 1000 (Event Viewer → Windows Logs → Application) or Reliability Monitor for the corresponding ~15:31 NZDT times; then audit/fix that specific native call/DLL path. Go/Win32 synthetic smoke test passed, but has not exercised the user's populated real PatchHub cache or external Windows runtime environment. **Do not publish a speculative "crash fixed" build** without evidence. Preserve updater protocol, user data, and reports. Keep #19 open until actual user startup succeeds.
+
 ## v0.14.0-test.5 — unified output and updater improvements (verified developer preview)
 
 **Published:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.5
