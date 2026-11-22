@@ -1,3 +1,7 @@
+## 2026-11-22 — Repeated ISO/CCI/XBE selection must never build up background inspections
+
+The owner reported a repeatable abnormal exit when a game patch (specifically Phantom Crash widescreen) was selected and the game source repeatedly changed between **ISO, CCI and XBE**. This is not a one-format compatibility issue. Treat source selection as a **latest-choice-wins, bounded, cancellable operation**: previous scans and decompression must stop, one worker must own the read pipeline, a stale result must not override the active source or selected JMP groups, and original files remain untouched. Require actual Windows rapid-switch stress coverage in future releases, not just unit tests or UI compilation. Preserve the human owner-written README and existing update protocol.
+
 ## 2026-11-22 — v0.14.0-test.14 candidate: complete record group comments + useful links
 
 - Owner screenshot shows **Phantom Crash** JMP group title cut off: `Widescreen Support (Everything is less stretched ...` despite available space. Some group comments and `notes=` headers include vital HTML, full URLs, instructions and multi-line explanatory content. Requirement: make them readable/useful without altering patch semantics or losing anything. Human owner `README.md` remains untouched.
