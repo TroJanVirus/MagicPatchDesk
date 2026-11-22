@@ -20,10 +20,6 @@ var (
     procGetExitCode = k32.NewProc("GetExitCodeProcess")
     procCloseCrashHandle = k32.NewProc("CloseHandle")
 )
-    procRegCrashCreate = crashAdvapi.NewProc("RegCreateKeyExW")
-    procRegCrashSet = crashAdvapi.NewProc("RegSetValueExW")
-    procRegCrashClose = crashAdvapi.NewProc("RegCloseKey")
-)
 
 func crashProcessAlive(pid int) bool {
     if pid<=0{return false}
