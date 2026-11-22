@@ -1,3 +1,11 @@
+## 2026-11-22 — v0.14.0-test.13: split-set XBE lookup
+
+Selecting **any numbered CCI part** (`Game.1.cci`, `Game.2.cci`, etc.) now opens the complete contiguous part set, treats decoded 2048-byte sectors as **one read-only logical disc**, and parses XDVDFS metadata to locate the real `default.xbe`. Only the XDVDFS directory and requested XBE/file sectors are decoded for game identification or targeted patch verification, not the entire CCI. The title, Title ID and whole-XBE CRC32 are passed to the same Patch Library auto-matching logic used for a loose XBE or normal ISO. The source line displays the selected part out of the validated total.
+
+The previous `OpenCCI`, `ReadSector` and full `ExtractCCI` methods remain supported. Full extraction/rebuilding still processes all sectors. Missing first/middle parts and bad CCI structure fail before presenting an identified game. As with all directory-only split set checks, a missing unknown trailing part cannot be proven absent if surviving data is internally consistent.
+
+The app also recognizes **contiguous numbered raw ISO/XISO** parts via a separate sector-accurate virtual `io.ReaderAt`; see `docs/RELEASE_NOTES_v0.14.0-test.13.md`. It refuses to copy/compress a selected raw fragment as though it were the whole image.
+
 # Cerbios `.cci` support (v0.12 preview)
 
 Magic Patch Desk includes native (pure-Go, no external tool dependency) Cerbios `CCIM` v1/LZ4 sector decoding and encoding. The container is distinct from a conventional full-disc ISO. Reference: https://github.com/Team-Resurgent/libCCI/blob/main/FORMAT.md and https://github.com/purelogiccode/CCISharp/blob/master/docs/format.md.
