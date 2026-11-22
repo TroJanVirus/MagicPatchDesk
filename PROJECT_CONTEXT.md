@@ -31,7 +31,7 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 | Latest published release at this snapshot | **v0.14.0-test.3**, an **unsigned developer prerelease**, https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
 | Published canonical Windows executable | `MagicPatchDesk-Windows-x64.exe`; SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
 | Required published manifest | `SHA256SUMS.txt` in the same release |
-| Latest feature implementation | v0.14.0-test.3 preview includes duplicate-safe import and PatchHub galleries; source PR merged after release publication |
+| Latest feature implementation | PR #15: https://github.com/TroJanVirus/MagicPatchDesk/pull/15 — v0.14.0-test.3 duplicate-safe import and PatchHub galleries |
 | Release verification | https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 — Linux unit/race/vet, Win64 build, native Windows unit tests, EXE SHA-256, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1` all **passed** |
 | Public patch-confidence index | `confidence/reports.v1.json`: revision 1 and **no reviewed user reports** at this snapshot |
 | Open field-QA/format issue | #9, https://github.com/TroJanVirus/MagicPatchDesk/issues/9 — its original request text predates features implemented in v0.13/v0.14; read subsequent issue comments before deciding what is still open |
