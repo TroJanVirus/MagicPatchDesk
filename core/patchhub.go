@@ -34,6 +34,7 @@ type HubGame struct {
 	Title    string       `json:"title"`
 	Image    string       `json:"image"`
 	Versions []HubVersion `json:"versions,omitempty"`
+    Screenshots []HubScreenshot `json:"screenshots,omitempty"`
 }
 type HubIndex struct {
 	Updated time.Time `json:"updated"`
@@ -79,6 +80,7 @@ func ParsePatchHubHTML(doc []byte) (HubIndex, error) {
 				}
 			}
 		}
+        g.Screenshots=parseHubGameScreenshots(part)
 		for _, v := range hubVersion.FindAllStringSubmatch(part, -1) {
 			g.Versions = append(g.Versions, HubVersion{TitleID: strings.ToUpper(v[1]), Region: strings.TrimSpace(html.UnescapeString(v[2])), Version: strings.TrimSpace(html.UnescapeString(v[3]))})
 		}
