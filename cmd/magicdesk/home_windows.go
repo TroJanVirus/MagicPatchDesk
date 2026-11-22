@@ -17,7 +17,7 @@ func drawHome(hdc uintptr,w,h int32) {
     textAt(hdc,"DRAG & DROP TO GET STARTED",x+25,heroY+16,contentW-50,23,app.fonts.Micro,mint)
     headline:="Drop an Xbox game or patch anywhere in this window."
     textWrapped(hdc,headline,x+25,heroY+46,contentW-50,55,app.fonts.Title,white)
-    intro:="Supports XBE, ISO/XISO and Cerbios CCI (including numbered parts). The app reads the embedded game ID and looks for matching patches."
+    intro:="Supports XBE, ISO/XISO and Cerbios CCI, including numbered disc parts. We read the game ID and look for matching patches."
     textWrapped(hdc,intro,x+25,heroY+103,contentW-50,47,app.fonts.Small,muted)
 
     // Both buttons remain clickable when the window is resized to 800px.
