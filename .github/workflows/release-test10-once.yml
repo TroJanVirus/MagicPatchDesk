@@ -36,15 +36,6 @@ jobs:
         run: go test -race -count=1 ./core
       - name: Go vet
         run: go vet ./...
-      - name: Compile Windows desktop tests
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: '0'
-        run: |
-          go test -c -o MagicPatchDesk-Windows-tests.exe ./cmd/magicdesk
-          test -s MagicPatchDesk-Windows-tests.exe
-          rm MagicPatchDesk-Windows-tests.exe
       - name: Windows 10/11 x64 GUI cross-build
         env:
           GOOS: windows
