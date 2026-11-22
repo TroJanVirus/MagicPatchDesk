@@ -112,10 +112,14 @@ func refreshConversionHint() {
 		app.conversionHint = "Cannot convert this patch: " + err.Error()
 		return
 	}
-	if plan.RequiresSource && app.aFile == "" {
-		app.conversionHint = "This patch conversion requires the source file for the context to create it"
-		return
-	}
+    if plan.RequiresSource && app.aFile=="" {
+        // Never mask the important WHY with a generic "source required" line.
+        // In particular, a search/replace JMP needs actual original bytes to
+        // resolve matches, whereas BPS needs source and target checksums even
+        // if every JMP edit is an absolute offset.
+        app.conversionHint=plan.Reason
+        return
+    }
 	if app.format == 3 && len([]rune(app.password)) < 8 {
 		app.conversionHint = "Encryption password must be at least 8 characters"
 		return
@@ -125,13 +129,17 @@ func refreshConversionHint() {
         app.conversionHint="Verification enabled: the converted patch must exactly recreate your modified XBE."
         return
     }
-	if plan.RequiresSource {
-		app.conversionHint = "Original source selected · " + plan.Reason
-	} else if plan.SourceRecommended {
-		app.conversionHint = "Original optional — recommended for verification · " + plan.Reason
-	} else {
-		app.conversionHint = "No original needed · " + plan.Reason
-	}
+    if plan.RequiresSource {
+        app.conversionHint="Original supplied · "+plan.Reason
+    }else if plan.SourceRecommended {
+        if app.aFile=="" {
+            app.conversionHint=plan.Reason
+        }else{
+            app.conversionHint="Original supplied for verification · "+plan.Reason
+        }
+    }else{
+        app.conversionHint="No original required · "+plan.Reason
+    }
 }
 
 func confirmWithoutOriginal(plan core.ConversionPlan) bool {

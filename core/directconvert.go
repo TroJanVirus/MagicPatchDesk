@@ -41,10 +41,30 @@ func PlanPatchConversion(name string, data []byte, outputFormat int, password st
 			}
 			return ConversionPlan{}, fmt.Errorf("this JMP targets additional file(s) (%s): a single-file patch format cannot represent multiple target files; split records into a per-file JMP before converting", strings.Join(external, ", "))
 		}
-		switch outputFormat {
-		case 0:
-			return ConversionPlan{SourceRecommended: true, Reason: "A source XBE is optional for JMP-to-JMP. Supply one to verify Title ID, CRC32 and resulting bytes."}, nil
-		case 1, 3:
+        // Search-and-replace cannot be assigned an offset without the real
+        // original bytes. Check this before the target format's other
+        // requirements, so the UI gives the user the actionable reason.
+        hasSearchReplace:=false
+        hasAppend:=false
+        for _,record:=range p.Records {
+            if !record.Enabled{continue}
+            switch record.Kind{
+            case SearchReplace:hasSearchReplace=true
+            case Append:hasAppend=true
+            }
+        }
+        switch outputFormat {
+        case 0:
+            return ConversionPlan{SourceRecommended: true, Reason: "JMP-to-JMP requires no original. Supply one to verify Title ID, CRC32 and resulting bytes."}, nil
+        case 1,3:
+            if hasSearchReplace {
+                return ConversionPlan{RequiresSource:true,
+                    Reason:"Source-free conversion blocked: this JMP has search-and-replace records. The original XBE is needed to locate the bytes to replace."},nil
+            }
+            if hasAppend {
+                return ConversionPlan{RequiresSource:true,
+                    Reason:"Source-free conversion blocked: this JMP appends bytes. The original XBE is needed to determine the end-of-file offset."},nil
+            }
 			for _, r := range p.Records {
 				if !r.Enabled {
 					continue
@@ -65,10 +85,25 @@ func PlanPatchConversion(name string, data []byte, outputFormat int, password st
 					return ConversionPlan{}, fmt.Errorf("unknown JMP record type %q", r.Kind)
 				}
 			}
-			return ConversionPlan{SourceRecommended: true, Reason: "Offset-only JMP can be converted directly. Supply the original XBE to verify its CRC32/Title ID; standard IPS cannot retain those JMP checks."}, nil
-		default:
-			return ConversionPlan{RequiresSource: true, Reason: "BPS and Xdelta need a source XBE to construct source-dependent patches and checksums."}, nil
-		}
+            return ConversionPlan{SourceRecommended:true,
+                Reason:"Offset-only JMP converts directly to IPS without an original XBE. Original bytes are optional for CRC32/Title ID and output verification; IPS cannot retain those JMP identity checks."},nil
+        case 4:
+            reason:="BPS requires the original XBE's exact size and CRC32, plus the patched output CRC32. Offset addresses alone cannot supply these values."
+            if hasSearchReplace {
+                reason="Source-free conversion blocked: this JMP contains search-and-replace records, which need the original XBE to locate matching bytes. BPS also requires the original and patched file checksums."
+            }else if hasAppend{
+                reason="Source-free conversion blocked: APPEND records need the original XBE's end-of-file offset. BPS also requires the original and patched file checksums."
+            }
+            return ConversionPlan{RequiresSource:true,Reason:reason},nil
+        case 2:
+            reason:="Xdelta/VCDIFF requires the original XBE to encode a source-dependent patch."
+            if hasSearchReplace {
+                reason="Source-free conversion blocked: this JMP contains search-and-replace records; the original XBE is needed to locate matching bytes. Xdelta also needs original file data."
+            }
+            return ConversionPlan{RequiresSource:true,Reason:reason},nil
+        default:
+            return ConversionPlan{},errors.New("unknown output patch format")
+        }
 	case ".ips", ".eips":
 		contents := data
 		if ext == ".eips" {

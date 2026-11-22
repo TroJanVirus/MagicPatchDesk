@@ -619,19 +619,25 @@ func drawConvert(hdc uintptr, w, h int32) {
 		button(hdc, "LOCATE TARGET ORIGINALS", ir(x+28, 658, 230, 44), "packsources", 0, false)
 	}
     if app.conversionBlocked {
-        panel(hdc, ir(x+width-277, 658, 244, 44), 0x3A4150, 12)
-        textAt(hdc, "CONVERSION BLOCKED", x+width-259, 665, 230, 29, app.fonts.Medium, 0xABB3BF)
-    } else {
-        label := "CONVERT / CREATE PATCH"
-		if app.packMode { label = "CREATE PATCH PACK" }
-		button(hdc, label, ir(x+width-277, 658, 244, 44), "convert", 0, true)
+        blockedButton:=ir(x+width-277,658,244,44)
+        panel(hdc,blockedButton,0x3A4150,12)
+        textAt(hdc,"CONVERSION BLOCKED",x+width-259,665,230,29,app.fonts.Medium,0xABB3BF)
+        // Still block conversion; clicking the disabled-looking area explains
+        // the exact search/replace or BPS checksum requirement in a dialog.
+        addHit(blockedButton,"convert-reason",0)
+    }else{
+        label:="CONVERT / CREATE PATCH"
+        if app.packMode {label="CREATE PATCH PACK"}
+        button(hdc,label,ir(x+width-277,658,244,44),"convert",0,true)
     }
     hint:=app.conversionHint
     if hint=="" {hint="Choose a patch to see whether a stock/original XBE is required."}
-    textAt(hdc,hint,x+30,702,width-53,22,app.fonts.Small,muted)
-    // This is an actual byte-for-byte verification option, not just a
-    // suggestion: the reference XBE must match the generated patch's output.
-    textAt(hdc,"Modified XBE + original XBE: verifies the converted patch against your expected result.",x+30,724,width-53,20,app.fonts.Small,muted)
+    if app.conversionBlocked{
+        textWrapped(hdc,hint,x+30,697,width-53,47,app.fonts.Small,amber)
+    }else{
+        textWrapped(hdc,hint,x+30,700,width-53,28,app.fonts.Small,muted)
+        textAt(hdc,"Optional modified XBE: compare both results byte-for-byte.",x+30,728,width-53,18,app.fonts.Small,muted)
+    }
 	_ = h
 }
 

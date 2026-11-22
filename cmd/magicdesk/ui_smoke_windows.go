@@ -70,6 +70,47 @@ func smokePaintAndExit() {
         panic(fmt.Sprintf("Converter source patch must precede original XBE (patch=%d original=%d)",sourceTop,originalTop))
     }
 
+    // Regression: a library JMP containing only absolute offset writes
+    // defaults to direct IPS (not a source-dependent all-formats pack).
+    // Choosing BPS explicitly must preserve that selection and explain the
+    // unavoidable original/target checksum requirement. Search/replace must
+    // never be offered as a source-free IPS conversion.
+    savedParsed,savedDirect:=app.parsed,app.directFile
+    savedInput,savedModified,savedSelected:=app.convertPatchFile,app.bFile,app.aFile
+    savedFormat,savedExplicit:=app.format,app.convertFormatChosen
+    offsetJMP:=[]byte("#Jay's Magic Patcher\nsystem=Xbox\ngame-title=Smoke\nregion=\nversion=\nauthor=\nnotes=\n#Offset\n0x300:AABBCC\n")
+    patch,e:=core.ParseJMP("offset.jmp",offsetJMP)
+    if e!=nil{panic(fmt.Sprintf("Offset JMP smoke fixture invalid: %v",e))}
+    app.parsed=patch
+    app.directFile=""
+    app.convertPatchFile=""
+    app.bFile=""
+    app.aFile=""
+    app.convertFormatChosen=false
+    app.format=core.AllPatchFormats
+    handle("tab",1)
+    if app.format!=1||app.conversionBlocked{
+        panic(fmt.Sprintf("Library offset JMP not source-free IPS: format=%d blocked=%t reason=%q",app.format,app.conversionBlocked,app.conversionHint))
+    }
+    handle("format",4)
+    if !app.convertFormatChosen||!app.conversionBlocked||!strings.Contains(app.conversionHint,"BPS"){
+        panic("BPS incorrectly offered source-free or missing original checksum explanation")
+    }
+    handle("tab",0)
+    handle("tab",1)
+    if app.format!=4 {panic("Explicit BPS format was overwritten by library tab navigation")}
+    searchJMP:=[]byte("#Jay's Magic Patcher\nsystem=Xbox\ngame-title=Smoke\nregion=\nversion=\nauthor=\nnotes=\n#Find\n414243\n444546\n")
+    searchPatch,e:=core.ParseJMP("search.jmp",searchJMP)
+    if e!=nil{panic(fmt.Sprintf("Search JMP smoke fixture invalid: %v",e))}
+    app.parsed=searchPatch
+    handle("format",1)
+    if !app.conversionBlocked||!strings.Contains(strings.ToLower(app.conversionHint),"search-and-replace"){
+        panic("Search-and-replace JMP did not show reason for blocked source-free IPS")
+    }
+    app.parsed,app.directFile=savedParsed,savedDirect
+    app.convertPatchFile,app.bFile,app.aFile=savedInput,savedModified,savedSelected
+    app.format,app.convertFormatChosen=savedFormat,savedExplicit
+
     // Test the real Win32 button hit rectangles and Segoe UI text metrics at
     // the usual 1024px workspace and the narrower stacked-settings layout.
     for _,windowWidth:=range []int32{1024,800} {

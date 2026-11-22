@@ -51,9 +51,11 @@ func refreshPackHint(name string, patch []byte) bool {
 	sources := currentPackPaths(plan)
 	missing := []string{}
 	for _, t := range plan.Targets {
-		if t.RequiresSource && sources[t.Target] == "" && !packFromISO(t.Target) {
-			missing = append(missing, t.Target)
-		}
+        if t.RequiresSource&&sources[t.Target]==""&&!packFromISO(t.Target) {
+            why:=t.Reason
+            if why==""{why="original file required"}
+            missing=append(missing,t.Target+": "+why)
+        }
 	}
 	if app.format == 3 && len([]rune(app.password)) < 8 {
 		app.conversionBlocked = true
@@ -62,7 +64,7 @@ func refreshPackHint(name string, patch []byte) bool {
 	}
 	if len(missing) > 0 {
 		app.conversionBlocked = true
-		app.conversionHint = "Source file required for: " + strings.Join(missing, ", ") + " · Click Locate target originals"
+        app.conversionHint="Source-free conversion blocked. "+strings.Join(missing,"; ")+". Use Locate target originals to continue."
 	} else {
 		app.conversionBlocked = false
 		app.conversionHint = fmt.Sprintf("Patch pack: %d targets → one .mpdpack archive (each file patched separately)", len(plan.Targets))
