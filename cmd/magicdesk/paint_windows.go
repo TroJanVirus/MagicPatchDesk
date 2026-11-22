@@ -79,10 +79,8 @@ func paint(hdc uintptr) {
 		drawRecent(hdc, w, h)
 	case 6:
 		drawMaintenance(hdc,w,h)
-    // Legacy tab 7 (Game Outputs) is intentionally unreachable: all
-    // single-game export options have moved into Patch Library.
-    case 7:
-        drawLibrary(hdc,w,h)
+	case 7:
+		drawGameOutputs(hdc,w,h)
     case 8:
         drawManager(hdc,w,h)
 	}
