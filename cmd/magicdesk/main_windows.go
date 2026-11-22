@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+    "errors"
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
@@ -200,6 +201,8 @@ type appState struct {
 	cat           core.Catalog
 	selectedGame  int
 	selectedPatch int
+    galleryOpen bool
+    galleryPage int
 	expandedGroup int
 	parsed        *core.Patch
 	input         string
@@ -1022,6 +1025,7 @@ func handle(action string, index int) {
 	case "manager-scan", "manager-mode", "manager-select", "manager-patch-prev", "manager-patch-next", "manager-auto", "manager-review", "manager-skip", "manager-all-safe", "manager-run", "manager-format", "manager-open", "manager-image-choose", "manager-image-current", "manager-image-select", "manager-image-extract", "manager-log-clear", "manager-log-prev", "manager-log-next", "manager-confidence-refresh", "manager-confidence-result", "manager-confidence-xemu", "manager-confidence-hardware", "manager-confidence-revision", "manager-confidence-ram", "manager-confidence-cpu", "manager-merge":
         managerAction(action,index)
 	case "tab":
+        app.galleryOpen=false
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
 		if index == 1 { refreshConversionHint() }
@@ -1031,15 +1035,29 @@ func handle(action string, index int) {
 		app.packSources = nil
 		app.directFile = ""
 		app.selectedGame = index
+        app.galleryOpen=false
+        app.galleryPage=0
 		app.selectedPatch = -1
 		app.parsed = nil
 		app.patchScroll = 0
 		app.groupScroll = 0
 		app.expandedGroup = -1
 	case "patch":
+        app.galleryOpen=false
+        app.galleryPage=0
 		app.packSources = nil
 		app.directFile = ""
 		selectPatch(index)
+    case "gallery-open":
+        images,_:=selectedLibraryGallery()
+        if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
+    case "gallery-close":
+        app.galleryOpen=false
+    case "gallery-prev":
+        if app.galleryPage>0{app.galleryPage--}
+    case "gallery-next":
+        images,_:=selectedLibraryGallery()
+        if app.galleryPage+1<(len(images)+1)/2{app.galleryPage++}
 	case "group":
 		if !app.busy && app.parsed != nil && index >= 0 && index < len(app.parsed.Groups) {
 			g := app.parsed.Groups[index]
@@ -1083,12 +1101,24 @@ func handle(action string, index int) {
 		app.passFocus = false
 	case "import":
 		if p := pickFile(false, "Magic patches\x00*.jmp;*.pf\x00All files\x00*.*\x00", "Import JMP or XBMC4Gamers PF", ""); p != "" {
-			if _, err := core.ImportJMP(app.root, p); err != nil {
-				notify("Import error: " + err.Error())
-			} else {
-				go reloadCatalog()
-				notify("Imported local patch: " + filepath.Base(p))
-			}
+            if saved,err:=core.ImportJMP(app.root,p);err!=nil{
+                if errors.Is(err,core.ErrDuplicatePatch){
+                    // A duplicate is a harmless no-op, not a modal error. Red
+                    // footer text and the local verification log explain why
+                    // nothing was added; do not reset selection or rescan.
+                    app.mu.Lock()
+                    app.status="Duplicate patch found! No need to add."
+                    app.mu.Unlock()
+                    manager.log.Add("error","Import JMP","Duplicate patch found! No need to add.")
+                }else{
+                    manager.log.Add("error","Import JMP","Could not import patch: "+err.Error())
+                    notify("Import error: "+err.Error())
+                }
+            }else{
+                manager.log.Add("pass","Import JMP","Imported independent patch copy: "+filepath.Base(saved))
+                go reloadCatalog()
+                notify("Imported local patch: "+filepath.Base(saved))
+            }
 		}
 	case "dev-refresh", "dev-sort", "dev-select", "dev-prev", "dev-next", "dev-github", "dev-view", "dev-copy", "dev-root", "dev-report", "dev-fixpr", "dev-copygroups", "dev-copyroot", "dev-create":
 		developerAction(action,index)
@@ -1317,6 +1347,7 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	case WM_KEYDOWN:
 		if handleQuickShortcut(wp) {return 0}
 		if wp == 27 {
+            app.galleryOpen=false
 			app.searchFocus = false
 			app.passFocus = false
 			redraw()
@@ -1359,12 +1390,17 @@ func windowProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" || ext == ".pf" {
-				if _, err := core.ImportJMP(app.root, path); err != nil {
-					notify(err.Error())
-				} else {
-					go reloadCatalog()
-					notify("Imported " + filepath.Base(path))
-				}
+                if _,err:=core.ImportJMP(app.root,path);err!=nil {
+                    if errors.Is(err,core.ErrDuplicatePatch){
+                        app.mu.Lock()
+                        app.status="Duplicate patch found! No need to add."
+                        app.mu.Unlock()
+                        manager.log.Add("error","Import JMP","Duplicate patch found! No need to add.")
+                    }else{notify("Import error: "+err.Error())}
+                }else{
+                    go reloadCatalog()
+                    notify("Imported "+filepath.Base(path))
+                }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
                 if app.tab==7 {
                     selectGameSource(path)

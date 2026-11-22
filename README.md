@@ -165,3 +165,9 @@ The same workspace adds a scrollable **verification log**, read-only **XISO imag
 **Field Reports** show individual reviewed **xemu** versus **original Xbox hardware** results with a matching patch SHA256 + game Title ID/CRC32, not percentages. Users may explicitly report working, partial or failed results via GitHub Issues after a consent dialogue; maintainers curate `confidence/reports.v1.json` into the publicly downloadable log. The normal app-update check also checks this public confidence index, preserving the local cache on errors. See [Library Manager and Confidence](docs/LIBRARY_MANAGER_AND_CONFIDENCE.md).
 
 **Remaining testing:** native Windows GUI interaction, real console/game boots, and large retail images. New features are developer preview until verified against representative games.
+
+## v0.14.0-test.3 — Duplicate-safe JMP imports and PatchHub comparison images
+
+**Import JMP** now checks the complete selected patch against both the Custom and GitHub-synced libraries. A byte-identical JMP does **not** get copied: the status line displays **“Duplicate patch found! No need to add.”** in red and the local verification log records it. Different revisions with the same filename are saved as independent numbered copies; no original patch is overwritten. JMP/PF drag-and-drop follows the same duplicate-safe rule.
+
+In **Patch Library**, select a patch with before/after evidence and choose **View images (N)** to inspect original-aspect-ratio screenshots side by side, including multiple pairs and next/previous navigation. Where the public PatchHub website exposes individual image URLs, they are downloaded on demand and cached for offline viewing. Imported PatchHub `titles/` trees can also provide local screenshots. Some patches have no discoverable image metadata: the app deliberately does not invent pictures or attach an unrelated game's screenshot. See [JMP import and PatchHub gallery details](docs/JMP_IMPORT_AND_PATCHHUB_GALLERY.md).

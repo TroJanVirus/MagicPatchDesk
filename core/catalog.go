@@ -39,6 +39,7 @@ type CatalogPatch struct {
 	Art     string
 	RAM     string
 	Issue   string
+    Gallery []PatchGalleryImage
 }
 type Game struct {
 	Title    string
@@ -215,6 +216,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 					cp.Issue = parseErr.Error()
 					cp.Notes = "Patch must be reviewed: " + parseErr.Error()
 				}
+                cp.Gallery=LocalPatchScreenshots(path)
 				results <- result{p: cp, err: parseErr}
 			}
 		}()
@@ -336,6 +338,7 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 		if g.CoverURL == "" {
 			g.CoverURL = hg.Image
 		}
+        if len(hg.Screenshots)>0 {AttachHubGallery(g.Patches,hg.Screenshots)}
 		if len(g.Versions) == 0 {
 			g.Versions = hg.Versions
 		}
@@ -535,32 +538,31 @@ func SyncGithub(ctx context.Context, root string, onStatus func(string)) (SyncRe
 	res.Message = fmt.Sprintf("Updated to %d GitHub patches", count)
 	return res, nil
 }
+// ImportJMP validates an input patch, then leaves the library unchanged if
+// identical bytes already exist in Custom or the GitHub cache. Different patch
+// revisions with the same filename get an independent, uniquely named copy.
 func ImportJMP(root, source string) (string, error) {
-	ext := strings.ToLower(filepath.Ext(source))
-	if ext != ".jmp" && ext != ".pf" {
-		return "", errors.New("choose a .jmp or .pf patch file")
-	}
-	b, err := os.ReadFile(source)
-	if err != nil {
-		return "", err
-	}
-	if ext == ".jmp" {
-		_, err = ParseJMP(filepath.Base(source), b)
-	} else {
-		_, err = ParsePF(filepath.Base(source), b)
-	}
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(root, "Custom")
-	if err = os.MkdirAll(dir, 0755); err != nil {
-		return "", err
-	}
-	target := filepath.Join(dir, filepath.Base(source))
-	if err = os.WriteFile(target, b, 0644); err != nil {
-		return "", err
-	}
-	return target, nil
+    ext:=strings.ToLower(filepath.Ext(source))
+    if ext!=".jmp"&&ext!=".pf"{return "",errors.New("choose a .jmp or .pf patch file")}
+    stat,err:=os.Lstat(source)
+    if err!=nil{return "",err}
+    if !stat.Mode().IsRegular()||stat.Size()<1||stat.Size()>maxImportedPatchBytes{
+        return "",errors.New("patch import requires a regular file of at most 16 MiB")
+    }
+    b,err:=os.ReadFile(source)
+    if err!=nil{return "",err}
+    if int64(len(b))!=stat.Size(){return "",errors.New("source patch changed while reading; retry import")}
+    if ext==".jmp"{
+        if _,err=ParseJMP(filepath.Base(source),b);err!=nil{return "",err}
+    }else{
+        if _,err=ParsePF(filepath.Base(source),b);err!=nil{return "",err}
+    }
+    existing,err:=existingIdenticalPatch(root,ext,b)
+    if err!=nil{return "",err}
+    if existing!=""{return "",&DuplicatePatchError{Existing:existing}}
+    destDir:=filepath.Join(root,"Custom")
+    if err=os.MkdirAll(destDir,0755);err!=nil{return "",err}
+    return writeImportedPatchExclusive(destDir,filepath.Base(source),b)
 }
 
 // ImportFolder accepts a local PatchHub titles directory or a folder containing JMP files.

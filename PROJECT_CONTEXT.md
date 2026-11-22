@@ -28,11 +28,11 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 |---|---|
 | Primary repository | https://github.com/TroJanVirus/MagicPatchDesk |
 | Development source | `main`, native Go and Win32; **not** the older HTML app |
-| Latest published release at this snapshot | **v0.14.0-test.2**, an **unsigned developer prerelease**, https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.2 |
-| Published canonical Windows executable | `MagicPatchDesk-Windows-x64.exe`; SHA-256 `1de2630882342e57bfb9958c3cb8bdfc46fb74d93732ade159e695d0d48d427f` |
+| Latest published release at this snapshot | **v0.14.0-test.3**, an **unsigned developer prerelease**, https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.3 |
+| Published canonical Windows executable | `MagicPatchDesk-Windows-x64.exe`; SHA-256 `9ddc49f889b86ffca10ef13e5feaa8b0bac351493970ce43d71dd6d02374ea60` |
 | Required published manifest | `SHA256SUMS.txt` in the same release |
-| Latest feature merge | PR #13, https://github.com/TroJanVirus/MagicPatchDesk/pull/13, merge `cefab78b7e2648904392b42d1fc7fe6e466a7b87` |
-| Release verification | https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44923406249 — Linux unit/race/vet, Win64 build, native Windows unit tests, EXE SHA-256, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1` all **passed** |
+| Latest feature implementation | PR #15: https://github.com/TroJanVirus/MagicPatchDesk/pull/15 — v0.14.0-test.3 duplicate-safe import and PatchHub galleries |
+| Release verification | https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44971296368 — Linux unit/race/vet, Win64 build, native Windows unit tests, EXE SHA-256, `--mpd-healthcheck-v1` and `--mpd-ui-smoke-v1` all **passed** |
 | Public patch-confidence index | `confidence/reports.v1.json`: revision 1 and **no reviewed user reports** at this snapshot |
 | Open field-QA/format issue | #9, https://github.com/TroJanVirus/MagicPatchDesk/issues/9 — its original request text predates features implemented in v0.13/v0.14; read subsequent issue comments before deciding what is still open |
 | CI policy | Only manual `.github/workflows/one-shot-verify.yml` retained; one-time release publisher workflows removed to conserve GitHub Actions time |
@@ -62,6 +62,8 @@ An AI agent does **not** need access to any previous chat to recover the impleme
 - **Patch Library / Convert & Create:** JMP, IPS, BPS, encrypted IPS, a constrained VCDIFF/Xdelta subset, Rocky5 PF and v1/v2 `.mpdpack` workflows, respecting per-target and source-dependent constraints. Original JMP metadata and author attribution must survive.
 - **Game Outputs:** Take original `.xbe`, extracted game folder, XISO/ISO or supported Cerbios CCI source; independently choose safe outputs: patched XBE, independent extracted folder, rebuilt game-partition XISO, CCI, and full-disc ISO only for compatible full-disc sources. Patch-free extraction/conversion is allowed. An XBE alone cannot conjure a complete disc image. Inputs never overwritten; results independently verified.
 - **Game Manager:** Scan library folders of extracted/XISO/ISO/CCI games. Show per-game patch options with **Auto / Review / Skip**; only one strict Title ID + original-XBE CRC32 verified single-file JMP may be auto-eligible. Recheck patch SHA256 and game identity immediately before writing new packages. Ambiguous matches and CCI images requiring XBE inspection remain for manual review. Complex games should be surfaced after exact matches.
+- **Patch Library → Import JMP:** before adding a JMP/PF, hash the full selected file and check both Custom and GitHub libraries. A byte-for-byte duplicate is a **no-op**, with the red bottom-log message "Duplicate patch found! No need to add." and a local verification event; a same-named *different* patch is saved under a new filename, never overwriting an existing patch.
+- **Patch Library → View images (N):** where the PatchHub page exposes patch-specific before/after URLs or locally imported PatchHub `titles/` folders contain them, show a native side-by-side comparison gallery with multiple images/pairs, on-demand validated caching and previous/next navigation. Never attach ambiguous screenshots to a guessed patch. The public GitHub JMP corpus contains no PatchHub photos; **live site image URL coverage still needs verification**. Full details in `docs/JMP_IMPORT_AND_PATCHHUB_GALLERY.md`.
 - **Game Manager → IMAGE FILES:** Read-only image exploration and safe single-member extraction; no forced patch operation.
 - **Game Manager → HEX OVERLAPS:** Original and competing hexadecimal byte windows. Conflicting JMP writes must receive an explicit warning and manual approval before a new merged JMP; verify resulting content and preserve provenance.
 - **Game Manager → VERIFY LOG:** Bounded scrollable local human-readable log (steps, errors and pass/warning events), not a large preflight wizard.
@@ -83,6 +85,7 @@ Read **`docs/DECISIONS.md`** for the durable, explicit product choices and exclu
 
 **Do not mistake completed implementation for completed field validation.** The v0.14.0-test.2 release passed code, checksum and native Windows headless paint checks; it did *not* establish the following:
 
+0. **Current v0.14.0-test.3 feature QA:** verify the Import JMP duplicate red footer on physical Windows, distinct same-name patch preservation, and **real** PatchHub before/after screenshot availability / linkage across multiple images. Parsing tests and native GUI smoke passed, but website image discovery cannot be certified from HTML fixtures alone.
 1. **Highest priority: hands-on Windows QA** (Windows 10/11): folder-picker and file dialogs, DPI/scaling, all workspace controls, scanned catalogue selection and scrolling, 720p-height UI, multiple per-game output choices, Auto/Review/Skip, manual approval dialogs, no-overwrite and insufficient-disk-space behavior.
 2. **Real game/image QA** against legitimately supplied source files: XISO/CCI split sets, extracted folders, named-file JMP, PF/pack conversion, full-disc refusal cases and independent output byte/hash verification.
 3. **Game boot QA:** xemu and actual Original Xbox/Cerbios; differentiate emulator from console results. No automated emulator-launch or FTP module is requested.

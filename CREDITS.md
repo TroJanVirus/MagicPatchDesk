@@ -34,3 +34,7 @@ When opening a patch from the catalogue, preserve its JMP \`author\` value and s
 ## Image-integrity audit, 2026-11-22
 
 The Xbox DVD filesystem technical descriptions by **Andrew de Quincey** and **purelogiccode** were cross-checked while hardening balanced XDVDFS directory entries, filename safety and sector/entry alignment. These technical **format facts** informed the independently authored Go changes. No GPL-licensed XISOStudio source was copied. CCI split-set safety improvements were reasoned from the existing repository's native implementation and synthetic failure tests, without copying new external source.
+
+## v0.14.0-test.3 PatchHub screenshots
+
+**JayYardley / Xbox Patch Hub** — official source of the game cover and, when publicly exposed, original patch comparison screenshot URLs. [PatchHub](https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php). **Metadata/artwork provenance only.** The app uses its own Go parser and native GDI+ viewer; no PatchHub source, copyrighted screenshots or third-party image assets are bundled in the app or copied into this source repository. User-imported local `titles/` folders retain their original provenance. Do not imply images from an unrelated game version certify this patch.
