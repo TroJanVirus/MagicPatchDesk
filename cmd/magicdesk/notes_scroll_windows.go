@@ -153,7 +153,14 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
     if group{title="FULL PATCH GROUP COMMENT"}
     titleWidth:=width-297
     if titleWidth<65{titleWidth=65}
-    textAt(hdc,title,x+20,y+15,titleWidth,30,app.fonts.Title,white)
+    titleFont:=app.fonts.Title
+    if width<590{
+        // On compact windows, use short readable headings instead of a
+        // half-visible title next to Copy / Close.
+        if group{title="GROUP DETAILS"}else{title="PATCH NOTES"}
+        titleFont=app.fonts.Small
+    }
+    textAt(hdc,title,x+20,y+15,titleWidth,30,titleFont,white)
     button(hdc,"Copy text",ir(x+width-266,y+13,136,35),"notes-copy",0,false)
     button(hdc,"Close",ir(x+width-120,y+13,100,35),"notes-close",0,false)
     help:="Read the full instructions, including HTML paragraphs and lists. Copy text or review external URLs below."
