@@ -78,7 +78,12 @@ func patchhubGalleryURL(raw string)(HubScreenshot,bool) {
     for i,s:=range segments{if strings.EqualFold(s,"titles"){pos=i;break}}
     if pos<0||pos<1||!strings.EqualFold(segments[pos-1],"All-Patches")||pos+3>=len(segments){return HubScreenshot{},false}
     phase,n:=galleryPhase(segments[len(segments)-1])
-    if phase==""{return HubScreenshot{},false}
+    if phase=="" {
+        // The site also contains patch-specific screenshots with arbitrary
+        // JPG/PNG names. Keep them without falsely labelling Before/After.
+        phase="screenshot"
+        n=0
+    }
     shot:=HubScreenshot{Game:segments[pos+1],Kind:phase,Set:n,URL:u.String()}
     version:=strings.Split(segments[pos+2],"_")
     if len(version)==3&&len(version[2])==8{
@@ -125,8 +130,8 @@ func LocalPatchScreenshots(jmp string)[]PatchGalleryImage {
             return nil
         }
         if !validScreenshotFile.MatchString(filename){return nil}
-        kind,set:=galleryPhase(strings.TrimPrefix(filepath.ToSlash(filename),filepath.ToSlash(dir)+"/"))
-        if kind==""{return nil}
+        kind,set:=galleryPhase(filename)
+        if kind=="" {kind="screenshot";set=0}
         results=append(results,PatchGalleryImage{Kind:kind,Set:set,Local:filename})
         if len(results)>=64{return filepath.SkipAll}
         return nil
@@ -137,6 +142,7 @@ func LocalPatchScreenshots(jmp string)[]PatchGalleryImage {
 func SortGallery(images []PatchGalleryImage){
     sort.SliceStable(images,func(i,j int)bool{
         a,b:=images[i],images[j]
+        if (a.Kind=="screenshot")!=(b.Kind=="screenshot"){return a.Kind!="screenshot"}
         if a.Set!=b.Set{return a.Set<b.Set}
         if a.Kind!=b.Kind{return a.Kind=="before"}
         return a.Local+a.URL<b.Local+b.URL
