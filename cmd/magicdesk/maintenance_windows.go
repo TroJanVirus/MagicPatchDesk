@@ -135,7 +135,10 @@ func checkForNewRelease(silent bool) {
 	app.mu.Unlock()
     // One check = app release discovery + GitHub JMP sync + PatchHub metadata.
     // These background downloads are independent and safe when offline.
-    go func(){reloadAndSync();syncPatchHubMetadata()}()
+    go func(){
+        runProtectedBackgroundTask("library_sync",reloadAndSync)
+        runProtectedBackgroundTask("patchhub_sync",syncPatchHubMetadata)
+    }()
 	if !silent {
 		maintenanceProgress("Checking official Magic Patch Desk releases…")
 	}

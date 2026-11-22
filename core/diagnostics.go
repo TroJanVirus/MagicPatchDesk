@@ -106,6 +106,8 @@ func categorizeFailure(e error) (string, string) {
 		code, description string
 	}{
         {[]string{"unhandled panic"}, "unhandled_panic", "Magic Patch Desk encountered an unhandled panic. A private stack log is saved locally for review."},
+        {[]string{"recovered background panic"}, "recovered_background_panic", "A background maintenance task failed internally; the main application remained running. A private stack log is available locally."},
+        {[]string{"patch hub cached index rejected"}, "invalid_cache", "The optional Patch Hub cache was rejected safely. The original file was preserved and the game source was not changed."},
         {[]string{"unexpected process exit"}, "unexpected_exit", "The previous session did not close normally. It may have crashed or been force-terminated; private crash evidence is available locally."},
 		{[]string{"crc32", "checksum mismatch", "sha256", "sha-256", "hash mismatch"}, "checksum_mismatch", "An input or output checksum did not match the expected value."},
 		{[]string{"title id mismatch", "titleid mismatch", "wrong title id"}, "title_id_mismatch", "The selected game has a different Title ID than the patch requires."},

@@ -1,3 +1,9 @@
+## 2026-11-22 — crash archive root-cause evidence / candidate hardening (not released)
+
+User-supplied `crashs.zip` contains **v0.14.0-test.17** `runtime-217a3d1812a10646d1c2.log` with an actual unhandled Go panic: `JSON decoder out of sync - data changing underfoot?`. Stack points to `encoding/json.Unmarshal` within `core.ReadHubCache` line 99, entered by `RefreshCachedPatchHubMedia` → `SyncPatchHub` → `syncPatchHubMetadata` → `checkForNewRelease` background goroutine. Thus at least one observed CTD was **outside** ISO/CCI/XBE inspection; prior bounded-worker fix alone cannot address this. Go's diagnostic indicates an inconsistent JSON parse, but the archive **does not prove** whether its root cause was a decoder defect, mutated memory, or another unsafe interaction. Two other unexpected-exit markers lack a usable stack.
+
+Candidate fix: bounded and checked optional cached-index decoding (panic converted to explicit cache failure, no overwrite), serialized PatchHub sync/refresh, durable atomic cache writes, independent recovered-background-panic private stacks and sanitized reports, isolated library/metadata maintenance jobs, allowlisted precise game-inspection stage names and synthetic regression tests. Preserve original game assets, self-updater protocol v1 and app offline behavior. **Not yet compiled or field-tested on Windows; no new test release published.** The original Phantom Crash user ISO/CCI/XBE were not uploaded. Do not close issue #19 until actual Windows mixed-source field test and report verification.
+
 ## 2026-11-22 — v0.14.0-test.17 released; real Windows 360-switch stress passed
 
 Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.17

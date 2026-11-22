@@ -730,9 +730,15 @@ func syncPatchHubMetadata() {
 	ctx, cancel := context.WithTimeout(context.Background(), 32*time.Second)
 	defer cancel()
 	count, err := core.SyncPatchHub(ctx, app.root)
-	if err != nil {
-		return
-	} // A network failure never blocks offline usage.
+    if err != nil {
+        // Do not spam Problem Reports for ordinary offline/network failure;
+        // a broken decoder/cache is actionable and must leave evidence.
+        if errors.Is(err,core.ErrHubCacheInvalid){
+            recordFailure("patchhub.cache",err,"","","")
+            notify("Patch Hub cache could not be read. Original cache preserved; offline JMP library remains available.")
+        }
+        return
+    } // A network failure never blocks offline usage.
 	reloadCatalog()
 	notify(fmt.Sprintf("Patch Hub index ready: %d game titles · JMPs from GitHub / Custom", count))
 }

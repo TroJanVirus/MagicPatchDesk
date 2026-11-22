@@ -79,7 +79,7 @@ func RuntimeCrashLogPath(root,id string)string{
 }
 func crashStage(value string)string{
     switch value{
-    case "startup","idle","import_patch","import_folder","read_xbe","auto_match","parse_patch","patch_preview","patch_apply","convert_patch","ui_callback","other":
+    case "startup","idle","import_patch","import_folder","read_xbe","auto_match","parse_patch","patch_preview","patch_apply","convert_patch","ui_callback","game_source_open","game_inspect_pending","game_inspect_commit","library_sync","patchhub_sync","other":
         return value
     default:return "other"
     }
@@ -155,6 +155,36 @@ func (s *CrashSession) SaveCaughtCrash(reason string,stack []byte)error{
     if e=recordCrashNotice(s.root,s.data.ID);e!=nil{return e}
     return os.Remove(s.marker)
 }
+// SaveRecoveredBackgroundPanic records an isolated background-task failure
+// without ending the process session or turning a recovered panic into an
+// incorrect "unexpected exit" report on the next launch.
+func (s *CrashSession) SaveRecoveredBackgroundPanic(stage, reason string, stack []byte) error {
+    if s == nil { return errors.New("crash session unavailable") }
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    var nonce [10]byte
+    if _,e:=rand.Read(nonce[:]);e!=nil{return e}
+    evidenceID:=hex.EncodeToString(nonce[:])
+    if len(reason)>2048{reason=reason[:2048]}
+    if len(stack)>256<<10{stack=stack[:256<<10]}
+    dir:=CrashDirectory(s.root)
+    if e:=os.MkdirAll(dir,0700);e!=nil{return e}
+    f,e:=os.OpenFile(CrashEvidencePath(s.root,evidenceID),os.O_CREATE|os.O_EXCL|os.O_WRONLY,0600)
+    if e!=nil{return e}
+    _,writeErr:=fmt.Fprintf(f,"MagicPatchDesk private recovered background panic — DO NOT UPLOAD WITHOUT REVIEW\nTime: %s\nVersion: %s\nOperation: %s\nReason: %s\n\n%s\n",time.Now().UTC().Format(time.RFC3339),s.data.AppVersion,crashStage(stage),reason,stack)
+    syncErr:=f.Sync()
+    closeErr:=f.Close()
+    if writeErr!=nil{return writeErr}
+    if syncErr!=nil{return syncErr}
+    if closeErr!=nil{return closeErr}
+    report,e:=NewFailureReport(FailureContext{AppVersion:s.data.AppVersion,
+        Operation:"process.recovered_panic."+crashStage(stage)},errors.New("recovered background panic"))
+    if e!=nil{return e}
+    report.CrashEvidenceID=evidenceID
+    if _,e=SaveFailureReport(s.root,report);e!=nil{return e}
+    return recordCrashNotice(s.root,evidenceID)
+}
+
 // RecoverAbandonedCrashSessions safely imports evidence of a process that
 // ended without performing normal shutdown. An unexpected exit is NOT proof
 // of a Go panic; power-off and forced process termination also qualify.
