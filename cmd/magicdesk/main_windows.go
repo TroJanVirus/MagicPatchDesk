@@ -212,6 +212,7 @@ type appState struct {
 	input         string
 	inputInfo     core.XBEInfo
     inputPartSummary string
+    gameInputGeneration uint64 // UI-thread-only picker epoch
 	inputErr      string
 	search        string
 	searchFocus   bool
@@ -572,6 +573,7 @@ func main() {
 // updated slice/string header can make native GDI dereference invalid memory.
 var catalogueReady = make(chan core.Catalog,4)
 var autoMatchReady = make(chan core.XBEInfo,4)
+var gameInspectReady = make(chan gameInspection,16)
 
 func publishCatalogue(c core.Catalog){
     select{
@@ -663,15 +665,27 @@ func autoSelectXBE(info core.XBEInfo) {
 		}
 	}
     if bestScore==0 {
-        // The embedded XBE still identifies a real game, even when no JMP
-        // currently matches it. Give an actionable status rather than
-        // silently leaving the previous selected game onscreen.
-        app.mu.Lock()
-        app.selectedGame=-1
-        app.selectedPatch=-1
-        app.parsed=nil
-        app.mu.Unlock()
-        notify("Identified "+info.Title+" ("+info.TitleID+") · no matching patch found in library")
+        // A user deliberately selected a patch before choosing the game;
+        // never silently destroy that selection just because auto-matching
+        // does not find the expected revision.
+        notify("Identified "+info.Title+" ("+info.TitleID+") · no library match; existing patch selection retained")
+        return
+    }
+    app.mu.Lock()
+    selectedAlready:=app.selectedGame==bestGame&&
+        app.selectedPatch>=0&&
+        app.selectedPatch<len(catalog.Games[bestGame].Patches)
+    selectedIndex:=app.selectedPatch
+    app.mu.Unlock()
+    if selectedAlready{
+        selected:=catalog.Games[bestGame].Patches[selectedIndex]
+        if selected.CRC!="No CRC32 required"&&
+            !strings.Contains(strings.ToUpper(selected.CRC),info.CRC32){
+            notify("Selected patch retained for "+info.Title+" · XBE CRC32 does not match patch requirements; verify before applying")
+        }else{
+            notify("Original XBE identified for "+info.Title+" · your selected patch was retained")
+        }
+        redraw()
         return
     }
 	app.mu.Lock()
@@ -743,10 +757,14 @@ func pickFile(save bool, filter, title, defaultName string) string {
 	}
 	return syscall.UTF16ToString(name)
 }
+// openInput is entered by a user UI action (picker, drag/drop or recent).
+// Only the owner thread may modify the visible file/patch/library selection.
+// File inspection runs off-thread and publishes an immutable result message.
 func openInput(path string) {
+    markCrashStage("game_source_open")
     selectGameSource(path)
-    markCrashStage("read_xbe")
-    defer markCrashStage("ui_callback")
+    app.gameInputGeneration++
+    generation:=app.gameInputGeneration
     app.mu.Lock()
     app.input=path
     app.inputErr="Reading game executable…"
@@ -755,58 +773,31 @@ func openInput(path string) {
     app.status="Inspecting game image and matching the patch library…"
     app.mu.Unlock()
     redraw()
-    go func() {
+    go func(){
         defer catchFatalPanic()
-        var info core.XBEInfo
-        var err error
-        partSummary:=""
-        if core.CCISourcePath(path) {
-            partSummary,err=core.CCIPartSummary(path)
-            // A CCIM split set is one logical stream, regardless of which
-            // numbered part the user selected. Parse XDVDFS and read only
-            // default.xbe rather than decoding gigabytes of game content.
-            if err==nil{info,err=core.InspectCCIExecutable(path)}
-        }else{
-            if core.IsNumberedRawImagePart(path) {
-                partSummary,err=core.RawImagePartSummary(path)
-            }
-            var data []byte
-            if err==nil&&strings.EqualFold(filepath.Ext(path),".xbe"){
-                data,err=os.ReadFile(path)
-            }else if err==nil {
-                var im *core.Image
-                im,err=core.OpenXISO(path)
-                if err==nil{
-                    var entry core.ImageFile
-                    entry,err=im.DefaultXBE()
-                    if err==nil {data,err=im.ReadFile(entry)}
-                }
-            }
-            if err==nil{info,err=core.InspectXBE(data)}
+        info,summary,err:=inspectGamePath(path)
+        result:=gameInspection{
+            path:path,
+            generation:generation,
+            info:info,
+            partSummary:summary,
+            err:err,
         }
-        app.mu.Lock()
-        if app.input!=path{app.mu.Unlock();return}
-        app.inputInfo=info
-        app.inputPartSummary=partSummary
-        if err!=nil {
-            app.inputErr=err.Error()
-            app.status="Cannot identify game: "+err.Error()
-        }else{
-            app.inputErr=""
-            app.status="Loaded: "+info.Title+" · "+info.TitleID+" · CRC32 "+info.CRC32
-            if partSummary!=""{app.status+=" · "+partSummary}
+        // A stale worker may finish after a newly selected game. Keep only
+        // the newest results when full, and always check the generation on
+        // the owner thread before committing state.
+        select{
+        case gameInspectReady<-result:
+        default:
+            select{case <-gameInspectReady:default:}
+            select{case gameInspectReady<-result:default:}
         }
-        app.mu.Unlock()
-        if err==nil{
-            app.mu.Lock();same:=app.input==path;app.mu.Unlock()
-            if !same{return}
-            rememberRecent("input",path)
-            queueAutoMatch(info)
-        }else{
-            recordFailure("game.inspect",err,path,"","")
-        }
-        redraw()
+        if app.hwnd!=0{sysCall(postMsg,app.hwnd,WM_APP+4,0,0)}
     }()
+    // Remain at a precise operation stage until WM_APP+4 receives a result.
+    // The older code reset the marker immediately, so native file-selection
+    // exits were all labelled only "ui_callback".
+    markCrashStage("game_inspect_pending")
 }
 
 func selectPatch(idx int) {
@@ -1747,6 +1738,15 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		sysCall(dragFinish, wp)
 		redraw()
 		return 0
+    case WM_APP+4:
+        for{
+            select{
+            case result:=<-gameInspectReady:
+                commitGameInspection(result)
+            default:
+                return 0
+            }
+        }
     case WM_APP + 2:
         // Draw/selection objects must be published on the owner UI thread.
         var newest core.Catalog

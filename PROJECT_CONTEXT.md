@@ -1,3 +1,19 @@
+## 2026-11-22 — v0.14.0-test.15 Windows stability preview published
+
+Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.15
+Gated scoped CI: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44996305193 — **completed success**. Verified updater protocol v1 contract, PatchHub media-index fixture, official icon, `go test -count=1 ./...`, `go test -race -count=1 ./core`, `go vet ./...`, Windows x64 native GUI cross-build, PE signature and SHA256SUMS checksum. Published exact canonical portable EXE `MagicPatchDesk-Windows-x64.exe` 7,751,680 bytes SHA256 `0f5cc5f820cbf790e14a977c3ef7de7e67e507a2f17461bd965c064512e7b3ed`; published `SHA256SUMS.txt`. User-provided human README unchanged and persistent updater contract intact.
+
+**Still unverified:** real Windows `--mpd-ui-smoke-v1` execution, physical Windows interaction selecting the original XBE after a chosen JMP, and the actual fault/instruction pointer for the user's v0.14.0-test.13 exit. Their uploaded recovery marker is NOT a runtime trace; `runtime-8ace874d26c39493f96a.log` or WER minidump is needed to confirm root cause. The implementation is a grounded mitigation of a real data race and duplicate re-selection, **not a proven crash fix**. This caveat must be preserved in future release claims.
+
+## 2026-11-22 — v0.14.0-test.15 candidate: crash on original XBE selection after choosing JMP
+
+- Owner reported an abrupt exit on choosing a known-correct XBE after a library patch was already selected. Supplied **v0.14.0-test.13** evidence: previous-session `crash-8ace874d26c39493f96a.log` only says last stage `ui_callback`; separate new `session-1d856e7d7833149fe585.json` is another process; `failure-f7fca5b403f0136752.json` is an automatically created `process.unexpected_exit.ui_callback` diagnostic, **not an exception stack**. We have NOT seen `runtime-8ace874d26c39493f96a.log` nor any WER crash dump. Do not claim root cause proven.
+- Code inspection found a real background-to-UI data race in `openInput`: the worker assigned `app.inputInfo`, `app.inputPartSummary` and `app.status` while Win32 `drawLibrary` and `drawGameDetails` read the XBE's CRC / Title ID. The old `openInput` reset the marker to `ui_callback` before worker inspection returned, making such exits poorly attributed.
+- New `cmd/magicdesk/game_inspect_windows.go` isolates file reading from UI model changes. The worker publishes an immutable `gameInspection` result via a buffered channel and `WM_APP+4`; `commitGameInspection` validates **both** the game input generation and absolute selected path before updating UI on its owning thread. Multiple rapid file choices cannot commit stale results.
+- `autoSelectXBE` preserves a patch deliberately chosen for that game, including its in-memory group/record toggles, rather than rerunning `selectPatch` and another media-discovery request. It reports a nonmatching CRC as a warning without silently changing the patch; no-match discovery likewise retains explicit selection. Original mismatch checks remain inside patch application.
+- Loose XBE inspection now checks a regular file, minimum header length and 512 MiB maximum before read. Crash stages distinguish `game_source_open`, `game_inspect_pending`, `game_inspect_commit`, `auto_match`, with generic stage on completion. Native Windows smoke `smokePreselectedPatchThenXBE` validates selected JMP preservation and rejects obsolete worker result, but Linux CI can only compile the smoke.
+- Human README unchanged, updater protocol v1 and canonical assets unchanged. New documentation `docs/RELEASE_NOTES_v0.14.0-test.15.md`. Release build/test and hands-on Windows retest pending; original CTD cause remains **unconfirmed** until runtime panic log or Windows Error Reporting dump is reviewed.
+
 ## 2026-11-22 — v0.14.0-test.14 published and verified
 
 Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.14
