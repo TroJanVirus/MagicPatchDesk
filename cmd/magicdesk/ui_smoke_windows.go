@@ -283,6 +283,12 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
     // Explicit format gate: merely selecting a game and a patch is not enough.
     app.input="SyntheticGame.xiso"
     selectGameSource(app.input)
+    // Model the successful asynchronous ISO validation explicitly. The
+    // output chooser must remain locked while the real scan is pending.
+    if gameOutputValidated||availableGameOutputs()!=0{
+        panic("XISO exposed outputs before completed filesystem verification")
+    }
+    setGameOutputValidation(app.input,"xiso",true)
     app.parsed=&core.Patch{Headers:map[string]string{"notes":"safe synthetic patch"}}
     redraw()
     sysCall(updateWindow,app.hwnd)
