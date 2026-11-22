@@ -102,11 +102,6 @@ func commitGameInspection(result gameInspection) {
         app.status="Cannot identify game: "+result.err.Error()
     }else{
         app.inputKind=result.sourceKind
-        if ownsOutput {
-            gameOutputKind=result.sourceKind
-            if selectedSource!=result.path{gameOutputKind="folder"}
-            gameOutputValidated=true
-        }
         app.status="Loaded: "+result.info.Title+" · "+result.info.TitleID+" · CRC32 "+result.info.CRC32
         if result.partSummary!=""{app.status+=" · "+result.partSummary}
     }
