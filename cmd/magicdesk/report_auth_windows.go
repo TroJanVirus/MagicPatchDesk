@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+    "sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,6 +21,14 @@ import (
 const gitHubCredentialTarget = "MagicPatchDesk/GitHubIssues-v1"
 
 var reportSyncMutex sync.Mutex
+var githubConnected atomic.Bool
+
+// Only retain the connection STATE in memory, never a copy of the PAT.
+func initGitHubConnectionState() {
+    _,err:=loadGitHubCredential()
+    githubConnected.Store(err==nil)
+}
+func isGitHubConnected()bool {return githubConnected.Load()}
 
 var credapi = syscall.NewLazyDLL("advapi32.dll")
 var credentialWrite = credapi.NewProc("CredWriteW")
@@ -125,6 +134,7 @@ func connectGitHubToken() {
 		notify(e.Error())
 		return
 	}
+    githubConnected.Store(true)
 	notify("GitHub issue reporting token saved in Windows Credential Manager (Auto-submit still opt-in).")
 }
 func disconnectGitHubToken() {
@@ -136,6 +146,7 @@ func disconnectGitHubToken() {
 		return
 	}
 	maintenancePref.AutoReports = false
+    githubConnected.Store(false)
 	saveMaintenanceSettings()
 	notify("GitHub credential disconnected; automatic reporting disabled")
 }

@@ -7,8 +7,8 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 ## Get started
 
 1. Double-click `MagicPatchDesk-Windows-x64.exe`. The application displays its existing local library immediately while it checks GitHub for the current JMP count and downloads new JMP files into the user cache. It also refreshes a read-only game/title/cover index from Jay's Patch Hub (at most once a day).
-2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app proposes patch matches using the embedded XBE's Title ID and CRC32. Ordinary Patch Library operations require explicit approval; the separate Game Manager supports **user-authorised Auto batch processing** only for unambiguous, CRC-verified games.
-3. Inspect the JMP's commented record groups, toggle those you want, and click **APPLY PATCH**. Save to a new file. The input is left unchanged.
+2. Search/browse the game catalogue, pick a game and patch, and open an original `.xbe` or `.iso`/XISO. The app proposes patch matches using the embedded XBE's Title ID and CRC32. Ordinary Patch Library operations require explicit approval; the separate **Batch Process Library** supports **user-authorised Auto batch processing** only for unambiguous, CRC-verified games.
+3. Inspect the JMP's commented record groups, toggle the records you want, then click **CHOOSE OUTPUTS** in Patch Library. Select one or more independent game outputs (XBE, extracted folder, XISO, CCI, or supported full-disc ISO), optionally including **Preserve current format**. **APPLY PATCH** is disabled until a source, patch and valid explicit format choice exist. The app creates an independently named output package; the source stays untouched.
 4. In **Convert & Create**, choose an original XBE and modified XBE to create JMP, IPS, Xdelta, or encrypted IPS. Alternatively, select a JMP/IPS/Xdelta in **Patch Library** and choose an original XBE in **Convert & Create** to generate a converted patch. The conversion tab currently expects XBE files, not ISO-to-ISO comparisons.
 
 ## Offline use and manual patch packs
@@ -31,7 +31,7 @@ A portable, self-contained Windows x64 application for patching **Original Xbox 
 - Handles original Xbox XDVDFS filesystems in common **game-partition XISO** and **full-disc ISO** layouts. Finds `default.xbe` in the image, applies the patch to that XBE in memory, and writes an independent ISO image with the updated XDVDFS directory entry.
 - For an XBE that grows due to an `APPEND:` record, relocates it to the end of a game-partition-only XISO and updates the directory pointer. For a full-disc/redump style image, refuses growth past allocated sectors rather than writing an unsafe image. Extract/repack the game partition as XISO first in that case.
 - Copies large disc images using 1–8 independent I/O workers; also uses workers to index local JMPs. The copy is bounded-memory and gives progress updates. Actual performance varies by disk and controller; multi-worker I/O is not guaranteed to be faster on every drive.
-- **CCI is supported:** Cerbios compressed `.cci` images, including split sets, can be decoded, patched and generated through the Game Outputs workflow. **Not supported:** `.chd` or arbitrary archives, Xbox 360 executables, non-XDVDFS filesystems, and unrestricted full-disc rebuilding after file growth. Disc images are not re-signed; modified full-disc images are not pristine verified dumps.
+- **CCI is supported:** Cerbios compressed `.cci` images, including split sets, can be decoded, patched and generated through the Patch Library output workflow. **Not supported:** `.chd` or arbitrary archives, Xbox 360 executables, non-XDVDFS filesystems, and unrestricted full-disc rebuilding after file growth. Disc images are not re-signed; modified full-disc images are not pristine verified dumps.
 
 ## Patch conversion
 
@@ -127,7 +127,7 @@ Use **Maintenance → Install app** to place a managed executable at `%LOCALAPPD
 
 ## Next development: selectable game outputs and source attribution (2026-11-22; headless checks passed, device QA pending)
 
-The new **Game Outputs** workspace accepts an Original Xbox \`.iso\` (full-disc or game-partition XISO), Cerbios \`.cci\`, standalone \`.xbe\`, or an extracted folder (choose its **root default.xbe**). The chosen input no longer locks the output. Select one or more independent products:
+The historical **Game Outputs** workspace (now integrated into **Patch Library** as of v0.14.0-test.5) accepts an Original Xbox \`.iso\` (full-disc or game-partition XISO), Cerbios \`.cci\`, standalone \`.xbe\`, or an extracted folder (choose its **root default.xbe**). The chosen input no longer locks the output. Select one or more independent products:
 
 - **Patched original game XBE only** (\`.xbe\`, not an ISO-attacher/stub).
 - **Extracted game folder**, including original assets and optional file-specific patches.
@@ -135,7 +135,7 @@ The new **Game Outputs** workspace accepts an Original Xbox \`.iso\` (full-disc 
 - **Cerbios CCI** (\`.cci\` or automatic FATX-sized split parts).
 - **Layout-preserving full-disc ISO**, only when the input is already a suitable full-disc ISO and its patch can safely fit without expanding its allocated sectors.
 
-Use **Patch Library** to select a JMP/IPS/BPS/Xdelta/EIPS/PF/\`.mpdpack\` if wanted, then choose the source and outputs in **Game Outputs**. Or select no patch and use it as an image extractor/converter. A source \`.xbe\` alone lacks other game files and therefore cannot generate a complete XISO/CCI/folder. A multi-file JMP/pack/PF cannot silently be exported as an XBE-only complete patch; the operation is blocked. PF is processed as a full staged game-folder operation when supported.
+**Current workflow (v0.14.0-test.5):** select a patch and original source in **Patch Library**, choose output formats there, then Apply Patch. A separate Game Outputs sidebar tab no longer exists. Older no-patch extraction/conversion was an earlier workspace design, not part of the current Apply Patch action; Maintenance still provides the dedicated CCI/ISO converter. See the latest workflow document. A source \`.xbe\` alone lacks other game files and therefore cannot generate a complete XISO/CCI/folder. A multi-file JMP/pack/PF cannot silently be exported as an XBE-only complete patch; the operation is blocked. PF is processed as a full staged game-folder operation when supported.
 
 Each run saves products inside one new \`<chosen-name>/\` directory and refuses to overwrite existing files. Repack outputs are verified by reopening XDVDFS and comparing the contents; compressed CCI is decoded and checked after writing. Game-partition XISO is **not** a byte-equivalent recreation of a Redump ISO. Intermediate storage must be sufficient for extraction and rebuilt images. The native writer intentionally rejects invalid/ambiguous/case-conflicting XDVDFS filenames and symlinks.
 
@@ -185,3 +185,13 @@ In **Patch Library**, select a patch with before/after evidence and choose **Vie
 **Convert & Create:** IPS RLE is only visible for IPS/EIPS/all-formats pack, and password entry only when encrypted IPS needs creating or decrypting. Plain IPS doesn't require a password.
 
 See [Crash recovery and UI repair details](docs/CRASH_RECOVERY_AND_UI.md). Native Windows smoke and core regression tests are required for release; real Phantom Crash reproduction still needs end-user field testing.
+
+## v0.14.0-test.5 — Unified patch outputs, navigation and updater
+
+The separate **Game Outputs** tab is gone. In **Patch Library**, choose an original game file or the root default.xbe of an extracted game folder and select a patch. **CHOOSE OUTPUTS** offers XBE, extracted folder, XISO, CCI, full-disc ISO where supported, plus **Preserve current format**. Multiple formats can be selected in one pass. **APPLY PATCH** remains truly disabled (not clickable) until a source, patch and explicit valid format choice are present. Choosing a different source resets the output choices. All outputs are written into a newly named, verified package without altering the original. Batch work remains in the renamed **Batch Process Library** tab.
+
+**Settings** and **About** are pinned to the bottom of the navigation. Under Maintenance, **Check for Updates** now includes **Update Settings** (preview builds, automatic checks and storage locations). Under **Automated Diagnostic Reports**, only **Connect** is available before connecting a GitHub credential; Disconnect, Auto-report and Sync now appear afterward.
+
+**Portable updates:** v0.14.0-test.5 can update the copy actually running, even when a separate installed copy already exists. The previous "an installed copy exists; open it to update" was a deliberate old-code restriction, **not a filename collision**. Portable updates keep a separate rollback and the installed copy is left alone; installed app updates still use the original v1 helper path. **Older portable binaries containing the blocker need one manual download of this new version first**, then subsequent releases can update from inside the app. Release SHA-256 checks, healthchecks, user data folders and updater v1 flags remain unchanged.
+
+See [Patch Library outputs and update settings](docs/PATCH_LIBRARY_OUTPUTS_AND_UPDATES.md) and [permanent v1 update compatibility contract](docs/UPDATE_CONTRACT.md). Automated native Windows smoke is not a substitute for user-tested Windows 10/11 portable self-replacement or real Original Xbox image validation.

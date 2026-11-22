@@ -66,6 +66,7 @@ func paint(hdc uintptr) {
 		drawLibrary(hdc, w, h)
         if app.galleryOpen{drawPatchGallery(hdc,w,h)}
         if app.notesOpen{drawFullPatchNotes(hdc,w,h)}
+        if app.outputPickerOpen{drawLibraryOutputChooser(hdc,w,h)}
 	case 1:
 		drawConvert(hdc, w, h)
 	case 2:
@@ -106,41 +107,54 @@ func paint(hdc uintptr) {
     textAt(hdc,strLimit(status,155),273,h-35,w-340,24,app.fonts.Small,statusColor)
 	textAt(hdc, "v0.14", w-67, h-35, 55, 24, app.fonts.Small, 0x7C92AD)
 }
-func drawSidebar(hdc uintptr, w, h int32) {
-	fill(hdc, ir(0, 0, 232, h), sidebar)
-	panel(hdc, ir(21, 28, 42, 42), 0x3F73E6, 12)
-	txt(hdc, "M", ir(21, 28, 42, 42), app.fonts.Title, white, DT_CENTER|DT_SINGLELINE|DT_VCENTER)
-	textAt(hdc, "MAGIC", 74, 25, 142, 25, app.fonts.Title, white)
-	textAt(hdc, "PATCH DESK", 75, 49, 140, 16, app.fonts.Micro, 0x88A6CE)
-	textAt(hdc, "WORKSPACE", 24, 114, 165, 22, app.fonts.Micro, 0x637793)
-	nav := []struct {
-		label  string
-		symbol string
-	}{{"Patch Library", "◈"}, {"Convert & Create", "◇"}, {"Settings", "⚙"}, {"Diagnostics", "◉"}, {"About", "ⓘ"}, {"Recent", "◷"}, {"Maintenance", "⚒"}, {"Game Outputs", "◫"}, {"Game Manager", "▤"}}
-	for i, item := range nav {
-		y := int32(145 + i*49)
-		if app.tab == i {
-			panel(hdc, ir(13, y, 206, 47), 0x283F65, 12)
-			fill(hdc, ir(13, y+8, 4, 31), blue)
-		} else if app.hoverAction == "tab" && app.hoverIndex == i {
-			panel(hdc, ir(13, y, 206, 47), 0x223756, 12)
-		}
-		txt(hdc, item.symbol, ir(25, y, 27, 47), app.fonts.Title, map[bool]uint32{true: blue, false: muted}[app.tab == i], DT_SINGLELINE|DT_VCENTER|DT_CENTER)
-		textAt(hdc, item.label, 61, y+8, 145, 30, app.fonts.Medium, map[bool]uint32{true: white, false: muted}[app.tab == i])
-		addHit(ir(10, y, 211, 49), "tab", i)
-	}
-	if h < 795 {return} // avoid overlapping sidebar entries on compact windows
-	panel(hdc, ir(17, h-202, 198, 122), 0x1E2A3E, 14)
-	textAt(hdc, "PATCH COLLECTION", 31, h-192, 167, 21, app.fonts.Micro, muted)
-	app.mu.Lock()
-	remote := app.remoteCount
-	status := app.syncStatus
-	count := app.cat.PatchCount
-	app.mu.Unlock()
-	textAt(hdc, fmt.Sprintf("%d", count), 31, h-164, 156, 38, app.fonts.Hero, white)
-	textAt(hdc, fmt.Sprintf("Local JMPs  ·  Online %d", remote), 31, h-122, 170, 17, app.fonts.Small, muted)
-	button(hdc, "↻   Sync GitHub", ir(19, h-66, 194, 42), "sync", 0, false)
-	_ = status
+func drawSidebar(hdc uintptr,w,h int32){
+    fill(hdc,ir(0,0,232,h),sidebar)
+    panel(hdc,ir(21,28,42,42),0x3F73E6,12)
+    txt(hdc,"M",ir(21,28,42,42),app.fonts.Title,white,DT_CENTER|DT_SINGLELINE|DT_VCENTER)
+    textAt(hdc,"MAGIC",74,25,142,25,app.fonts.Title,white)
+    textAt(hdc,"PATCH DESK",75,49,140,16,app.fonts.Micro,0x88A6CE)
+    textAt(hdc,"WORKSPACE",24,114,165,22,app.fonts.Micro,0x637793)
+    type navItem struct{label,symbol string;tab int}
+    drawNav:=func(item navItem,y int32){
+        selected:=app.tab==item.tab
+        if selected{
+            panel(hdc,ir(13,y,206,47),0x283F65,12)
+            fill(hdc,ir(13,y+8,4,31),blue)
+        }else if app.hoverAction=="tab"&&app.hoverIndex==item.tab{
+            panel(hdc,ir(13,y,206,47),0x223756,12)
+        }
+        symbolColor,textColor:=uint32(muted),uint32(muted)
+        if selected{symbolColor=blue;textColor=white}
+        txt(hdc,item.symbol,ir(25,y,27,47),app.fonts.Title,symbolColor,DT_SINGLELINE|DT_VCENTER|DT_CENTER)
+        textAt(hdc,item.label,61,y+8,151,30,app.fonts.Medium,textColor)
+        addHit(ir(10,y,211,49),"tab",item.tab)
+    }
+    topNav:=[]navItem{
+        {"Patch Library","◈",0},
+        {"Convert & Create","◇",1},
+        {"Batch Process Library","▤",8},
+        {"Diagnostics","◉",3},
+        {"Recent","◷",5},
+        {"Maintenance","⚒",6},
+    }
+    for i,item:=range topNav{drawNav(item,int32(145+i*49))}
+    // Settings and About always anchor to the bottom, independent of scroll.
+    dividerY:=h-137
+    if dividerY>445{fill(hdc,ir(21,dividerY,191,1),0x354258)}
+    drawNav(navItem{"Settings","⚙",2},h-124)
+    drawNav(navItem{"About","ⓘ",4},h-69)
+    // The library summary is optional at compact heights: never cover tabs.
+    collectionTop:=h-274
+    if collectionTop>445{
+        panel(hdc,ir(17,collectionTop,198,110),0x1E2A3E,14)
+        textAt(hdc,"PATCH COLLECTION",31,collectionTop+7,167,21,app.fonts.Micro,muted)
+        app.mu.Lock()
+        remote:=app.remoteCount
+        count:=app.cat.PatchCount
+        app.mu.Unlock()
+        textAt(hdc,fmt.Sprintf("%d patches · %d online",count,remote),31,collectionTop+34,170,24,app.fonts.Small,white)
+        button(hdc,"↻ Sync GitHub",ir(25,collectionTop+70,184,32),"sync",0,false)
+    }
 }
 func drawPageHeader(hdc uintptr, title, subtitle string, w int32) {
 	textAt(hdc, title, 263, 30, w-530, 45, app.fonts.Hero, white)
@@ -151,13 +165,13 @@ func drawLibrary(hdc uintptr, w, h int32) {
     app.recordViewport=rect{}
     app.patchBar=listScrollBar{}
     app.recordBar=listScrollBar{}
-	drawPageHeader(hdc, "Discover & patch", "Select a game, pick a patch, and build a ready-to-use XBE or XISO.", w)
+	drawPageHeader(hdc, "Discover & patch", "Select a source and patch, then explicitly choose one or more verified output formats.", w)
 	button(hdc, "Load patch file", ir(w-365, 38, 167, 42), "direct", 0, false)
 	button(hdc, "+  Import JMP", ir(w-186, 38, 155, 42), "import", 0, false)
 	listX := int32(255)
 	listW := int32(353)
 	listTop := int32(117)
-	listBottom := h - 161
+	listBottom := h - 178
 	rightX := int32(627)
 	rightW := w - rightX - 23
 	panel(hdc, ir(listX, listTop, listW, listBottom-listTop), surface, 17)
@@ -294,21 +308,32 @@ func drawLibrary(hdc uintptr, w, h int32) {
 		g := catalog.Games[app.selectedGame]
 		drawGameDetails(hdc, rightX, rightW, listTop, listBottom, g)
 	}
-	panel(hdc, ir(255, h-143, w-280, 85), surface, 16)
-	textAt(hdc, "TARGET FILE", 271, h-129, 147, 19, app.fonts.Micro, muted)
-	input := app.input
-	if input == "" {
-		input = "Choose an original Xbox executable or ISO…"
-	}
-	textAt(hdc, strLimit(filepath.Base(input), 72), 272, h-110, w-625, 30, app.fonts.Medium, white)
-	if app.inputInfo.Valid {
-		textAt(hdc, fmt.Sprintf("%s   ·   %s   ·   CRC %s", app.inputInfo.Title, app.inputInfo.TitleID, app.inputInfo.CRC32), 273, h-81, w-625, 17, app.fonts.Small, mint)
-	} else if app.inputErr != "" {
-		textAt(hdc, strLimit(app.inputErr, 95), 273, h-82, w-625, 17, app.fonts.Small, amber)
-	}
-	button(hdc, "Browse file", ir(w-466, h-119, 122, 43), "open", 0, false)
-	button(hdc, "PREVIEW", ir(w-333, h-119, 119, 43), "preview", 0, false)
-	button(hdc, "APPLY PATCH", ir(w-202, h-119, 175, 43), "apply", 0, true)
+    panel(hdc,ir(255,h-163,w-280,105),surface,16)
+    textAt(hdc,"SOURCE GAME",271,h-155,152,19,app.fonts.Micro,muted)
+    source:=chosenGameSource()
+    display:="Choose an original XBE, XISO / ISO, CCI or extracted game folder"
+    if source!=""{display=filepath.Base(source)}
+    if app.inputInfo.Valid{
+        display+=fmt.Sprintf("  ·  %s  ·  CRC %s",app.inputInfo.TitleID,app.inputInfo.CRC32)
+    }
+    textAt(hdc,display,272,h-136,w-639,28,app.fonts.Small,white)
+    button(hdc,"Open file",ir(w-318,h-151,89,32),"open",0,false)
+    button(hdc,"Open folder",ir(w-221,h-151,101,32),"game-folder",0,false)
+    button(hdc,"Preview",ir(w-111,h-151,83,32),"preview",0,false)
+    outputStatus:="OUTPUTS: "+outputSummary()
+    if source!=""&&gameOutputMask==0&&!gameOutputPreserve{
+        outputStatus="OUTPUTS: Choose format(s) before applying"
+    }
+    textAt(hdc,outputStatus,272,h-104,w-656,35,app.fonts.Small,muted)
+    button(hdc,"CHOOSE OUTPUTS",ir(w-395,h-107,181,43),"output-open",0,false)
+    if libraryApplyReady(){
+        button(hdc,"APPLY PATCH",ir(w-205,h-107,177,43),"apply",0,true)
+    }else{
+        r:=ir(w-205,h-107,177,43)
+        panel(hdc,r,0x333E52,12)
+        txt(hdc,"APPLY PATCH",r,app.fonts.Medium,0x8B99AE,DT_CENTER|DT_SINGLELINE|DT_VCENTER)
+        // No hit target: truly disabled until patch, game AND choice exist.
+    }
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	textAt(hdc, strLimit(g.Title, 44), x+22, top+12, width-43, 38, app.fonts.Title, white)

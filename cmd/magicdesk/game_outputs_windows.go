@@ -14,12 +14,14 @@ import (
     "unsafe"
 )
 
-// A separate image-output workspace deliberately shares the patch selected
-// in Patch Library, but does not force the image source's extension on output.
+// Game output formats belong to Patch Library's Apply Patch workflow, not a
+// separate workspace. A new source ALWAYS requires an explicit format choice.
 var gameOutputSource string
-var gameOutputMask uint32 = core.GameOutputXISO
-var gameOutputFormats = map[string]uint32{}
-var gameOutputIgnorePatch bool
+var gameOutputKind string
+var gameOutputMask uint32
+var gameOutputPreserve bool
+var gameOutputFormats = map[string]uint32{} // old preference data remains readable
+var gameOutputIgnorePatch bool // retained for older data; normal Apply never uses this
 
 func chosenGameSource() string {
     if gameOutputSource!="" {return gameOutputSource}
@@ -34,19 +36,36 @@ func gameSourceCategory(source string) string {
     return "xiso"
 }
 func selectGameSource(source string) {
+    // Called on every game picker/drop/recent file selection. Never inherit
+    // an earlier source's format choice, even if a saved preference exists.
     gameOutputSource=source
-    kind:=gameSourceCategory(source)
-    if saved:=gameOutputFormats[kind];saved!=0 {
-        gameOutputMask=saved
-        return
+    effective:=source
+    if effective==""{effective=app.input}
+    gameOutputKind=""
+    if effective!=""{gameOutputKind=gameSourceCategory(effective)}
+    gameOutputMask=0
+    gameOutputPreserve=false
+    app.outputPickerOpen=false
+}
+func currentGameOutputKind() string {
+    if chosenGameSource()=="" {return ""}
+    if gameOutputKind!="" {return gameOutputKind}
+    return gameSourceCategory(chosenGameSource())
+}
+func availableGameOutputs()uint32 {
+    allowed,_:=core.AllowedOutputFormats(currentGameOutputKind())
+    if strings.EqualFold(filepath.Ext(app.directFile),".pf"){
+        allowed &^= core.GameOutputXBE | core.GameOutputISO
     }
-    switch kind {
-    case "folder":gameOutputMask=core.GameOutputFolder
-    case "cci":gameOutputMask=core.GameOutputCCI
-    case "xbe":gameOutputMask=core.GameOutputXBE
-    case "fulliso":gameOutputMask=core.GameOutputISO
-    default:gameOutputMask=core.GameOutputXISO
-    }
+    return allowed
+}
+func chosenOutputMask()(uint32,error){
+    return core.ResolveGameOutputChoice(currentGameOutputKind(),gameOutputMask,gameOutputPreserve)
+}
+func libraryApplyReady()bool{
+    if app.busy||chosenGameSource()==""||(app.parsed==nil&&app.directFile==""){return false}
+    mask,e:=chosenOutputMask()
+    return e==nil && mask!=0 && mask&^availableGameOutputs()==0
 }
 func outputNames(mask uint32) string {
     parts:=[]string{}
@@ -63,8 +82,8 @@ func gameOutputAction(action string,index int) {
     switch action {
     case "game-source":
         if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.xiso;*.cci\x00All files\x00*.*\x00","Choose original game image or XBE","");p!="" {
-            selectGameSource(p)
-            app.status="Game output source: "+filepath.Base(p)
+            openInput(p)
+            app.status="Game source: "+filepath.Base(p)
         }
     case "game-folder":
         // Select the root default.xbe to identify a complete extracted folder.
@@ -73,24 +92,25 @@ func gameOutputAction(action string,index int) {
                 notify("Select the root default.xbe, not another game executable.")
                 return
             }
-            selectGameSource(filepath.Dir(p))
-            app.status="Extracted game folder selected"
+            openInput(p) // inspect/auto-match the actual root default.xbe
+            selectGameSource(filepath.Dir(p)) // exports the complete game folder
+            app.status="Extracted game folder selected; choose output formats"
         }
     case "game-use-loaded":
         selectGameSource("")
-        gameOutputMask=core.GameOutputXISO
-        kind:=gameSourceCategory(app.input)
-        if saved:=gameOutputFormats[kind];saved!=0 {
-            gameOutputMask=saved
-        } else if kind=="xbe"{gameOutputMask=core.GameOutputXBE
-        }else if kind=="cci"{gameOutputMask=core.GameOutputCCI
-        }else if kind=="fulliso"{gameOutputMask=core.GameOutputISO}
     case "game-format":
-        if index>=0 && index<=4 {
-            gameOutputMask ^= uint32(1)<<uint(index)
-            if gameOutputFormats==nil{gameOutputFormats=map[string]uint32{}}
-            gameOutputFormats[gameSourceCategory(chosenGameSource())]=gameOutputMask
-            savePreferences()
+        if index>=0&&index<=4 && chosenGameSource()!="" {
+            bit:=uint32(1)<<uint(index)
+            if availableGameOutputs()&bit!=0 || gameOutputMask&bit!=0 {
+                gameOutputMask^=bit
+                if gameOutputFormats==nil{gameOutputFormats=map[string]uint32{}}
+                gameOutputFormats[currentGameOutputKind()]=gameOutputMask
+                savePreferences()
+            }
+        }
+    case "game-preserve":
+        if chosenGameSource()!="" {
+            gameOutputPreserve=!gameOutputPreserve
         }
     case "game-patch-toggle":
         gameOutputIgnorePatch=!gameOutputIgnorePatch
@@ -251,11 +271,16 @@ func startGameOutput(){
     app.mu.Lock()
     if app.busy{app.mu.Unlock();return}
     source,selected,direct:=chosenGameSource(),app.parsed,app.directFile
-    mask,password,override:=gameOutputMask,app.password,app.override
-    if gameOutputIgnorePatch {selected=nil;direct=""}
+    password,override:=app.password,app.override
     app.mu.Unlock()
     if source=="" {notify("Choose a game image, extracted folder or XBE first.");return}
-    if mask==0 {notify("Select at least one output format.");return}
+    if selected==nil&&direct=="" {notify("Choose a patch in Patch Library before applying.");return}
+    mask,e:=chosenOutputMask()
+    if e!=nil {notify("Output formats: "+e.Error());return}
+    if mask&^availableGameOutputs()!=0{
+        notify("The chosen patch or source cannot safely produce every selected format.")
+        return
+    }
     if mask&core.GameOutputXBE!=0 && mask&core.GameOutputFolder!=0 {
         // Allowed: a folder and an XBE, but each patch member is checked first.
     }
@@ -274,6 +299,7 @@ func startGameOutput(){
     manager.log.Add("info","Game Outputs","Preflight: verifying source and preserving the original")
     redraw()
     go func(){
+        defer catchFatalPanic()
         var err error
         workSource:=source
         if strings.EqualFold(filepath.Ext(direct),".pf"){

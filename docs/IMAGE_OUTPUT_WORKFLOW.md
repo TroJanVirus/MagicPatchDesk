@@ -3,6 +3,12 @@
 
 > **Status clarification (2026-11-22):** This file began as an implementation specification and preserves some *historical* acceptance checkboxes. Source-aware game outputs and the Windows Game Outputs workspace have since shipped in preview builds. The most recent published [v0.14.0-test.2](https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.2) passed Linux Go unit/race/vet, native Windows Go tests, actual EXE checksum/healthcheck, and Win32 UI paint smoke ([run #44923406249](https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44923406249)). **Actual Windows user interaction, retail image round-trips and physical Xbox/Cerbios boot remain unverified.** For current state and next steps see [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) and [STATUS.md](STATUS.md); for reference licences see [CREDITS.md](../CREDITS.md). Do not treat an unchecked design item as proof the feature is absent from the current source.
 
+## Current UI clarification — v0.14.0-test.5
+
+The game-output engine in `core/game_outputs.go` is retained, but the **separate Game Outputs sidebar tab has been removed**. Single-game patching, source selection and multiple output-format selection now live together in **Patch Library**: choose an original game/extracted folder, choose a JMP or other supported patch, click **CHOOSE OUTPUTS** to select one or more formats and/or **Preserve current format**, then **APPLY PATCH**. Apply is genuinely disabled until a source, patch and explicitly chosen compatible output exist. Output is an independently verified package folder; original files are never modified. The old per-input-format remembered preferences are not silently applied to a newly chosen game, to avoid accidentally exporting or overwriting an unexpected format.
+
+The output source pipeline can still export an independent extracted game directory, XBE, game XISO, Cerbios CCI, and full-disc ISO **only from an actual full-disc input**. The standalone `Game Manager` workspace is now displayed as **Batch Process Library**, retaining its separate bulk operations. See `docs/PATCH_LIBRARY_OUTPUTS_AND_UPDATES.md` for the new native GUI, provenance and QA rules.
+
 ## User requirement
 
 The selected **input** format must never lock the **output** format. A user who provides a game-partition XISO can choose an extracted folder, game-partition XISO, Cerbios CCI, or a patched game XBE alone. Full-disc/Redump-style ISO output is uncommon and should only be offered explicitly when a full-disc ISO was supplied and the image can be safely preserved.
