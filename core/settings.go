@@ -20,7 +20,7 @@ type Preferences struct {
 func DefaultPreferences() Preferences { return Preferences{Workers: 4, Filter: 0, Theme: "Midnight"} }
 
 func (p Preferences) Validate() Preferences {
-	if p.Theme!="Midnight" && p.Theme!="Forest" && p.Theme!="Plum" {p.Theme="Midnight"}
+	if p.Theme!="Midnight" && p.Theme!="Forest" && p.Theme!="Plum" && p.Theme!="Light" {p.Theme="Midnight"}
 	if p.Workers < 1 || p.Workers > 8 {
 		p.Workers = 4
 	}
