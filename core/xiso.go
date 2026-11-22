@@ -40,6 +40,12 @@ func readAt(f io.ReaderAt, where int64, n int) ([]byte, error) {
 	return b, err
 }
 func OpenXISO(path string) (*Image,error) {
+    if IsNumberedRawImagePart(path) {
+        parts,err:=openRawDiscParts(path)
+        if err!=nil{return nil,err}
+        defer parts.Close()
+        return openXDVDFSReaderAt(parts,parts.size,path)
+    }
     f,err:=os.Open(path)
     if err!=nil{return nil,err}
     defer f.Close()
@@ -182,9 +188,17 @@ func (im *Image) DefaultXBE() (ImageFile, error) {
 	return ImageFile{}, fmt.Errorf("multiple XBEs found; default.xbe is absent (cannot auto-select safely)")
 }
 func (im *Image) ReadFile(entry ImageFile) ([]byte, error) {
-	if entry.Size > 512<<20 {
-		return nil, errors.New("XBE exceeds 512MiB safety limit")
-	}
+    if entry.Size>512<<20{return nil,errors.New("XDVDFS member exceeds 512 MiB safety limit")}
+    if IsNumberedRawImagePart(im.Path){
+        parts,err:=openRawDiscParts(im.Path)
+        if err!=nil{return nil,err}
+        defer parts.Close()
+        offset:=im.Base+int64(entry.StartSector)*sectorSize
+        if offset<0 || offset+int64(entry.Size)>parts.size {
+            return nil,errors.New("split ISO member extends outside the complete disc")
+        }
+        return readAt(parts,offset,int(entry.Size))
+    }
 	f, err := os.Open(im.Path)
 	if err != nil {
 		return nil, err
@@ -195,6 +209,9 @@ func (im *Image) ReadFile(entry ImageFile) ([]byte, error) {
 
 // CopyImage performs bounded parallel ReadAt/WriteAt copies. The caller chooses worker count (1-8).
 func CopyImage(source, dest string, workers int, onProgress func(done, total int64)) error {
+    if IsNumberedRawImagePart(source){
+        return errors.New("cannot copy one split ISO part as a complete image; use Patch Library to export a new XISO/CCI from the complete set")
+    }
 	if workers < 1 {
 		workers = 1
 	}
