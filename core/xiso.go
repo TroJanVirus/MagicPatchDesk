@@ -34,23 +34,26 @@ type ImageFile struct {
 }
 
 func get32(b []byte) uint32 { return binary.LittleEndian.Uint32(b) }
-func readAt(f *os.File, where int64, n int) ([]byte, error) {
+func readAt(f io.ReaderAt, where int64, n int) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := f.ReadAt(b, where)
 	return b, err
 }
-func OpenXISO(path string) (*Image, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
+func OpenXISO(path string) (*Image,error) {
+    f,err:=os.Open(path)
+    if err!=nil{return nil,err}
+    defer f.Close()
+    st,err:=f.Stat()
+    if err!=nil{return nil,err}
+    return openXDVDFSReaderAt(f,st.Size(),path)
+}
+
+// Use the same bounded XDVDFS parser for ordinary ISOs and for a logical
+// multi-part CCI sector stream. This avoids extracting multi-gigabyte CCI
+// images just to locate a few executable sectors.
+func openXDVDFSReaderAt(f io.ReaderAt, imageSize int64, path string) (*Image,error) {
 	for _, base := range partitionBases {
-		if base+0x10800 > st.Size() {
+        if base+0x10800>imageSize {
 			continue
 		}
 		v, err := readAt(f, base+0x10000, int(sectorSize))
@@ -64,7 +67,7 @@ func OpenXISO(path string) (*Image, error) {
 		}
 		im := &Image{Path: path, Base: base, RootSector: root, RootSize: rs}
 		visited := map[string]bool{}
-		if err := im.walk(f, "", root, rs, visited, 0); err != nil {
+		if err := im.walk(f, imageSize, "", root, rs, visited, 0); err != nil {
 			return nil, err
 		}
 		if len(im.Files) == 0 {
@@ -74,7 +77,7 @@ func OpenXISO(path string) (*Image, error) {
 	}
 	return nil, errors.New("no recognized original Xbox XDVDFS volume (XISO / XGD1 / XGD2 / XGD3)")
 }
-func (im *Image) walk(f *os.File, prefix string, sector uint32, size uint32, visited map[string]bool, depth int) error {
+func (im *Image) walk(f io.ReaderAt, imageSize int64, prefix string, sector uint32, size uint32, visited map[string]bool, depth int) error {
 	if depth > 24 {
 		return errors.New("XISO directory nesting too deep")
 	}
@@ -90,8 +93,7 @@ func (im *Image) walk(f *os.File, prefix string, sector uint32, size uint32, vis
 		return errors.New("directory cycle detected")
 	}
 	visited[key] = true
-	st, _ := f.Stat()
-	if dirAt < 0 || dirAt+int64(size) > st.Size() {
+	if dirAt < 0 || dirAt+int64(size) > imageSize {
 		return errors.New("directory table outside image")
 	}
 	table, err := readAt(f, dirAt, int(size))
@@ -132,13 +134,13 @@ func (im *Image) walk(f *os.File, prefix string, sector uint32, size uint32, vis
 		if attr&0x10 != 0 {
 			im.Directories = append(im.Directories, pth)
 			if sector != 0 && filesize != 0 {
-				if err := im.walk(f, pth, sector, filesize, visited, depth+1); err != nil {
+				if err := im.walk(f, imageSize, pth, sector, filesize, visited, depth+1); err != nil {
 					return err
 				}
 			}
 		} else {
 			at := im.Base + int64(sector)*sectorSize
-			if at < 0 || at+int64(filesize) > st.Size() {
+			if at < 0 || at+int64(filesize) > imageSize {
 				return fmt.Errorf("XISO file outside image: %s", pth)
 			}
 			im.Files = append(im.Files, ImageFile{pth, sector, filesize, dirAt + int64(off)})
