@@ -437,6 +437,7 @@ func initApp() {
         if e==nil{app.recoveredCrashes=recovered}else{app.crashSetupWarning=true}
     }
 	loadMaintenanceSettings(app.root)
+    initGitHubConnectionState()
 	refreshRecentFiles()
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
@@ -468,7 +469,7 @@ func initApp() {
         return
     }
 	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
-	if maintenancePref.AutoReports {go syncStoredReports()}
+	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
 	go reloadAndSync()
 	go syncPatchHubMetadata()
