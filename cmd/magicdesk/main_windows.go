@@ -1220,6 +1220,7 @@ func handle(action string, index int) {
         switch app.theme {
         case "Midnight":app.theme="Forest"
         case "Forest":app.theme="Plum"
+        case "Plum":app.theme="Light"
         default:app.theme="Midnight"
         }
         setTheme(app.theme)
