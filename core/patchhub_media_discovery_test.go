@@ -10,6 +10,9 @@ import (
     "testing"
 )
 
+const ProvidedPhantomCrashImage = "https://www.jayxbox.com/All-Patches/titles/Phantom%20Crash/USA_00000005_504C0001/Phantom%20Crash%20%7BWidescreen%7D%20%28NTSC%29%20%5BJay%5D/1.%20Before.jpg"
+const ProvidedAMFBowlingImage = "https://www.jayxbox.com/All-Patches/titles/AMF%20Xtreme%20Bowling/USA_00000001_42530014/AMF%20Xtreme%20Bowling%20%7BWidescreen%7D%20%28NTSC%29%20%5BEsppiral%5D/1.%20Before.jpg"
+
 func samplePhantomMediaGame() (Game,CatalogPatch) {
     g:=Game{Title:"Phantom Crash",Versions:[]HubVersion{
         {TitleID:"504C0001",Region:"USA",Version:"5"},
@@ -182,15 +185,11 @@ func TestOwnerProvidedAMFBowlingMediaIdentity(t *testing.T) {
         shot.Kind!="before"||shot.Set!=1 {
         t.Fatalf("AMF image identity invalid: %+v (ok=%t)",shot,ok)
     }
-    game:=Game{Title:"AMF Xtreme Bowling"}
-    patch:=CatalogPatch{Name:shot.Patch,TitleID:"42530014",Region:"NTSC"}
-    found:=knownPatchHubImages(game,patch)
-    if len(found)!=1||found[0].URL!=ProvidedAMFBowlingImage {
-        t.Fatalf("known AMF media not assigned to correct patch: %+v",found)
+    // Actual image filenames may be arbitrarily named. They are obtained
+    // through the published manifest, not a special-case game table.
+    manifest:=fmt.Sprintf(`{"schema":"patchhub-media-v1","images":[%q]}`,ProvidedAMFBowlingImage)
+    shots,err:=ParsePatchHubMediaManifest([]byte(manifest))
+    if err!=nil||len(shots)!=1||shots[0].URL!=ProvidedAMFBowlingImage {
+        t.Fatalf("AMF image was not discoverable through the generic manifest: %+v %v",shots,err)
     }
-    patch.Region="PAL"
-    if len(knownPatchHubImages(game,patch))!=0 {t.Fatal("US media attached to PAL")}
-    patch.Region="NTSC"
-    patch.TitleID="12345678"
-    if len(knownPatchHubImages(game,patch))!=0 {t.Fatal("wrong Title ID accepted")}
 }
