@@ -1214,6 +1214,25 @@ func handle(action string, index int) {
 		path := filepath.Join(app.root, "Custom")
 		os.MkdirAll(path, 0755)
 		sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(path))), 0, 0, SW_SHOW)
+    case "duplicate-audit":
+        app.mu.Lock()
+        duplicates:=append([]core.CatalogDuplicate(nil),app.cat.Duplicates...)
+        root:=app.root
+        app.mu.Unlock()
+        var report strings.Builder
+        fmt.Fprintf(&report,"Magic Patch Desk - deduplicated catalogue entries\\nCount: %d\\n\\n",len(duplicates))
+        for i,d:=range duplicates {
+            kept,_:=filepath.Rel(root,d.Kept)
+            collapsed,_:=filepath.Rel(root,d.Collapsed)
+            fmt.Fprintf(&report,"%d. Kept: %s\\n   Collapsed: %s\\n\\n",i+1,kept,collapsed)
+        }
+        destination:=filepath.Join(root,"duplicate-patch-audit.txt")
+        if err:=os.WriteFile(destination,[]byte(report.String()),0600);err!=nil {
+            notify("Cannot create duplicate audit: "+err.Error())
+        }else {
+            sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(destination))),0,0,SW_SHOW)
+            notify(fmt.Sprintf("Catalogue deduplication audit: %d collapsed entries",len(duplicates)))
+        }
 	case "refresh":
 		go reloadCatalog()
 	case "theme":
