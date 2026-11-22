@@ -27,6 +27,7 @@ func drawScrollBar(hdc uintptr,track rect,current,total,visible int,prefix strin
     region:=listScrollBar{Track:track}
     if visible<1{visible=1}
     region.Max=total-visible
+    if region.Max<0{region.Max=0}
     if region.Max<=0{return region}
     height:=track.B-track.T
     if height<26{return region}
