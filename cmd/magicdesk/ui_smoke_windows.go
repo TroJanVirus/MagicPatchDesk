@@ -32,6 +32,29 @@ func smokePaintAndExit() {
     if sysCall(user32.NewProc("MoveWindow"),app.hwnd,55,55,1024,720,1)==0{
         panic("Win32 MoveWindow failed during UI smoke test")
     }
+    // Every theme must retain four clickable colour swatches after resizing
+    // to a 720p-height window. UI painting must not require network access.
+    for _,theme:=range []string{"Midnight","Forest","Plum","Light"}{
+        app.theme=theme
+        setTheme(theme)
+        updateWindowsTitleBarTheme()
+        app.tab=2
+        redraw()
+        sysCall(updateWindow,app.hwnd)
+        choices:=map[int]bool{}
+        for _,hit:=range app.hits{
+            if hit.Action=="theme" {
+                choices[hit.Index]=true
+                if hit.R.T<125||hit.R.B>app.h-42 {
+                    panic(fmt.Sprintf("Theme %s colour chooser clipped (top=%d bottom=%d)",theme,hit.R.T,hit.R.B))
+                }
+            }
+        }
+        if len(choices)!=4 {panic(fmt.Sprintf("Theme %s lacks four clickable colour previews",theme))}
+    }
+    app.theme="Midnight"
+    setTheme(app.theme)
+    updateWindowsTitleBarTheme()
     // A standalone Game Outputs tab must NOT be navigable: its previous
     // single-game functionality now belongs to Patch Library.
     app.tab=0
