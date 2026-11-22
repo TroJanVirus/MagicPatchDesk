@@ -119,3 +119,17 @@ func TestNumberedXISOSuffixSupportsPartTwoAndMissingParts(t *testing.T){
     data,err:=im.ReadFile(entry)
     if err!=nil||!bytes.Equal(data,xbe){t.Fatalf("selected .2.xiso gave wrong default.xbe: %v",err)}
 }
+
+func TestDiscPartSetGroupingForDragAndDrop(t *testing.T){
+    for _,pair:=range [][2]string{
+        {"Halo.1.cci","Halo.3.cci"},
+        {"Halo.1.iso","Halo.2.iso"},
+        {"Halo.1.xiso","Halo.4.xiso"},
+    }{
+        a,b:=DiscPartSetKey(pair[0]),DiscPartSetKey(pair[1])
+        if a==""||a!=b{t.Fatalf("numbered parts not grouped: %q and %q",a,b)}
+    }
+    if DiscPartSetKey("Halo.iso")!=""||DiscPartSetKey("Halo.xbe")!=""{
+        t.Fatal("standalone disc/XBE incorrectly classified as a numbered set")
+    }
+}
