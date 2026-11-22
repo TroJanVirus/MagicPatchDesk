@@ -285,11 +285,13 @@ func font(size int32, weight int32) uintptr {
 }
 func addHit(r rect, act string, index int) { app.hits = append(app.hits, hit{r, act, index}) }
 func fill(hdc uintptr, r rect, c uint32) {
+    c=themeSurfaceColor(c)
 	b := sysCall(createSolidBrush, col(c))
 	sysCall(fillRect, hdc, uintptr(unsafe.Pointer(&r)), b)
 	sysCall(deleteObject, b)
 }
 func panel(hdc uintptr, r rect, color uint32, radius int32) {
+    color=themeSurfaceColor(color)
 	brush := sysCall(createSolidBrush, col(color))
 	pen := sysCall(createPen, 0, 1, col(color))
 	o1 := sysCall(selectObject, hdc, brush)
@@ -305,7 +307,7 @@ func txt(hdc uintptr, s string, r rect, size uintptr, color uint32, flags uint32
 		return
 	}
 	sysCall(setBkMode, hdc, TRANSPARENT)
-	sysCall(setTextColor, hdc, col(color))
+	sysCall(setTextColor, hdc, col(themeTextColor(color)))
 	old := sysCall(selectObject, hdc, size)
 	utf := syscall.StringToUTF16(s)
 	sysCall(drawText, hdc, uintptr(unsafe.Pointer(&utf[0])), uintptr(len(utf)-1), uintptr(unsafe.Pointer(&r)), uintptr(flags))
@@ -335,7 +337,10 @@ func button(hdc uintptr, label string, r rect, action string, idx int, main bool
 	}
 	color := uint32(0x283247)
 	light := uint32(0x405A84)
-	if main {
+    if app.theme=="Light" {
+        color,light=0xE5EDF2,0xCFDFE8
+        if main {color,light=0x11617A,0x147B90}
+    }else if main {
 		color = 0x447FF5
 		light = 0x72A7FF
 	}
@@ -355,7 +360,12 @@ func button(hdc uintptr, label string, r rect, action string, idx int, main bool
 	if strength > 20 && !pressed {
 		fill(hdc, ir(rr.L+12, rr.B-3, rr.R-rr.L-24, 2), blendHex(color, 0xFFFFFF, strength/3))
 	}
-	txt(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, 0xEDF3FF, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
+	buttonText:=uint32(0xEDF3FF)
+    if app.theme=="Light" {
+        buttonText=0x183646
+        if main {buttonText=0xFFFFFF}
+    }
+    txt(hdc, label, ir(rr.L, rr.T+dy/2, rr.R-rr.L, rr.B-rr.T), app.fonts.Medium, buttonText, DT_SINGLELINE|DT_VCENTER|DT_CENTER|DT_END_ELLIPSIS)
 	addHit(r, action, idx)
 }
 
@@ -1236,14 +1246,13 @@ func handle(action string, index int) {
 	case "refresh":
 		go reloadCatalog()
 	case "theme":
-        switch app.theme {
-        case "Midnight":app.theme="Forest"
-        case "Forest":app.theme="Plum"
-        case "Plum":app.theme="Light"
-        default:app.theme="Midnight"
+        names:=[]string{"Midnight","Forest","Plum","Light"}
+        if index>=0 && index<len(names) {
+            app.theme=names[index]
+            setTheme(app.theme)
+            savePreferences()
+            redraw()
         }
-        setTheme(app.theme)
-        savePreferences()
     case "workers":
 		app.workers += index
 		if app.workers < 1 {
