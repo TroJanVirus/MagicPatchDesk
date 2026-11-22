@@ -152,30 +152,24 @@ func SortGallery(images []PatchGalleryImage){
     })
 }
 
-// AttachHubGallery attaches remote screenshots only if exactly one local
-// patch matches the screenshot's game/version/patch name. No fuzzy guesses:
-// mismatched versions or multiple plausible JMPs leave the image unattached.
+// AttachHubGallery associates every website image with the patch DIRECTORY it
+// was found in. The GitHub JMP's region and XBE revision do not determine the
+// presentation gallery. Image names need only be JPEG/PNG/GIF extensions.
+// This function is called for one game at a time, so same-named folders under
+// different release directories can safely contribute screenshots.
 func AttachHubGallery(patches []CatalogPatch,shots []HubScreenshot) {
     for _,shot:=range shots{
-        matches:=[]int{}
-        shotKey:=CoverMatchKey(shot.Patch)
-        for i,p:=range patches{
-            if shot.TitleID!="" && !strings.EqualFold(shot.TitleID,p.TitleID){continue}
-            if shot.Region!=""&&p.Region!=""&&!patchRegionEquivalent(p.Region,shot.Region){continue}
-            if shotKey!=""{
-                patchKey:=CoverMatchKey(p.Name)
-                // PatchHub folder labels may be shorter than the filename.
-                // Prefix/substring matches are only accepted when UNIQUE
-                // within this game and the same original Title ID.
-                if shotKey!=patchKey && (len(shotKey)<5||!strings.Contains(patchKey,shotKey)){continue}
+        for i:=range patches {
+            p:=&patches[i]
+            if !PatchFolderMatches(p.Name,shot.Patch){continue}
+            exists:=false
+            for _,old:=range p.Gallery{
+                if old.URL==shot.URL{exists=true;break}
             }
-            matches=append(matches,i)
+            if !exists {
+                p.Gallery=append(p.Gallery,PatchGalleryImage{Kind:shot.Kind,Set:shot.Set,URL:shot.URL})
+            }
         }
-        if len(matches)!=1{continue}
-        p:=&patches[matches[0]]
-        duplicate:=false
-        for _,existing:=range p.Gallery{if existing.URL==shot.URL {duplicate=true;break}}
-        if !duplicate{p.Gallery=append(p.Gallery,PatchGalleryImage{Kind:shot.Kind,Set:shot.Set,URL:shot.URL})}
     }
     for i:=range patches{SortGallery(patches[i].Gallery)}
 }
