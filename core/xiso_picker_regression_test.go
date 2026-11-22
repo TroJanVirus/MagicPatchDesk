@@ -122,3 +122,35 @@ func TestXISORejectsNonRegularFile(t *testing.T){
         t.Fatal("directory was accepted as a disc image")
     }
 }
+
+func TestXISOHeadersAndDirectoryCorruptionReturnsErrorNotPanic(t *testing.T){
+    src:=makeMultifileXISO(t,false)
+    original,err:=os.ReadFile(src)
+    if err!=nil{t.Fatal(err)}
+    // Mutate volume metadata, directory offsets and filename entries. Some
+    // mutations may remain valid; none may panic, overflow or require reading
+    // an entire untrusted image into RAM.
+    offsets:=[]int{0x10000,0x10014,0x10018,0x107EC,34*2048,34*2048+2,
+        34*2048+4,34*2048+8,34*2048+12,34*2048+13,34*2048+64}
+    path:=filepath.Join(t.TempDir(),"mutated.iso")
+    for caseNumber:=0;caseNumber<100;caseNumber++{
+        data:=append([]byte(nil),original...)
+        offset:=offsets[caseNumber%len(offsets)]
+        if offset>=len(data){t.Fatal("bad test offset")}
+        data[offset]^=byte(1+caseNumber*7)
+        if err:=os.WriteFile(path,data,0600);err!=nil{t.Fatal(err)}
+        func(){
+            defer func(){
+                if v:=recover();v!=nil{
+                    t.Fatalf("malformed ISO triggered Go panic in case %d: %v",caseNumber,v)
+                }
+            }()
+            im,err:=OpenXISO(path)
+            if err==nil{
+                if item,e:=im.DefaultXBE();e==nil{
+                    _,_=im.ReadFile(item)
+                }
+            }
+        }()
+    }
+}
