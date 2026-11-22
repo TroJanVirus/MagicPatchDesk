@@ -173,8 +173,10 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
     if body==""{body="No notes are present for the selected patch."}
     wide:=syscall.StringToUTF16(body)
     measured:=ir(textLeft,textTop,textWidth,32000)
+    oldFont:=sysCall(selectObject,hdc,app.fonts.Regular)
     sysCall(drawText,hdc,uintptr(unsafe.Pointer(&wide[0])),uintptr(len(wide)-1),
         uintptr(unsafe.Pointer(&measured)),DT_WORDBREAK|dtCalcRect|dtNoPrefix)
+    if oldFont!=0{sysCall(selectObject,hdc,oldFont)}
     totalHeight:=measured.B-measured.T+12
     if totalHeight<visibleHeight{totalHeight=visibleHeight}
     barMax:=int(totalHeight-visibleHeight)
@@ -199,8 +201,16 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
         x+22,linkTop,width-43,20,app.fonts.Small,white)
     textAt(hdc,current.URL,x+22,linkTop+23,width-43,19,app.fonts.Small,muted)
     buttonY:=linkTop+50
-    button(hdc,"Previous",ir(x+21,buttonY,90,34),"notes-link-prev",0,false)
-    button(hdc,"Open link",ir(x+119,buttonY,104,34),"notes-link-open",0,true)
-    button(hdc,"Next",ir(x+231,buttonY,79,34),"notes-link-next",0,false)
-    button(hdc,"Copy URL",ir(x+318,buttonY,96,34),"notes-link-copy",0,false)
+    spacing:=int32(7)
+    buttonWidth:=(width-42-spacing*3)/4
+    if buttonWidth<60{buttonWidth=60}
+    for i,action:=range []struct{label,key string}{
+        {"Previous","notes-link-prev"},
+        {"Open link","notes-link-open"},
+        {"Next","notes-link-next"},
+        {"Copy URL","notes-link-copy"},
+    }{
+        button(hdc,action.label,ir(x+21+int32(i)*(buttonWidth+spacing),buttonY,buttonWidth,34),
+            action.key,0,action.key=="notes-link-open")
+    }
 }
