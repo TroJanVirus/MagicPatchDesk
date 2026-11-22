@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+    "errors"
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
@@ -1083,12 +1084,24 @@ func handle(action string, index int) {
 		app.passFocus = false
 	case "import":
 		if p := pickFile(false, "Magic patches\x00*.jmp;*.pf\x00All files\x00*.*\x00", "Import JMP or XBMC4Gamers PF", ""); p != "" {
-			if _, err := core.ImportJMP(app.root, p); err != nil {
-				notify("Import error: " + err.Error())
-			} else {
-				go reloadCatalog()
-				notify("Imported local patch: " + filepath.Base(p))
-			}
+            if saved,err:=core.ImportJMP(app.root,p);err!=nil{
+                if errors.Is(err,core.ErrDuplicatePatch){
+                    // A duplicate is a harmless no-op, not a modal error. Red
+                    // footer text and the local verification log explain why
+                    // nothing was added; do not reset selection or rescan.
+                    app.mu.Lock()
+                    app.status="Duplicate patch found! No need to add."
+                    app.mu.Unlock()
+                    manager.log.Add("error","Import JMP","Duplicate patch found! No need to add.")
+                }else{
+                    manager.log.Add("error","Import JMP","Could not import patch: "+err.Error())
+                    notify("Import error: "+err.Error())
+                }
+            }else{
+                manager.log.Add("pass","Import JMP","Imported independent patch copy: "+filepath.Base(saved))
+                go reloadCatalog()
+                notify("Imported local patch: "+filepath.Base(saved))
+            }
 		}
 	case "dev-refresh", "dev-sort", "dev-select", "dev-prev", "dev-next", "dev-github", "dev-view", "dev-copy", "dev-root", "dev-report", "dev-fixpr", "dev-copygroups", "dev-copyroot", "dev-create":
 		developerAction(action,index)
