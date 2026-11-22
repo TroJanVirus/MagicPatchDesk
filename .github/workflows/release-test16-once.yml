@@ -30,7 +30,7 @@ jobs:
         run: python3 scripts/test_patchhub_media_index.py
       - name: Build official JMP Windows icon resource
         run: python3 scripts/build_windows_icon.py
-      - name: Run Go tests including 7,500-entry ISO tree and malformed images
+      - name: Run Go tests including correctly built XDVDFS fixture and malformed image cases
         run: go test -count=1 ./...
       - name: Run Go race detector
         run: go test -race -count=1 ./core
