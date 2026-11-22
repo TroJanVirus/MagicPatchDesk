@@ -454,7 +454,11 @@ func initApp() {
 	sysCall(setDPI)
 	instance := sysCall(getModule, 0)
 	name := ptr("MagicPatchDeskNative")
-	class := wndClass{Size: uint32(unsafe.Sizeof(wndClass{})), WndProc: syscall.NewCallback(windowProc), Instance: instance, Cursor: sysCall(loadCursor, 0, IDC_ARROW), Name: name}
+    // Resource group ID 1 is the transparent user-provided JMP logo linked
+    // into the EXE by scripts/build_windows_icon.py. Windows uses the same
+    // embedded icon for the taskbar, window caption and Explorer shortcut.
+    appIcon:=sysCall(user32.NewProc("LoadIconW"),instance,1)
+	class := wndClass{Size: uint32(unsafe.Sizeof(wndClass{})), WndProc: syscall.NewCallback(windowProc), Instance: instance, Icon:appIcon, SmallIcon:appIcon, Cursor: sysCall(loadCursor, 0, IDC_ARROW), Name: name}
 	if sysCall(regClass, uintptr(unsafe.Pointer(&class))) == 0 {
 		panic("RegisterClassEx failed")
 	}
