@@ -143,6 +143,14 @@ func RecoverAbandonedCrashSessions(root string,isAlive func(int)bool)(int,error)
         var marker crashSessionMarker
         if json.Unmarshal(body,&marker)!=nil||marker.Schema!=crashSessionSchema||marker.ID!=fileID||marker.PID<=0{continue}
         if isAlive!=nil&&isAlive(marker.PID){continue}
+        // A process terminated abruptly without passing Go's panic handler.
+        // Create a human-readable private log even when Windows/Go supplied
+        // no stack or minidump. The sanitized JSON is a separate document.
+        logPath:=CrashEvidencePath(root,marker.ID)
+        if _,e=os.Stat(logPath);errors.Is(e,os.ErrNotExist){
+            note:=fmt.Sprintf("MagicPatchDesk private unexpected-exit evidence — DO NOT UPLOAD WITHOUT REVIEW\nPrior session started: %s\nVersion: %s\nLast action: %s\nPID: %d\n\nThis session did not close normally; it may have crashed, been killed or lost power. The cause cannot be inferred from this marker alone. Examine runtime-%s.log or a Windows Error Reporting dump if present.\n",marker.StartedUTC,marker.AppVersion,crashStage(marker.Stage),marker.PID,marker.ID)
+            if e=os.WriteFile(logPath,[]byte(note),0600);e!=nil{return count,e}
+        }
         report,e:=NewFailureReport(FailureContext{
             AppVersion:marker.AppVersion,
             Operation:"process.unexpected_exit."+crashStage(marker.Stage),
