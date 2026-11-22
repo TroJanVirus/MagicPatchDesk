@@ -1,5 +1,7 @@
 //go:build windows
 
+//go:generate python ../../scripts/build_windows_icon.py
+
 package main
 
 import (
@@ -452,11 +454,15 @@ func initApp() {
 	sysCall(setDPI)
 	instance := sysCall(getModule, 0)
 	name := ptr("MagicPatchDeskNative")
-	class := wndClass{Size: uint32(unsafe.Sizeof(wndClass{})), WndProc: syscall.NewCallback(windowProc), Instance: instance, Cursor: sysCall(loadCursor, 0, IDC_ARROW), Name: name}
+    // Resource group ID 1 is the transparent user-provided JMP logo linked
+    // into the EXE by scripts/build_windows_icon.py. Windows uses the same
+    // embedded icon for the taskbar, window caption and Explorer shortcut.
+    appIcon:=sysCall(user32.NewProc("LoadIconW"),instance,1)
+	class := wndClass{Size: uint32(unsafe.Sizeof(wndClass{})), WndProc: syscall.NewCallback(windowProc), Instance: instance, Icon:appIcon, SmallIcon:appIcon, Cursor: sysCall(loadCursor, 0, IDC_ARROW), Name: name}
 	if sysCall(regClass, uintptr(unsafe.Pointer(&class))) == 0 {
 		panic("RegisterClassEx failed")
 	}
-	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk  |  Xbox Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
+	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
 	if app.hwnd == 0 {
 		panic("CreateWindowEx failed")
 	}
@@ -471,6 +477,9 @@ func initApp() {
 	if !maintenancePref.NoAutoCheck {checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go syncStoredReports()}
 	sysCall(updateWindow, app.hwnd)
+    // Persist once: distinguish a native failure inside event dispatch/paint
+    // from a failure in startup initialization when Windows reports no WER event.
+    markCrashStage("ui_callback")
 	go reloadAndSync()
 	go syncPatchHubMetadata()
 	var m msg
@@ -727,6 +736,7 @@ func selectPatch(idx int) {
         app.parsed=nil
         app.mu.Unlock()
         notify("XBMC4Gamers PF selected: "+filepath.Base(path)+" · Choose game's default.xbe or ISO")
+        discoverSelectedPatchMedia(false)
         redraw()
         return
     }
@@ -738,6 +748,7 @@ func selectPatch(idx int) {
 	app.mu.Lock()
 	app.parsed = p
 	app.mu.Unlock()
+    discoverSelectedPatchMedia(false)
 	redraw()
 }
 
@@ -1110,6 +1121,8 @@ func handle(action string, index int) {
         setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
     case "patch-scroll-thumb","records-scroll-thumb","notes-scroll-thumb":
         // Drag handled directly by the mouse capture loop.
+    case "gallery-discover":
+        discoverSelectedPatchMedia(true)
     case "gallery-open":
         images,_:=selectedLibraryGallery()
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}

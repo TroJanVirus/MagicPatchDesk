@@ -119,7 +119,6 @@ func TestPatchHubGalleryRejectsUnsafeAndAmbiguousPhotos(t *testing.T){
         "/All-Patches/titles/Halo/GLO_1_4D530064/Wide/before.svg",
         "/All-Patches/titles/Halo/GLO_1_4D530064/Wide/After.png?redirect=1",
         "/All-Patches/titles/Halo/GLO_1_4D530064/Wide/Before.png#fragment",
-        "/All-Patches/titles/Halo/GLO_1_4D530064/Wide/Normal.png",
     }{
         if shot,ok:=patchhubGalleryURL(bad);ok{t.Fatalf("accepted unsafe or unlabelled screenshot %s: %+v",bad,shot)}
     }
@@ -141,8 +140,8 @@ func TestLocalPatchHubGalleryMultiplePairs(t *testing.T){
         writeImportFixture(t,filepath.Join(folder,name),"not-needed-for-name-indexing")
     }
     photos:=LocalPatchScreenshots(patch)
-    if len(photos)!=4{t.Fatalf("expected four local screenshots; got %+v",photos)}
-    if photos[0].Kind!="before"||photos[1].Kind!="after"||photos[2].Set!=2 {
+    if len(photos)!=5{t.Fatalf("expected all five patch-specific images, including arbitrary filename; got %+v",photos)}
+    if photos[0].Kind!="before"||photos[1].Kind!="after"||photos[2].Set!=2||photos[4].Kind!="screenshot" {
         t.Fatalf("local photos not arranged in paired order: %+v",photos)
     }
     other:=writeImportFixture(t,filepath.Join(t.TempDir(),"Custom","OtherPatch.jmp"),fixtureJMP(fakeXBE()))

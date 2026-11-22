@@ -50,7 +50,7 @@ var hubVersion = regexp.MustCompile(`(?is)Title ID:\s*([A-Fa-f0-9]{8})\s*\|\s*Re
 func ParsePatchHubHTML(doc []byte) (HubIndex, error) {
 	contents := string(doc)
 	locations := hubCard.FindAllStringIndex(contents, -1)
-	result := HubIndex{Updated: time.Now().UTC(),GalleryScanVersion:1}
+	result := HubIndex{Updated: time.Now().UTC(),GalleryScanVersion:2}
 	for idx, loc := range locations {
 		end := len(contents)
 		if idx+1 < len(locations) {
@@ -102,7 +102,7 @@ func ReadHubCache(root string) HubIndex {
 }
 func SyncPatchHub(ctx context.Context, root string) (int, error) {
 	cache := ReadHubCache(root)
-	if len(cache.Games) > 0 && cache.GalleryScanVersion>=1 && time.Since(cache.Updated) < 24*time.Hour {
+	if len(cache.Games) > 0 && cache.GalleryScanVersion>=2 && time.Since(cache.Updated) < 24*time.Hour {
 		return len(cache.Games), nil
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", PatchHubURL, nil)
@@ -127,6 +127,14 @@ func SyncPatchHub(ctx context.Context, root string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+    // Every photo published by the server is matched against the actual
+    // game+region+version+Title ID; optional media index absence must not
+    // make the ordinary game cover/catalogue sync fail.
+    supplied,valid:=patchhubGalleryURL(ProvidedPhantomCrashImage)
+    if valid{AppendPatchHubMedia(&hub,[]HubScreenshot{supplied})}
+    if listed,e:=ReadPatchHubMediaManifest(ctx,nil);e==nil{
+        AppendPatchHubMedia(&hub,listed)
+    }
 	j, err := json.Marshal(hub)
 	if err != nil {
 		return 0, err

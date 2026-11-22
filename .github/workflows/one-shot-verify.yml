@@ -20,6 +20,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - name: Verify public PatchHub media index generator
+        run: python3 scripts/test_patchhub_media_index.py
+      - name: Embed official JMP Windows icon
+        run: python3 scripts/build_windows_icon.py
       - name: Core and integration tests
         run: go test ./...
       - name: Race detector

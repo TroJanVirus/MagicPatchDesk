@@ -131,8 +131,8 @@ func drawSidebar(hdc uintptr,w,h int32){
     }
     topNav:=[]navItem{
         {"Patch Library","◈",0},
-        {"Convert & Create","◇",1},
-        {"Batch Process Library","▤",8},
+        {"Convert Patch","◇",1},
+        {"Batch Process","▤",8},
         {"Diagnostics","◉",3},
         {"Recent","◷",5},
         {"Maintenance","⚒",6},
@@ -378,7 +378,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		if p.RAM != "" {
 			detail += "  ·  " + p.RAM
 		}
-        if len(p.Gallery)>0{detail+=fmt.Sprintf("  ·  %d patch images",len(p.Gallery))}
+        if count:=len(galleryForPatch(p));count>0{detail+=fmt.Sprintf("  ·  %d patch images",count)}
 		textAt(hdc, strLimit(detail, 90), x+150, y+29, width-181, 17, app.fonts.Small, muted)
 
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
@@ -394,9 +394,14 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	}
     textAt(hdc,fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS",len(p.Records)),x+23,groupY,width-199,23,app.fonts.Micro,muted)
     if app.selectedPatch>=0&&app.selectedPatch<len(g.Patches){
-        shots:=g.Patches[app.selectedPatch].Gallery
+        chosen:=g.Patches[app.selectedPatch]
+        shots:=galleryForPatch(chosen)
         if len(shots)>0 {
             button(hdc,fmt.Sprintf("View images (%d)",len(shots)),ir(x+width-168,groupY-1,150,30),"gallery-open",0,false)
+        }else if mediaDiscoveryRunning(chosen){
+            textAt(hdc,"Finding images…",x+width-164,groupY+2,145,24,app.fonts.Small,muted)
+        }else{
+            button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
         }
     }
 	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)

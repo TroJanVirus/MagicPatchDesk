@@ -42,3 +42,7 @@ The Xbox DVD filesystem technical descriptions by **Andrew de Quincey** and **pu
 ## v0.14.0-test.4 Windows crash diagnostics reference
 
 **Microsoft — Windows Error Reporting user-mode dumps** ([Collecting User-Mode Dumps](https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps)) — documentation reference on Windows native dump collection, HKLM administrative configuration and diagnostic privacy. No Microsoft crash library, code or copyrighted data was copied. The app uses its own Go/session-marker mechanism and does not change HKLM settings without administrator action.
+
+## v0.14.0-test.6 — owner-supplied JMP logo and website comparison media
+
+**JayYardley / original Jay's Magic Patch branding** — the transparent JMP logo was explicitly uploaded for embedding in the application's Windows EXE. Its text-encoded source lives in `assets/jmp-logo.ico.b64`; resource conversion is implemented in-house using `scripts/build_windows_icon.py` (Python standard library). The embedded logo is the only newly bundled artwork; no third-party font or screenshot is embedded. PatchHub comparison images remain externally hosted on the author's PatchHub site, downloaded and validated only as needed and cached locally on the user's device. The optional media-index generator reads public website images, not copyrighted game content.
