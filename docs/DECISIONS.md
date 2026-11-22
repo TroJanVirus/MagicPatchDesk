@@ -56,3 +56,11 @@ Only record a decision here when the **owner actually made it** or explicitly ac
 
 - **Import JMP duplicate behaviour:** if an identical patch already exists anywhere in the indexed library (including GitHub-synced patches), importing it is a **no-op** and shows the red bottom-log message **“Duplicate patch found! No need to add.”** Do not overwrite a same-named *different* patch.
 - **PatchHub screenshots:** show before-and-after comparison images for the selected patch **in the Patch Library**, not just a game cover. A patch may have **several** screenshots; the user must be able to browse all discoverable images. Be accurate about which patch/version each screenshot belongs to, and retain offline functionality where cached or imported images exist.
+
+## 2026-11-22 — explicit additional owner requirements (reliability and usability)
+
+- **A crash MUST NOT disappear without trace:** after a fatal or abnormal process exit, keep crash evidence locally and make it discoverable from Settings / Problem Reports on the next launch. Give the user a straightforward path to review a full private log and submit a privacy-filtered GitHub issue. Do not silently claim every abnormal termination reveals its root cause. If crash storage is unavailable, show a warning.
+- **Duplicate JMP imports must actually stop:** equivalently behaving patch edits with different formatting/metadata and patches inside imported folders should not be added again; preserve source files and display an unmistakable red bottom-log message. Existing duplicates must no longer create confusing redundant catalogue entries.
+- **Complete notes are essential:** JMP notes containing HTML br tags, paragraph/list formatting and long instructions must be readable in full (with scrolling/copy), never replaced by a truncated ellipsis.
+- **Wheel follows cursor:** independently scroll the game's patch list or the selected patch's records according to the hovered region and provide visible scrollbars.
+- **Only relevant conversion controls:** IPS RLE options need not appear for JMP/BPS/Xdelta outputs; encryption passwords should appear when encrypted IPS output or source actually requires them, not for ordinary plain IPS.

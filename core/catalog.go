@@ -3,6 +3,8 @@ package core
 import (
 	"archive/zip"
 	"context"
+    "crypto/sha256"
+    "encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,6 +42,7 @@ type CatalogPatch struct {
 	RAM     string
 	Issue   string
     Gallery []PatchGalleryImage
+    Fingerprint string // internal canonical identity; never patch game data
 }
 type Game struct {
 	Title    string
@@ -217,6 +220,19 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 					cp.Notes = "Patch must be reviewed: " + parseErr.Error()
 				}
                 cp.Gallery=LocalPatchScreenshots(path)
+                if parseErr==nil{
+                    if p!=nil{
+                        if digest,ok:=semanticJMPFingerprint(p);ok{
+                            cp.Fingerprint="jmp-sem:"+hex.EncodeToString(digest[:])
+                        }else{
+                            digest:=sha256.Sum256(canonicalJMPText(b))
+                            cp.Fingerprint="jmp-text:"+hex.EncodeToString(digest[:])
+                        }
+                    }else if pf!=nil{
+                        digest:=sha256.Sum256(b)
+                        cp.Fingerprint="pf-raw:"+hex.EncodeToString(digest[:])
+                    }
+                }
 				results <- result{p: cp, err: parseErr}
 			}
 		}()
@@ -230,25 +246,41 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 		wg.Wait()
 		close(results)
 	}()
+    // Existing duplicate cache entries must not remain duplicate choices
+    // forever. Preserve all underlying files; display a single representative.
+    collected:=[]result{}
+    for r:=range results{collected=append(collected,r)}
+    sort.SliceStable(collected,func(i,j int)bool{
+        a,b:=collected[i].p,collected[j].p
+        if a.Source!=b.Source{return a.Source=="GitHub"}
+        return strings.ToLower(a.File)<strings.ToLower(b.File)
+    })
 	games := map[string]*Game{}
-	for r := range results {
+    type patchPlace struct{game *Game;index int}
+    seen:=map[string]patchPlace{}
+	for _,r := range collected {
 		if r.err != nil {
 			c.Issues++
-			if r.p.File == "" {
-				continue
-			}
+			if r.p.File == "" {continue}
 		}
 		p := r.p
+        if p.Fingerprint!=""{
+            if prior,ok:=seen[p.Fingerprint];ok{
+                old:=&prior.game.Patches[prior.index]
+                old.Gallery=append(old.Gallery,p.Gallery...)
+                SortGallery(old.Gallery)
+                continue
+            }
+        }
 		key := strings.ToLower(strings.TrimSpace(p.Game))
-		if key == "" {
-			key = "unknown"
-		}
+		if key == "" {key = "unknown"}
 		g := games[key]
 		if g == nil {
 			g = &Game{Title: p.Game}
 			games[key] = g
 		}
 		g.Patches = append(g.Patches, p)
+        if p.Fingerprint!=""{seen[p.Fingerprint]=patchPlace{game:g,index:len(g.Patches)-1}}
 		c.PatchCount++
 	}
 	// Include every game title in a locally imported PatchHub 'titles' tree,
@@ -600,6 +632,19 @@ func ImportFolder(root, folder string) (int, error) {
 		default:
 			return nil
 		}
+        if ext==".jmp"||ext==".pf"{
+            data,e:=os.ReadFile(path)
+            if e!=nil{return e}
+            if int64(len(data))>maxImportedPatchBytes{return fmt.Errorf("patch exceeds import size limit: %s",filepath.Base(path))}
+            if ext==".jmp"{
+                if _,e=ParseJMP(filepath.Base(path),data);e!=nil{return fmt.Errorf("invalid JMP %s: %w",filepath.Base(path),e)}
+            }else{
+                if _,e=ParsePF(filepath.Base(path),data);e!=nil{return fmt.Errorf("invalid PF %s: %w",filepath.Base(path),e)}
+            }
+            matching,e:=existingIdenticalPatch(root,ext,data)
+            if e!=nil{return e}
+            if matching!=""{return nil}
+        }
 		rel, e := filepath.Rel(folder, path)
 		if e != nil {
 			return e

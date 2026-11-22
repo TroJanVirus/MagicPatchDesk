@@ -41,6 +41,7 @@ type DiagnosticReport struct {
 	ExpectedCRC32   string `json:"expected_crc32,omitempty"`
 	RecordNumber    int    `json:"record_number,omitempty"`
 	ByteOffset      string `json:"byte_offset,omitempty"`
+    CrashEvidenceID string `json:"crash_evidence_id,omitempty"`
 }
 
 // FailureContext includes only known-safe structured metadata; filenames are
@@ -104,6 +105,8 @@ func categorizeFailure(e error) (string, string) {
 		fragments         []string
 		code, description string
 	}{
+        {[]string{"unhandled panic"}, "unhandled_panic", "Magic Patch Desk encountered an unhandled panic. A private stack log is saved locally for review."},
+        {[]string{"unexpected process exit"}, "unexpected_exit", "The previous session did not close normally. It may have crashed or been force-terminated; private crash evidence is available locally."},
 		{[]string{"crc32", "checksum mismatch", "sha256", "sha-256", "hash mismatch"}, "checksum_mismatch", "An input or output checksum did not match the expected value."},
 		{[]string{"title id mismatch", "titleid mismatch", "wrong title id"}, "title_id_mismatch", "The selected game has a different Title ID than the patch requires."},
 		{[]string{"pattern not found", "search pattern not found", "hex pattern not found"}, "search_not_found", "A search-and-replace pattern was not present in the target."},
@@ -186,11 +189,11 @@ func NewFailureReport(ctx FailureContext, failure error) (DiagnosticReport, erro
 
 func (r DiagnosticReport) Summary() string {
 	title := canonicalDiagnosticTitleID(r.TitleID)
-	return fmt.Sprintf("Magic Patch Desk %s | report %s\nGroup: %s\nSeverity: %s\nCategory: %s\nOperation: %s\nTitle ID: %s\nResult: %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nNo game content, local paths, credentials or raw error strings are included.",
+	return fmt.Sprintf("Magic Patch Desk %s | report %s\nGroup: %s\nSeverity: %s\nCategory: %s\nOperation: %s\nTitle ID: %s\nResult: %s\nInput: %s / %s\nTarget: %s\nOS: %s/%s\nRecord: %d\nWarnings: %d\nLocal crash evidence ID: %s\nNo game content, local paths, credentials or raw error strings are included.",
 		r.AppVersion, r.ID, r.EffectiveGroupID(), r.Severity,
 		diagnosticTag(r.ErrorCode), diagnosticTag(r.Operation), title,
 		r.Explanation, r.PatchFormat, r.SourceKind, r.TargetExtension,
-		r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount)
+		r.OperatingSystem, r.Architecture, r.RecordNumber, r.WarningCount, r.CrashEvidenceID)
 }
 
 // SaveFailureReport creates a private JSON report, never overwriting a prior

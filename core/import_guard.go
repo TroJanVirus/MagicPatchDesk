@@ -29,6 +29,7 @@ const maxImportedPatchBytes = 16 << 20
 // WalkDir does not traverse directory symlinks; symlink files are ignored.
 func existingIdenticalPatch(root, extension string, incoming []byte) (string,error) {
     wanted := sha256.Sum256(incoming)
+    incomingIsJMP:=strings.EqualFold(extension,".jmp")
     for _, library := range []string{"Custom","GitHub"} {
         directory:=filepath.Join(root,library)
         var matching string
@@ -39,7 +40,8 @@ func existingIdenticalPatch(root, extension string, incoming []byte) (string,err
             if d.Type()&os.ModeSymlink!=0||!strings.EqualFold(filepath.Ext(path),extension){return nil}
             stat,e:=d.Info()
             if e!=nil{return e}
-            if !stat.Mode().IsRegular()||stat.Size()!=int64(len(incoming)){return nil}
+            if !stat.Mode().IsRegular()||stat.Size()<=0||stat.Size()>maxImportedPatchBytes{return nil}
+            if stat.Size()!=int64(len(incoming))&&!incomingIsJMP{return nil}
             file,e:=os.Open(path)
             if e!=nil{return e}
             sum:=sha256.New()
@@ -48,9 +50,17 @@ func existingIdenticalPatch(root, extension string, incoming []byte) (string,err
             if e!=nil{return e}
             if closeErr!=nil{return closeErr}
             if n!=stat.Size(){return fmt.Errorf("library patch changed while hashing: %s",filepath.Base(path))}
-            if bytes.Equal(sum.Sum(nil),wanted[:]){
+            if n==int64(len(incoming))&&bytes.Equal(sum.Sum(nil),wanted[:]){
                 matching=path
                 return filepath.SkipAll
+            }
+            if incomingIsJMP{
+                candidate,e:=os.ReadFile(path)
+                if e!=nil{return e}
+                if EquivalentJMP(incoming,candidate){
+                    matching=path
+                    return filepath.SkipAll
+                }
             }
             return nil
         })

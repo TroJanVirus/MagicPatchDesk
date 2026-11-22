@@ -38,3 +38,7 @@ The Xbox DVD filesystem technical descriptions by **Andrew de Quincey** and **pu
 ## v0.14.0-test.3 PatchHub screenshots
 
 **JayYardley / Xbox Patch Hub** — official source of the game cover and, when publicly exposed, original patch comparison screenshot URLs. [PatchHub](https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php). **Metadata/artwork provenance only.** The app uses its own Go parser and native GDI+ viewer; no PatchHub source, copyrighted screenshots or third-party image assets are bundled in the app or copied into this source repository. User-imported local `titles/` folders retain their original provenance. Do not imply images from an unrelated game version certify this patch.
+
+## v0.14.0-test.4 Windows crash diagnostics reference
+
+**Microsoft — Windows Error Reporting user-mode dumps** ([Collecting User-Mode Dumps](https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps)) — documentation reference on Windows native dump collection, HKLM administrative configuration and diagnostic privacy. No Microsoft crash library, code or copyrighted data was copied. The app uses its own Go/session-marker mechanism and does not change HKLM settings without administrator action.

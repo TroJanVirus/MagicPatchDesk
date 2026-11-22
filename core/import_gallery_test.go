@@ -49,7 +49,7 @@ func TestImportJMPNameCollisionDoesNotOverwriteOtherPatch(t *testing.T){
     original:=writeImportFixture(t,filepath.Join(t.TempDir(),"Patch.jmp"),base)
     first,e:=ImportJMP(root,original)
     if e!=nil{t.Fatal(e)}
-    revision:=strings.Replace(base,"notes=Sample","notes=Independent revision",1)
+    revision:=strings.Replace(base,"0x391:11","0x391:22",1) // distinct patch edit, not metadata-only duplicate
     if revision==base{t.Fatal("failed to build distinct test revision")}
     source2:=writeImportFixture(t,filepath.Join(t.TempDir(),"Patch.jmp"),revision)
     second,e:=ImportJMP(root,source2)
