@@ -9,7 +9,6 @@ import (
     "io"
     "net/http"
     "net/url"
-    "path"
     "regexp"
     "sort"
     "strconv"
@@ -223,5 +222,3 @@ func DiscoverPatchHubMedia(ctx context.Context,client *http.Client,game Game,pat
     })
     return results,nil
 }
-
-var _=path.Clean // path handling is intentionally centralized in patchhubGalleryURL
