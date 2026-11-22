@@ -3,7 +3,6 @@
 package main
 
 import (
-    "bytes"
 	"fmt"
 	"magicpatchdesk/core"
 	"os"
@@ -28,6 +27,22 @@ func selectedConversionInput() (name string, b []byte, err error) {
 		return app.parsed.Filename, core.SerializeJMP(app.parsed), nil
 	}
 	return "", nil, fmt.Errorf("choose a patch or modified XBE")
+}
+
+// The converter accepts a loose XBE or an ISO, but its patch engines must
+// receive the actual default.xbe bytes, never raw 2 KiB disc sectors.
+func readConverterOriginal(path string)([]byte,error){
+    if strings.EqualFold(filepath.Ext(path),".iso"){
+        im,err:=core.OpenXISO(path)
+        if err!=nil{return nil,err}
+        entry,err:=im.DefaultXBE()
+        if err!=nil{return nil,err}
+        return im.ReadFile(entry)
+    }
+    if !strings.EqualFold(filepath.Ext(path),".xbe"){
+        return nil,fmt.Errorf("choose an original XBE or supported Xbox ISO")
+    }
+    return os.ReadFile(path)
 }
 
 func readConversionPatch(path string) (string, []byte, error) {
@@ -106,6 +121,10 @@ func refreshConversionHint() {
 		return
 	}
 	app.conversionBlocked = false
+    if app.bFile!="" && app.convertPatchFile!="" {
+        app.conversionHint="Verification enabled: the converted patch must exactly recreate your modified XBE."
+        return
+    }
 	if plan.RequiresSource {
 		app.conversionHint = "Original source selected · " + plan.Reason
 	} else if plan.SourceRecommended {
@@ -202,50 +221,50 @@ func runConversion() {
 		}
 	}
 	sourcePath, modPath, password, useRLE := app.aFile, app.bFile, app.password, app.ipsRLE
+    // Capture everything the conversion worker uses. The user may change
+    // the selected patch before a long conversion finishes.
+    patch = append([]byte(nil),patch...)
 	app.mu.Lock()
 	app.busy = true
 	app.status = "Converting patch…"
 	app.mu.Unlock()
 	redraw()
-	go func() {
-		var original []byte
-		var converted []byte
-		var jobErr error
-		title := "Unknown"
-		if sourcePath != "" {
-			original, jobErr = os.ReadFile(sourcePath)
-			title = strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
-		}
-		if jobErr == nil {
-			if modPath != "" && inputName == "" {
-				modified, e := os.ReadFile(modPath)
-				if e != nil {
-					jobErr = e
-				} else {
-					converted, jobErr = core.BuildPatchWithOptions(original, modified, format, password, title, useRLE)
-				}
-			} else {
-                // Verify the original patch produces precisely the supplied
-                // expected patched XBE, not merely similar edited regions.
+    go func() {
+        defer catchFatalPanic()
+        var original []byte
+        var converted []byte
+        var modifiedReference []byte
+        var jobErr error
+        title:="Unknown"
+        if sourcePath!="" {
+            original,jobErr=readConverterOriginal(sourcePath)
+            title=strings.TrimSuffix(filepath.Base(sourcePath),filepath.Ext(sourcePath))
+        }
+        if jobErr==nil && modPath!="" {
+            modifiedReference,jobErr=os.ReadFile(modPath)
+        }
+        if jobErr==nil {
+            if modPath!=""&&inputName=="" {
+                // Create a new patch from two XBEs. The encoded patch still
+                // has to round-trip back to the exact expected modified XBE.
+                converted,jobErr=core.BuildPatchWithOptions(original,modifiedReference,format,password,title,useRLE)
+            }else{
                 if modPath!="" {
-                    var expected []byte
-                    expected,jobErr=os.ReadFile(modPath)
-                    if jobErr==nil && original==nil {
-                        jobErr=fmt.Errorf("stock/original XBE required for pre-patched result verification")
-                    }
-                    if jobErr==nil {
-                        var produced []byte
-                        produced,jobErr=core.ApplyPatchFile(original,app.convertPatchFile,password,false)
-                        if jobErr==nil&&!bytes.Equal(produced,expected) {
-                            jobErr=fmt.Errorf("pre-patched XBE verification FAILED: source patch produces different bytes (got %d bytes; reference %d bytes)",len(produced),len(expected))
-                        }
-                    }
+                    // First check the existing patch really makes the user's
+                    // expected modified XBE, not just overlapping edit ranges.
+                    jobErr=core.VerifyPatchAgainstModified(original,modifiedReference,patch,inputName,password)
                 }
                 if jobErr==nil {
-                    converted, _, jobErr = core.ConvertPatchBytes(inputName, patch, original, format, password, useRLE, title)
+                    converted,_,jobErr=core.ConvertPatchBytes(inputName,patch,original,format,password,useRLE,title)
                 }
-			}
-		}
+            }
+        }
+        if jobErr==nil&&modPath!="" {
+            // Then independently apply the converted output in memory.
+            // Unlike the old two-XBE path, it must reproduce the reference
+            // byte-for-byte BEFORE a new patch file is written.
+            jobErr=core.VerifyPatchAgainstModified(original,modifiedReference,converted,"ConvertedPatch"+ext,password)
+        }
 		if jobErr == nil {
 			jobErr = atomicWrite(output, converted)
 		}
