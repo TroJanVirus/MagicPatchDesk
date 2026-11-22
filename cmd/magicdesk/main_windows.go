@@ -239,6 +239,7 @@ type appState struct {
 	fonts         fonts
 	lastErr       string
     recoveredCrashes int
+    crashSetupWarning bool
     notesOpen bool
     notesScroll int
     mouseY int32
@@ -432,7 +433,7 @@ func initApp() {
     app.root, _ = core.GetLibraryDir()
     if !smokeWindowsUI {
         recovered,e:=beginCrashProtection(app.root)
-        if e==nil{app.recoveredCrashes=recovered}
+        if e==nil{app.recoveredCrashes=recovered}else{app.crashSetupWarning=true}
     }
 	loadMaintenanceSettings(app.root)
 	refreshRecentFiles()
