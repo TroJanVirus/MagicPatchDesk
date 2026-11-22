@@ -3,11 +3,12 @@
 package main
 
 import (
+    "context"
     "magicpatchdesk/core"
-    "errors"
-    "os"
     "path/filepath"
     "strings"
+    "sync"
+    "sync/atomic"
 )
 
 // gameInspection is an immutable worker result. Background file readers must
@@ -22,50 +23,92 @@ type gameInspection struct {
     err error
 }
 
+// Source selections are never scanned in separate unbounded goroutines.
+// There is ONE reader for the entire application, plus one replaceable
+// pending request. The previous scan receives cooperative cancellation.
+type gameInspectionRequest struct {
+    path string
+    generation uint64
+    hwnd uintptr
+    ctx context.Context
+}
+
+var (
+    inspectRequestCh=make(chan gameInspectionRequest,1)
+    inspectorOnce sync.Once
+    inspectCancel context.CancelFunc // owned by the Win32 UI thread
+    inspectorStopped bool           // owned by the Win32 UI thread
+    inspectorActive atomic.Int32
+    inspectorMaximum atomic.Int32
+    inspectorFinished atomic.Uint64
+    inspectorCancelled atomic.Uint64
+)
+
+func inspectGamePathContext(ctx context.Context,path string)(core.XBEInfo,string,string,error){
+    result,err:=core.InspectGameSourceContext(ctx,path)
+    return result.Info,result.PartSummary,result.Kind,err
+}
 func inspectGamePath(path string)(core.XBEInfo,string,string,error){
-    var info core.XBEInfo
-    var err error
-    var partSummary string
-    kind:=""
-    if core.CCISourcePath(path){
-        kind="cci"
-        partSummary,err=core.CCIPartSummary(path)
-        if err==nil{info,err=core.InspectCCIExecutable(path)}
-        return info,partSummary,kind,err
+    return inspectGamePathContext(context.Background(),path)
+}
+
+// Called only from the window thread. Canceling promptly releases CCI index
+// allocations, source handles and in-progress XBE reads for older sources.
+func queueGameInspection(path string,generation uint64,hwnd uintptr){
+    if inspectorStopped{return}
+    if inspectCancel!=nil{inspectCancel()}
+    ctx,cancel:=context.WithCancel(context.Background())
+    inspectCancel=cancel
+    inspectorOnce.Do(func(){go runGameInspectionWorker()})
+    request:=gameInspectionRequest{path:path,generation:generation,hwnd:hwnd,ctx:ctx}
+    select{
+    case inspectRequestCh<-request:
+    default:
+        // Only the newest pending file can matter. The in-flight worker
+        // already has a canceled context; no additional worker is spawned.
+        select{case <-inspectRequestCh:default:}
+        inspectRequestCh<-request
     }
-    if core.IsNumberedRawImagePart(path) {
-        partSummary,err=core.RawImagePartSummary(path)
-        if err!=nil{return info,partSummary,kind,err}
+}
+func stopGameInspections(){
+    if inspectorStopped{return}
+    inspectorStopped=true
+    if inspectCancel!=nil{inspectCancel();inspectCancel=nil}
+    // No further UI submissions are possible after WM_DESTROY.
+    close(inspectRequestCh)
+}
+
+func recordInspectorConcurrency(){
+    current:=inspectorActive.Add(1)
+    for {
+        previous:=inspectorMaximum.Load()
+        if previous>=current||inspectorMaximum.CompareAndSwap(previous,current){break}
     }
-    var data []byte
-    if strings.EqualFold(filepath.Ext(path),".xbe"){
-        kind="xbe"
-        var st os.FileInfo
-        st,err=os.Stat(path)
-        if err==nil{
-            switch{
-            case !st.Mode().IsRegular():
-                err=errors.New("selected XBE is not a regular file")
-            case st.Size()>512<<20:
-                err=errors.New("selected XBE exceeds the 512 MiB safety limit")
-            case st.Size()<0x200:
-                err=errors.New("selected XBE is too small to contain a valid header")
-            }
+}
+func runGameInspectionWorker(){
+    defer catchFatalPanic()
+    for req:=range inspectRequestCh{
+        if req.ctx.Err()!=nil{inspectorCancelled.Add(1);continue}
+        recordInspectorConcurrency()
+        info,summary,kind,err:=inspectGamePathContext(req.ctx,req.path)
+        inspectorActive.Add(-1)
+        if req.ctx.Err()!=nil{
+            inspectorCancelled.Add(1)
+            continue
         }
-        if err==nil{data,err=os.ReadFile(path)}
-    }else{
-        var image *core.Image
-        image,err=core.OpenXISO(path)
-        if err==nil{
-            kind="xiso"
-            if image.Base!=0&&!core.IsNumberedRawImagePart(path){kind="fulliso"}
-            var entry core.ImageFile
-            entry,err=image.DefaultXBE()
-            if err==nil{data,err=image.ReadFile(entry)}
+        result:=gameInspection{
+            path:req.path,generation:req.generation,
+            info:info,partSummary:summary,sourceKind:kind,err:err,
         }
+        inspectorFinished.Add(1)
+        select{
+        case gameInspectReady<-result:
+        default:
+            select{case <-gameInspectReady:default:}
+            select{case gameInspectReady<-result:default:}
+        }
+        if req.hwnd!=0{sysCall(postMsg,req.hwnd,WM_APP+4,0,0)}
     }
-    if err==nil{info,err=core.InspectXBE(data)}
-    return info,partSummary,kind,err
 }
 
 // Output permissions are derived only from a successfully parsed source.
