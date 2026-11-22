@@ -1,3 +1,11 @@
+## 2026-11-22 — CRC warnings, image discovery, theme and converter follow-up (development branch; NOT field verified)
+
+- Main Patch Library output preflight now compares the exact original `default.xbe` CRC32 against selected JMP constraints before ordinary export confirmation. A mismatch produces an explicit warning and optional one-operation override, without persisting unsafe bypass settings. The selected patch footer displays expected versus loaded CRC in red when mismatched.
+- Patch list count is deduplicated entries while sync reports downloaded source files (e.g. 800 versus 803 can reflect three collapsed entries); exact duplicate identities still require a live catalogue audit.
+- Convert Patch permits a selected script alongside an optional known pre-patched XBE. With the original source supplied, the script output is compared byte-for-byte to the reference before saving converted output; the converter's existing internal round-trip check still applies. This is single-file verification, not proof of multi-file/PF equivalence.
+- Settings adds persisted Midnight, Forest and Plum palettes. PatchHub media lookup adds a small GET range fallback for HEAD-blocking servers, known owner-provided AMF Bowling URL (and existing Phantom Crash URL), and displays only successfully downloaded/validated images. Live AMF HTTP delivery and actual GUI display are not verified.
+- This branch has NOT been compiled, tested on Windows, or released. Do not mark as shipped or close the prior CTD issue. Avoid unnecessary Actions churn; run tests, vet, Windows cross-build, updater checks and real GUI QA before merge/release.
+
 # MagicPatchDesk — development handoff
 
 > **Current-state notice (2026-11-22):** This file is an **append-only development history** spanning early prototypes through v0.14.0-test.5. Several old "known gaps" and "planned" paragraphs below were implemented later. For the authoritative current state, open **[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)** and **[docs/STATUS.md](docs/STATUS.md)** first; for decisions made by the owner, read **[docs/DECISIONS.md](docs/DECISIONS.md)**. Check `main` and live Releases for newer changes. This file must not be used by reading only its opening sections.
