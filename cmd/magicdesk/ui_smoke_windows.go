@@ -194,11 +194,17 @@ func smokePaintAndExit() {
     oldCatalog,oldSelectedGame,oldSelectedPatch:=app.cat,app.selectedGame,app.selectedPatch
     oldParsed,oldExpanded:=app.parsed,app.expandedGroup
     oldNotesTarget,oldNotesLink,oldNotesOpen:=app.notesTargetGroup,app.notesLinkIndex,app.notesOpen
-    longComment:="Widescreen Support (Everything is less stretched, and the HUD is centred correctly) "+
-        "Please read these important setup instructions before applying the patch. "+
-        "<a href=\\"https://example.org/patch-guide?game=phantom&amp;mode=wide\\">Detailed installation guide</a>"
-    fixture:="#Jay's Magic Patcher\\nsystem=Xbox\\ngame-title=UI fixture\\nregion=NTSC\\nversion=\\nauthor=QA\\n"+
-        "notes=Patch notes <a href=\\"https://example.org/notes\\">notes link</a>\\n#"+longComment+"\\n0x300:0102\\n"
+    longComment:=`Widescreen Support (Everything is less stretched, and the HUD is centred correctly) Please read these important setup instructions before applying the patch. <a href="https://example.org/patch-guide?game=phantom&amp;mode=wide">Detailed installation guide</a>`
+    fixture:=`#Jay's Magic Patcher
+system=Xbox
+game-title=UI fixture
+region=NTSC
+version=
+author=QA
+notes=Patch notes <a href="https://example.org/notes">notes link</a>
+#`+longComment+`
+0x300:0102
+`
     viewerPatch,err:=core.ParseJMP("viewer-fixture.jmp",[]byte(fixture))
     if err!=nil{panic(fmt.Sprintf("Invalid comment viewer fixture: %v",err))}
     app.cat=core.Catalog{Games:[]core.Game{{
