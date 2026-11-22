@@ -240,6 +240,7 @@ type appState struct {
 	lastErr       string
     recoveredCrashes int
     crashSetupWarning bool
+    outputPickerOpen bool
     notesOpen bool
     notesScroll int
     mouseY int32
@@ -639,6 +640,7 @@ func pickFile(save bool, filter, title, defaultName string) string {
 	return syscall.UTF16ToString(name)
 }
 func openInput(path string) {
+    selectGameSource(path)
     markCrashStage("read_xbe")
     if core.CCISourcePath(path) {
         reader,err:=core.OpenCCI(path)
@@ -1049,11 +1051,13 @@ func handle(action string, index int) {
 	switch action {
 	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
 		maintenanceAction(action)
-	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-export", "game-credits", "game-patch-toggle":
+	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-preserve", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
 	case "manager-scan", "manager-mode", "manager-select", "manager-patch-prev", "manager-patch-next", "manager-auto", "manager-review", "manager-skip", "manager-all-safe", "manager-run", "manager-format", "manager-open", "manager-image-choose", "manager-image-current", "manager-image-select", "manager-image-extract", "manager-log-clear", "manager-log-prev", "manager-log-next", "manager-confidence-refresh", "manager-confidence-result", "manager-confidence-xemu", "manager-confidence-hardware", "manager-confidence-revision", "manager-confidence-ram", "manager-confidence-cpu", "manager-merge":
         managerAction(action,index)
 	case "tab":
+        if index==7 {index=0} // discontinued standalone Game Outputs
+        app.outputPickerOpen=false
         app.notesOpen=false
         app.galleryOpen=false
 		app.tab = index
@@ -1082,6 +1086,13 @@ func handle(action string, index int) {
 		app.packSources = nil
 		app.directFile = ""
 		selectPatch(index)
+    case "output-open":
+        if chosenGameSource()=="" {notify("Choose a game file or extracted game folder first.");return}
+        app.outputPickerOpen=true
+        app.notesOpen=false
+        app.galleryOpen=false
+    case "output-close":
+        app.outputPickerOpen=false
     case "crash-open-reports":
         app.tab=2
         app.recoveredCrashes=0
@@ -1133,13 +1144,17 @@ func handle(action string, index int) {
 			redraw()
 		}
 	case "open":
-		if p := pickFile(false, "Xbox files\x00*.xbe;*.iso;*.cci\x00XBE executable\x00*.xbe\x00Xbox disc image\x00*.iso\x00Cerbios CCI\x00*.cci\x00All files\x00*.*\x00", "Choose XBE or Xbox ISO", ""); p != "" {
-			openInput(p)
-		}
+        if p:=pickFile(false,"Xbox files\x00*.xbe;*.iso;*.xiso;*.cci\x00XBE executable\x00*.xbe\x00Xbox XISO / ISO\x00*.iso;*.xiso\x00Cerbios CCI\x00*.cci\x00All files\x00*.*\x00","Choose original Xbox game file","");p!=""{
+            openInput(p)
+        }
 	case "sync":
 		go reloadAndSync()
 	case "apply":
-		startPatch()
+        if !libraryApplyReady(){
+            notify("Choose a source game, a patch, and at least one supported output format before applying.")
+            return
+        }
+        startGameOutput()
 	case "preview":
 		startPreview()
 	case "filter":
@@ -1429,6 +1444,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	case WM_KEYDOWN:
 		if handleQuickShortcut(wp) {return 0}
 		if wp == 27 {
+            app.outputPickerOpen=false
             app.notesOpen=false
             app.galleryOpen=false
 			app.searchFocus = false
@@ -1445,10 +1461,14 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 			path := syscall.UTF16ToString(buf)
 			ext := strings.ToLower(filepath.Ext(path))
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
-                if app.tab==7 {
-                    selectGameSource(path)
-                    app.status="Game folder loaded for output conversion"
-                    continue
+                if app.tab==0 {
+                    xbe:=filepath.Join(path,"default.xbe")
+                    if st,e:=os.Stat(xbe);e==nil&&st.Mode().IsRegular(){
+                        openInput(xbe)
+                        selectGameSource(path)
+                        app.status="Extracted game folder selected; choose a patch and output formats"
+                        continue
+                    }
                 }
 				go func() {
 					n, e := core.ImportFolder(app.root, path)
@@ -1485,12 +1505,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                     notify("Imported "+filepath.Base(path))
                 }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
-                if app.tab==7 {
-                    selectGameSource(path)
-                    app.status="Game image loaded for output conversion"
-                }else{
-                    openInput(path)
-                }
+                openInput(path)
 			}
 		}
 		sysCall(dragFinish, wp)
