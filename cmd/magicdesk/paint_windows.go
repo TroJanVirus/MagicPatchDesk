@@ -82,6 +82,8 @@ func paint(hdc uintptr) {
 	fill(hdc, r, bg)
 	drawSidebar(hdc, w, h)
 	switch app.tab {
+    case 9:
+        drawHome(hdc,w,h)
 	case 0:
 		drawLibrary(hdc, w, h)
         if app.galleryOpen{drawPatchGallery(hdc,w,h)}
@@ -133,23 +135,37 @@ func drawSidebar(hdc uintptr,w,h int32){
     txt(hdc,"M",ir(21,28,42,42),app.fonts.Title,white,DT_CENTER|DT_SINGLELINE|DT_VCENTER)
     textAt(hdc,"MAGIC",74,25,142,25,app.fonts.Title,white)
     textAt(hdc,"PATCH DESK",75,49,140,16,app.fonts.Micro,0x88A6CE)
-    textAt(hdc,"WORKSPACE",24,114,165,22,app.fonts.Micro,0x637793)
+    compactNav:=h<660
+    navHeight:=int32(47)
+    navStep:=int32(49)
+    navStart:=int32(145)
+    navCaptionY:=int32(114)
+    if compactNav{
+        // Fit all workspaces plus bottom-anchored Settings/About even in a
+        // 500px-high client, without painting tab rows over the status bar.
+        navHeight=32
+        navStep=34
+        navStart=109
+        navCaptionY=82
+    }
+    textAt(hdc,"WORKSPACE",24,navCaptionY,165,22,app.fonts.Micro,0x637793)
     type navItem struct{label,symbol string;tab int}
     drawNav:=func(item navItem,y int32){
         selected:=app.tab==item.tab
         if selected{
-            panel(hdc,ir(13,y,206,47),0x283F65,12)
-            fill(hdc,ir(13,y+8,4,31),blue)
+            panel(hdc,ir(13,y,206,navHeight),0x283F65,12)
+            fill(hdc,ir(13,y+5,4,navHeight-10),blue)
         }else if app.hoverAction=="tab"&&app.hoverIndex==item.tab{
-            panel(hdc,ir(13,y,206,47),0x223756,12)
+            panel(hdc,ir(13,y,206,navHeight),0x223756,12)
         }
         symbolColor,textColor:=uint32(muted),uint32(muted)
         if selected{symbolColor=blue;textColor=white}
-        txt(hdc,item.symbol,ir(25,y,27,47),app.fonts.Title,symbolColor,DT_SINGLELINE|DT_VCENTER|DT_CENTER)
-        textAt(hdc,item.label,61,y+8,151,30,app.fonts.Medium,textColor)
-        addHit(ir(10,y,211,49),"tab",item.tab)
+        txt(hdc,item.symbol,ir(25,y,27,navHeight),app.fonts.Title,symbolColor,DT_SINGLELINE|DT_VCENTER|DT_CENTER)
+        textAt(hdc,item.label,61,y+(navHeight-30)/2,151,30,app.fonts.Medium,textColor)
+        addHit(ir(10,y,211,navHeight),"tab",item.tab)
     }
     topNav:=[]navItem{
+        {"Home","⌂",9},
         {"Patch Library","◈",0},
         {"Convert Patch","◇",1},
         {"Batch Process","▤",8},
@@ -157,15 +173,18 @@ func drawSidebar(hdc uintptr,w,h int32){
         {"Recent","◷",5},
         {"Maintenance","⚒",6},
     }
-    for i,item:=range topNav{drawNav(item,int32(145+i*49))}
-    // Settings and About always anchor to the bottom, independent of scroll.
-    dividerY:=h-137
-    if dividerY>445{fill(hdc,ir(21,dividerY,191,1),0x354258)}
-    drawNav(navItem{"Settings","⚙",2},h-124)
-    drawNav(navItem{"About","ⓘ",4},h-69)
-    // The library summary is optional at compact heights: never cover tabs.
+    for i,item:=range topNav{drawNav(item,navStart+int32(i)*navStep)}
+    // Keep Settings/About clear of the footer and top workspaces.
+    dividerY:=h-156
+    if dividerY>navStart+int32(len(topNav))*navStep+4{
+        fill(hdc,ir(21,dividerY,191,1),0x354258)
+    }
+    drawNav(navItem{"Settings","⚙",2},h-147)
+    drawNav(navItem{"About","ⓘ",4},h-96)
+    // The optional collection widget must not cover any workspace.
     collectionTop:=h-274
-    if collectionTop>445{
+    navEnd:=navStart+int32(len(topNav))*navStep
+    if collectionTop>navEnd+12 && collectionTop+110<h-158 {
         panel(hdc,ir(17,collectionTop,198,110),0x1E2A3E,14)
         textAt(hdc,"PATCH COLLECTION",31,collectionTop+7,167,21,app.fonts.Micro,muted)
         app.mu.Lock()
@@ -349,6 +368,7 @@ func drawLibrary(hdc uintptr, w, h int32) {
     if app.inputInfo.Valid{
         display+=fmt.Sprintf("  ·  %s  ·  CRC %s",app.inputInfo.TitleID,app.inputInfo.CRC32)
     }
+    if app.inputPartSummary!=""{display+="  ·  "+app.inputPartSummary}
     textAt(hdc,display,272,h-136,w-639,28,app.fonts.Small,white)
     button(hdc,"Open file",ir(w-318,h-151,89,32),"open",0,false)
     button(hdc,"Open folder",ir(w-221,h-151,101,32),"game-folder",0,false)

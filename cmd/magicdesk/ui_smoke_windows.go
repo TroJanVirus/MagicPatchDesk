@@ -24,7 +24,30 @@ func smokePaintAndExit() {
     }
     icon:=sysCall(user32.NewProc("LoadIconW"),sysCall(getModule,0),1)
     if icon==0{panic("Official JMP icon missing from compiled Windows EXE resources")}
-    for _,tab:=range []int{0,1,2,3,4,5,6,8}{
+    if app.tab!=9 {panic("Home must be the initial landing tab")}
+    app.tab=9
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    homeControls:=map[string]bool{
+        "home-open-game":false,
+        "home-library":false,
+        "home-patchhub":false,
+        "tab":false,
+    }
+    for _,item:=range app.hits {
+        if _,ok:=homeControls[item.Action];ok{
+            if item.Action!="tab"||item.Index==9{homeControls[item.Action]=true}
+        }
+    }
+    for action,present:=range homeControls{
+        if !present{panic("Home missing clickable action: "+action)}
+    }
+    handle("home-library",0)
+    if app.tab!=0{panic("Home Browse patches does not navigate to Patch Library")}
+    handle("home-convert",0)
+    if app.tab!=1{panic("Home Convert Patch shortcut does not work")}
+
+    for _,tab:=range []int{9,0,1,2,3,4,5,6,8}{
         app.tab=tab
         redraw()
         sysCall(updateWindow,app.hwnd)

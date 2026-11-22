@@ -1,3 +1,9 @@
+## 2026-11-22 — numbered image source handling (v0.14.0-test.13)
+
+Source discovery now recognizes sequential `Game.1.cci` / `Game.2.cci`, `Game.1.iso` / `Game.2.iso`, and numbered `.xiso` variants. Selecting any part uses the entire validated, contiguous virtual disc for XBE identification and named-member reads. `core/cci_inspect.go` reads just required decoded CCI sectors; `core/split_image.go` maps raw split bytes into a logical random-access reader. `ExtractGameXISO` now also reads complete raw split sets, rather than directly opening only the selected part.
+
+Raw split image outputs are deliberately limited to **rebuilt game-partition XISO / CCI, extracted folder and XBE**, as compatible with the source. Direct preservation as a full-disc/Redump ISO and one-fragment CCI compression are blocked. A full CCI game export continues to decode/extract the complete image to staging because it needs actual game files. See `docs/RELEASE_NOTES_v0.14.0-test.13.md` for exact filename convention and acceptance tests.
+
 # Unified game-image outputs — historical design and current constraints
 
 

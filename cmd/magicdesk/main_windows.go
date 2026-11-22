@@ -211,6 +211,7 @@ type appState struct {
 	parsed        *core.Patch
 	input         string
 	inputInfo     core.XBEInfo
+    inputPartSummary string
 	inputErr      string
 	search        string
 	searchFocus   bool
@@ -493,6 +494,7 @@ func initApp() {
 	app.expandedGroup = -1
 	app.selectedGame = -1
 	app.selectedPatch = -1
+    app.tab=9 // Home is the initial landing workspace; existing tab IDs stay stable
     app.root, _ = core.GetLibraryDir()
     if !smokeWindowsUI {
         recovered,e:=beginCrashProtection(app.root)
@@ -657,9 +659,18 @@ func autoSelectXBE(info core.XBEInfo) {
 			}
 		}
 	}
-	if bestScore == 0 {
-		return
-	}
+    if bestScore==0 {
+        // The embedded XBE still identifies a real game, even when no JMP
+        // currently matches it. Give an actionable status rather than
+        // silently leaving the previous selected game onscreen.
+        app.mu.Lock()
+        app.selectedGame=-1
+        app.selectedPatch=-1
+        app.parsed=nil
+        app.mu.Unlock()
+        notify("Identified "+info.Title+" ("+info.TitleID+") · no matching patch found in library")
+        return
+    }
 	app.mu.Lock()
 	app.selectedGame = bestGame
 	app.patchScroll = 0
@@ -732,66 +743,69 @@ func pickFile(save bool, filter, title, defaultName string) string {
 func openInput(path string) {
     selectGameSource(path)
     markCrashStage("read_xbe")
-    if core.CCISourcePath(path) {
-        reader,err:=core.OpenCCI(path)
-        if err!=nil {notify("Cannot load CCI: "+err.Error());return}
-        reader.Close()
-        app.mu.Lock()
-        app.input=path
-        app.inputErr="CCI source ready; XBE is checked during preview"
-        app.inputInfo=core.XBEInfo{}
-        app.status="CCI loaded; select patch and preview"
-        app.mu.Unlock()
-        rememberRecent("input",path)
-        redraw()
-        return
-    }
-
-	app.input = path
-	app.inputErr = "Reading executable…"
-	app.inputInfo = core.XBEInfo{}
-	redraw()
-	go func() {
+    defer markCrashStage("ui_callback")
+    app.mu.Lock()
+    app.input=path
+    app.inputErr="Reading game executable…"
+    app.inputInfo=core.XBEInfo{}
+    app.inputPartSummary=""
+    app.status="Inspecting game image and matching the patch library…"
+    app.mu.Unlock()
+    redraw()
+    go func() {
         defer catchFatalPanic()
-		var data []byte
-		var err error
-		if strings.EqualFold(filepath.Ext(path), ".xbe") {
-			data, err = os.ReadFile(path)
-		} else {
-			var im *core.Image
-			im, err = core.OpenXISO(path)
-			if err == nil {
-				var entry core.ImageFile
-				entry, err = im.DefaultXBE()
-				if err == nil {
-					data, err = im.ReadFile(entry)
-				}
-			}
-		}
-		var info core.XBEInfo
-		if err == nil {
-			info, err = core.InspectXBE(data)
-		}
-		app.mu.Lock()
-        if app.input!=path {app.mu.Unlock();return} // drop a stale asynchronous read
-		app.inputInfo = info
-		if err != nil {
-			app.inputErr = err.Error()
-		} else {
-			app.inputErr = ""
-			app.status = "Loaded: " + info.Title + " · " + info.TitleID + " · CRC32 " + info.CRC32
-		}
-		app.mu.Unlock()
-		if err == nil {
-            // Another input may have been chosen while this I/O completed.
+        var info core.XBEInfo
+        var err error
+        partSummary:=""
+        if core.CCISourcePath(path) {
+            partSummary,err=core.CCIPartSummary(path)
+            // A CCIM split set is one logical stream, regardless of which
+            // numbered part the user selected. Parse XDVDFS and read only
+            // default.xbe rather than decoding gigabytes of game content.
+            if err==nil{info,err=core.InspectCCIExecutable(path)}
+        }else{
+            if core.IsNumberedRawImagePart(path) {
+                partSummary,err=core.RawImagePartSummary(path)
+            }
+            var data []byte
+            if err==nil&&strings.EqualFold(filepath.Ext(path),".xbe"){
+                data,err=os.ReadFile(path)
+            }else if err==nil {
+                var im *core.Image
+                im,err=core.OpenXISO(path)
+                if err==nil{
+                    var entry core.ImageFile
+                    entry,err=im.DefaultXBE()
+                    if err==nil {data,err=im.ReadFile(entry)}
+                }
+            }
+            if err==nil{info,err=core.InspectXBE(data)}
+        }
+        app.mu.Lock()
+        if app.input!=path{app.mu.Unlock();return}
+        app.inputInfo=info
+        app.inputPartSummary=partSummary
+        if err!=nil {
+            app.inputErr=err.Error()
+            app.status="Cannot identify game: "+err.Error()
+        }else{
+            app.inputErr=""
+            app.status="Loaded: "+info.Title+" · "+info.TitleID+" · CRC32 "+info.CRC32
+            if partSummary!=""{app.status+=" · "+partSummary}
+        }
+        app.mu.Unlock()
+        if err==nil{
             app.mu.Lock();same:=app.input==path;app.mu.Unlock()
             if !same{return}
-			rememberRecent("input",path)
-			queueAutoMatch(info)
-		}
-		redraw()
-	}()
+            rememberRecent("input",path)
+            queueAutoMatch(info)
+        }else{
+            recordFailure("game.inspect",err,path,"","")
+        }
+        redraw()
+    }()
 }
+
 func selectPatch(idx int) {
     markCrashStage("parse_patch")
     defer markCrashStage("ui_callback")
@@ -1142,7 +1156,20 @@ func convertFiles() { runConversion() }
 
 func handle(action string, index int) {
 	switch action {
-	case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
+    case "home-library":
+        app.tab=0
+    case "home-convert":
+        app.tab=1
+        refreshConversionHint()
+    case "home-open-game":
+        if p:=pickFile(false,"Xbox game files\x00*.xbe;*.iso;*.xiso;*.cci\x00All files\x00*.*\x00","Choose an Xbox executable or complete game disc (CCI parts supported)","");p!=""{
+            app.tab=0
+            openInput(p)
+        }
+    case "home-patchhub":
+        url:="https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php"
+        sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(url))),0,0,SW_SHOW)
+    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
 		maintenanceAction(action)
 	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-preserve", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
@@ -1617,15 +1644,20 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		}
 		return 0
 	case WM_DROPFILES:
-		count := sysCall(dragQuery, wp, 0xFFFFFFFF, 0, 0)
+        count:=sysCall(dragQuery,wp,0xFFFFFFFF,0,0)
+        seenSets:=map[string]bool{} // one scan per numbered disc set
 		for i := uintptr(0); i < count; i++ {
 			n := sysCall(dragQuery, wp, i, 0, 0)
 			buf := make([]uint16, n+1)
 			sysCall(dragQuery, wp, i, uintptr(unsafe.Pointer(&buf[0])), n+1)
-			path := syscall.UTF16ToString(buf)
-			ext := strings.ToLower(filepath.Ext(path))
+            path:=syscall.UTF16ToString(buf)
+            if set:=core.DiscPartSetKey(path);set!="" {
+                if seenSets[set]{continue}
+                seenSets[set]=true
+            }
+            ext:=strings.ToLower(filepath.Ext(path))
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
-                if app.tab==0 {
+                if app.tab==0 || app.tab==9 {
                     xbe:=filepath.Join(path,"default.xbe")
                     if st,e:=os.Stat(xbe);e==nil&&st.Mode().IsRegular(){
                         openInput(xbe)
@@ -1658,6 +1690,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 				refreshConversionHint()
 			app.status = "Conversion source patch: " + filepath.Base(path)
 			} else if ext == ".jmp" || ext == ".pf" {
+                app.tab=0
                 if _,err:=core.ImportJMP(app.root,path);err!=nil {
                     if errors.Is(err,core.ErrDuplicatePatch){
                         app.mu.Lock()
@@ -1670,6 +1703,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                     notify("Imported "+filepath.Base(path))
                 }
 			} else if ext == ".xbe" || ext == ".iso" || ext == ".xiso" || ext == ".cci" {
+                app.tab=0 // dropped discs must reveal the matched game in Patch Library
                 openInput(path)
 			}
 		}

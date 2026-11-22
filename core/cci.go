@@ -407,6 +407,9 @@ func CompressCCI(input, output string, progress func(int64, int64)) error {
 	return compressCCIWithLimit(input, output, cciDefaultSplitLimit, progress)
 }
 func compressCCIWithLimit(input, output string, splitLimit int64, progress func(int64, int64)) error {
+    if IsNumberedRawImagePart(input) {
+        return errors.New("cannot compress only one numbered ISO part; select the complete split game in Patch Library and choose CCI output")
+    }
 	if splitLimit < 8192 || splitLimit > cciDefaultSplitLimit {
 		return errors.New("invalid CCI split limit")
 	}
