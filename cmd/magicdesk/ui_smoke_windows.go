@@ -5,6 +5,7 @@ package main
 import (
     "fmt"
     "magicpatchdesk/core"
+    "runtime"
     "strings"
     "syscall"
     "unsafe"
@@ -49,6 +50,9 @@ func smokePaintAndExit() {
 
     for _,tab:=range []int{9,0,1,2,3,4,5,6,8}{
         app.tab=tab
+        // Force collection while native text and paint paths are busy.
+        // This helps expose unsafe Go-pointer-to-uintptr lifetimes.
+        runtime.GC()
         redraw()
         sysCall(updateWindow,app.hwnd)
     }

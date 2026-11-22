@@ -287,6 +287,13 @@ type appState struct {
 
 var app appState
 
+// Many Win32 calls below pass pointers to Go-owned UTF-16 strings, GDI
+// structures, and slices as uintptr. syscall.LazyProc.Call is annotated
+// //go:uintptrescapes, but that annotation does not travel through ordinary
+// wrappers: without the same annotation here the compiler may reclaim or
+// move the pointed-to allocation while native Windows code still uses it.
+// This is a native-memory-safety requirement, NOT an optimization.
+//go:uintptrescapes
 func sysCall(p *syscall.LazyProc, a ...uintptr) uintptr { r, _, _ := p.Call(a...); return r }
 func font(size int32, weight int32) uintptr {
 	return sysCall(createFont, uintptr(int64(-size)), 0, 0, 0, uintptr(weight), 0, 0, 0, 1, 0, 0, 0, 5, uintptr(unsafe.Pointer(ptr("Segoe UI"))))
