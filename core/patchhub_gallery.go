@@ -21,6 +21,9 @@ type PatchGalleryImage struct {
     Local string `json:"local,omitempty"`
 }
 type HubScreenshot struct {
+    Game string `json:"game,omitempty"`
+    Region string `json:"region,omitempty"`
+    Version string `json:"version,omitempty"`
     Patch string `json:"patch,omitempty"`
     TitleID string `json:"title_id,omitempty"`
     Kind string `json:"kind"`
@@ -76,9 +79,13 @@ func patchhubGalleryURL(raw string)(HubScreenshot,bool) {
     if pos<0||pos<1||!strings.EqualFold(segments[pos-1],"All-Patches")||pos+3>=len(segments){return HubScreenshot{},false}
     phase,n:=galleryPhase(segments[len(segments)-1])
     if phase==""{return HubScreenshot{},false}
-    shot:=HubScreenshot{Kind:phase,Set:n,URL:u.String()}
+    shot:=HubScreenshot{Game:segments[pos+1],Kind:phase,Set:n,URL:u.String()}
     version:=strings.Split(segments[pos+2],"_")
-    if len(version)>=3&&len(version[2])==8{shot.TitleID=strings.ToUpper(version[2])}
+    if len(version)==3&&len(version[2])==8{
+        shot.Region=strings.ToUpper(version[0])
+        shot.Version=version[1]
+        shot.TitleID=strings.ToUpper(version[2])
+    }
     if pos+4<len(segments){shot.Patch=segments[pos+3]}
     return shot,true
 }
