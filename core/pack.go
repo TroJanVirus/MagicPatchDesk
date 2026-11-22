@@ -100,7 +100,9 @@ func PlanJMPPack(name string, data []byte, outputFormat int) (PatchPackPlan, err
 		return plan, errors.New("no enabled JMP records")
 	}
 	for _, target := range targets {
-		tp := PackTargetPlan{Target: target, SourceRecommended: true}
+        tp:=PackTargetPlan{Target:target,SourceRecommended:true}
+        containsSearch:=false
+        containsAppend:=false
 		for _, r := range p.Records {
 			if !r.Enabled {
 				continue
@@ -112,7 +114,9 @@ func PlanJMPPack(name string, data []byte, outputFormat int) (PatchPackPlan, err
 			if rt != target {
 				continue
 			}
-			tp.RecordCount++
+            tp.RecordCount++
+            if r.Kind==SearchReplace{containsSearch=true}
+            if r.Kind==Append{containsAppend=true}
 			if outputFormat == 2 || outputFormat == 4 {
 				tp.RequiresSource = true
 				tp.Reason = "BPS and Xdelta are source-dependent formats"
@@ -137,7 +141,21 @@ func PlanJMPPack(name string, data []byte, outputFormat int) (PatchPackPlan, err
 				}
 			}
 		}
-		tp.SourceRecommended = !tp.RequiresSource
+        // Give the actionable reason first: search-and-replace cannot be
+        // converted source-free because its match addresses are unknown.
+        // BPS/Xdelta additionally depend on the actual source data even if
+        // the original JMP only contains absolute offset writes.
+        if containsSearch {
+            tp.RequiresSource=true
+            tp.Reason="search-and-replace records require the original file to find matching byte offsets"
+            if outputFormat==4 {tp.Reason+="; BPS also requires real source and output CRC32 checksums"}
+            if outputFormat==2 {tp.Reason+="; Xdelta also requires source bytes"}
+        }else if containsAppend {
+            tp.RequiresSource=true
+            tp.Reason="APPEND records require the original file to calculate the final offset"
+            if outputFormat==4 {tp.Reason+="; BPS also needs real file checksums"}
+        }
+        tp.SourceRecommended=!tp.RequiresSource
 		if tp.Reason == "" {
 			tp.Reason = "offset-only JMP can be encoded without game files; an original verifies CRC and bounds"
 		}
