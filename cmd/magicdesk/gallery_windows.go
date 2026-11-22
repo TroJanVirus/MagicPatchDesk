@@ -16,7 +16,7 @@ func selectedLibraryGallery()([]core.PatchGalleryImage,string){
     game:=app.cat.Games[app.selectedGame]
     if app.selectedPatch<0||app.selectedPatch>=len(game.Patches){return nil,""}
     patch:=game.Patches[app.selectedPatch]
-    return append([]core.PatchGalleryImage(nil),patch.Gallery...),game.Title+" · "+patch.Name
+    return galleryForPatch(patch),game.Title+" · "+patch.Name
 }
 
 func renderGalleryPhoto(hdc uintptr,shot core.PatchGalleryImage,area rect){
