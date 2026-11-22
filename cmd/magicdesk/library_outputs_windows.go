@@ -23,6 +23,7 @@ func outputSummary() string {
     if chosenGameSource()==""{return "Choose a source game"}
     mask,err:=chosenOutputMask()
     if err!=nil||mask==0{return "No output format chosen"}
+    if mask&^availableGameOutputs()!=0{return "Incompatible output selected · revise formats"}
     title:=outputNames(mask)
     if gameOutputPreserve{
         title="Preserve source + "+outputNames(gameOutputMask)
@@ -75,15 +76,20 @@ func drawLibraryOutputChooser(hdc uintptr,w,h int32){
         if !enabled{bg=0x262D3B}
         region:=ir(xx,yy,cell,43)
         panel(hdc,region,bg,10)
-        if enabled{
+        if enabled||selected{
             mark(hdc,ir(xx+10,yy+12,17,17),selected)
+            // Even if a different patch made a previous choice unavailable,
+            // allow the user to deselect it instead of trapping the form.
             addHit(region,"game-format",i)
         }
         textColor:=uint32(white)
         if !enabled{textColor=0x697990}
         textAt(hdc,opt.name,xx+36,yy+1,cell-41,22,app.fonts.Medium,textColor)
         description:=opt.detail
-        if !enabled{description="Unavailable for this source"}
+        if !enabled{
+            description="Unavailable for this source/patch"
+            if selected{description="Incompatible · click to deselect"}
+        }
         textAt(hdc,description,xx+36,yy+22,cell-42,16,app.fonts.Micro,muted)
     }
     summaryY:=y+314
