@@ -30,7 +30,7 @@ jobs:
         run: python3 scripts/test_patchhub_media_index.py
       - name: Embed official JMP native icon
         run: python3 scripts/build_windows_icon.py
-      - name: Go tests — full comments and safe URL extraction
+      - name: Go tests — verified Go RE2-compatible link parsing
         run: go test -count=1 ./...
       - name: Go race detector
         run: go test -race -count=1 ./core
