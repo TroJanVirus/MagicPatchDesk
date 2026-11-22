@@ -755,10 +755,13 @@ func openInput(path string) {
             // default.xbe rather than decoding gigabytes of game content.
             if err==nil{info,err=core.InspectCCIExecutable(path)}
         }else{
+            if core.IsNumberedRawImagePart(path) {
+                partSummary,err=core.RawImagePartSummary(path)
+            }
             var data []byte
-            if strings.EqualFold(filepath.Ext(path),".xbe"){
+            if err==nil&&strings.EqualFold(filepath.Ext(path),".xbe"){
                 data,err=os.ReadFile(path)
-            }else{
+            }else if err==nil {
                 var im *core.Image
                 im,err=core.OpenXISO(path)
                 if err==nil{
