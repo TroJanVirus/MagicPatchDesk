@@ -1644,13 +1644,18 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 		}
 		return 0
 	case WM_DROPFILES:
-		count := sysCall(dragQuery, wp, 0xFFFFFFFF, 0, 0)
+        count:=sysCall(dragQuery,wp,0xFFFFFFFF,0,0)
+        seenSets:=map[string]bool{} // one scan per numbered disc set
 		for i := uintptr(0); i < count; i++ {
 			n := sysCall(dragQuery, wp, i, 0, 0)
 			buf := make([]uint16, n+1)
 			sysCall(dragQuery, wp, i, uintptr(unsafe.Pointer(&buf[0])), n+1)
-			path := syscall.UTF16ToString(buf)
-			ext := strings.ToLower(filepath.Ext(path))
+            path:=syscall.UTF16ToString(buf)
+            if set:=core.DiscPartSetKey(path);set!="" {
+                if seenSets[set]{continue}
+                seenSets[set]=true
+            }
+            ext:=strings.ToLower(filepath.Ext(path))
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
                 if app.tab==0 || app.tab==9 {
                     xbe:=filepath.Join(path,"default.xbe")
