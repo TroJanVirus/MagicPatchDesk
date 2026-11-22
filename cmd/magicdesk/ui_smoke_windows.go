@@ -5,6 +5,7 @@ package main
 import (
     "fmt"
     "magicpatchdesk/core"
+    "strings"
 )
 
 // smokePaintAndExit exercises all native workspaces and the common 720p-height
@@ -137,5 +138,72 @@ func smokePaintAndExit() {
     if app.galleryPage!=1{panic("Multi-image gallery cannot page to the second image pair")}
     handle("gallery-close",0)
     if app.galleryOpen{panic("Patch gallery did not close")}
+    // Exercise the two separately scrollable regions and long formatted notes.
+    app.cat.Games[0].Patches=append(app.cat.Games[0].Patches,
+        core.CatalogPatch{Name:"Variant B"},core.CatalogPatch{Name:"Variant C"},
+        core.CatalogPatch{Name:"Variant D"},core.CatalogPatch{Name:"Variant E"},
+        core.CatalogPatch{Name:"Variant F"},core.CatalogPatch{Name:"Variant G"})
+    for i:=0;i<14;i++{
+        name:=fmt.Sprintf("Record group %d",i)
+        app.parsed.Groups=append(app.parsed.Groups,core.Group{Name:name,Count:1,Enabled:true})
+        app.parsed.Records=append(app.parsed.Records,core.Record{Kind:core.Offset,Group:name,Offset:int64(i*4),Data:[]byte{1},Enabled:true})
+    }
+    app.parsed.Headers["notes"]="Translation Mod.<br><br>"+strings.Repeat("Step: apply to your original game file.<br>",100)
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    if app.patchBar.Max<=0||app.recordBar.Max<=0{
+        panic(fmt.Sprintf("Independent patch and record scrollbars missing: patch=%d records=%d",app.patchBar.Max,app.recordBar.Max))
+    }
+    scrollbarHits:=map[string]bool{"patch-scroll-thumb":false,"records-scroll-thumb":false,"notes-open":false}
+    for _,hit:=range app.hits{
+        if _,ok:=scrollbarHits[hit.Action];ok{scrollbarHits[hit.Action]=true}
+    }
+    for k,v:=range scrollbarHits{if !v{panic("Missing patch/record scrollbar or full-note button: "+k)}}
+    app.patchScroll=0
+    app.groupScroll=0
+    changeScrollByWheel("records",-120)
+    oldRecords:=app.groupScroll
+    if oldRecords==0||app.patchScroll!=0{panic("Record wheel moved both sections")}
+    changeScrollByWheel("patch",-120)
+    if app.patchScroll==0||app.groupScroll!=oldRecords{panic("Patch wheel moved record section")}
+    handle("notes-open",0)
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    if !app.notesOpen||app.notesBar.Max<=0{panic("Full formatted JMP notes are not scrollable")}
+    notesControls:=map[string]bool{"notes-copy":false,"notes-close":false,"notes-scroll-thumb":false}
+    for _,hit:=range app.hits{
+        if _,ok:=notesControls[hit.Action];ok{notesControls[hit.Action]=true}
+    }
+    for name,v:=range notesControls{if !v{panic("Full JMP notes viewer missing "+name)}}
+    changeScrollByWheel("notes",-120)
+    if app.notesScroll==0{panic("Full notes cannot scroll")}
+    handle("notes-close",0)
+    if app.notesOpen{panic("Notes modal did not close")}
+    // Converter controls must be relevant to the chosen patch format.
+    app.tab=1
+    app.convertPatchFile=""
+    app.directFile=""
+    for format:=0;format<6;format++{
+        app.format=format
+        redraw()
+        sysCall(updateWindow,app.hwnd)
+        wantPassword:=format==3||format==5
+        wantRLE:=format==1||format==3||format==5
+        hasPassword,hasRLE:=false,false
+        for _,hit:=range app.hits{
+            if hit.Action=="password"{hasPassword=true}
+            if hit.Action=="ipsrle"{hasRLE=true}
+        }
+        if hasPassword!=wantPassword||hasRLE!=wantRLE{
+            panic(fmt.Sprintf("Unrelated converter IPS controls shown for format %d (password=%t RLE=%t)",format,hasPassword,hasRLE))
+        }
+    }
+    app.format=0
+    app.convertPatchFile="encrypted.eips"
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    decryptPassword:=false
+    for _,hit:=range app.hits{if hit.Action=="password"{decryptPassword=true}}
+    if !decryptPassword{panic("Encrypted IPS input cannot provide required decryption password")}
     sysCall(user32.NewProc("DestroyWindow"),app.hwnd)
 }
