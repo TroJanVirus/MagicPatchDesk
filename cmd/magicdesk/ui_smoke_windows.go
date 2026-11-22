@@ -12,33 +12,104 @@ import (
 // Game Outputs layout. It is strictly opt-in via --mpd-ui-smoke-v1 and avoids
 // all network sync, auto-reporting and patch/image modification.
 func smokePaintAndExit() {
-    for _,tab:=range []int{0,1,2,3,4,5,6,7,8}{
+    for _,tab:=range []int{0,1,2,3,4,5,6,8}{
         app.tab=tab
         redraw()
         sysCall(updateWindow,app.hwnd)
     }
-    // Simulate a 1024x720 outer window, including its non-client borders.
-    if sysCall(user32.NewProc("MoveWindow"),app.hwnd,55,55,1024,720,1)==0 {
+    if sysCall(user32.NewProc("MoveWindow"),app.hwnd,55,55,1024,720,1)==0{
         panic("Win32 MoveWindow failed during UI smoke test")
     }
-    app.tab=7
+    // A standalone Game Outputs tab must NOT be navigable: its previous
+    // single-game functionality now belongs to Patch Library.
+    app.tab=0
     redraw()
     sysCall(updateWindow,app.hwnd)
-    var exportVisible,formatVisible,sourceVisible bool
-    for _,h:=range app.hits{
-        switch h.Action{
-        case "game-export":
-            exportVisible=true
-            if h.R.B>app.h-42 || h.R.T<100{
-                panic(fmt.Sprintf("Game Outputs export button clipped: bottom=%d client=%d",h.R.B,app.h))
+    for _,hit:=range app.hits{
+        if hit.Action=="tab"&&hit.Index==7{panic("Legacy Game Outputs tab still appears")}
+    }
+    // Settings and About must be anchored to the bottom even in 720p height.
+    navBottom:=map[int]bool{2:false,4:false,8:false}
+    for _,hit:=range app.hits{
+        if hit.Action=="tab" {
+            if _,ok:=navBottom[hit.Index];ok{
+                if hit.Index==2||hit.Index==4{
+                    if hit.R.T<app.h-150{panic("Settings/About not bottom-anchored")}
+                }
+                navBottom[hit.Index]=true
             }
-        case "game-format":formatVisible=true
-        case "game-source":sourceVisible=true
         }
     }
-    if !exportVisible || !formatVisible || !sourceVisible {
-        panic(fmt.Sprintf("Game Outputs lacks clickable controls (export=%t format=%t source=%t)",exportVisible,formatVisible,sourceVisible))
+    for index,exists:=range navBottom{if !exists{panic(fmt.Sprintf("Missing sidebar tab %d",index))}}
+
+    // Explicit format gate: merely selecting a game and a patch is not enough.
+    app.input="SyntheticGame.xiso"
+    selectGameSource(app.input)
+    app.parsed=&core.Patch{Headers:map[string]string{"notes":"safe synthetic patch"}}
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    applyExists,chooserExists,folderExists:=false,false,false
+    for _,hit:=range app.hits{
+        if hit.Action=="apply"{applyExists=true}
+        if hit.Action=="output-open"{chooserExists=true}
+        if hit.Action=="game-folder"{folderExists=true}
     }
+    if applyExists||!chooserExists||!folderExists{
+        panic(fmt.Sprintf("Patch Library output gate invalid before choice (apply=%t chooser=%t folder=%t)",applyExists,chooserExists,folderExists))
+    }
+    app.outputPickerOpen=true
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    preserveExists,options,isoDisabled:=false,0,true
+    for _,hit:=range app.hits{
+        if hit.Action=="game-preserve"{preserveExists=true}
+        if hit.Action=="game-format"{
+            options++
+            if hit.Index==4{isoDisabled=false}
+        }
+    }
+    if !preserveExists||options!=4||!isoDisabled{
+        panic(fmt.Sprintf("Multi-select output chooser lacks preserved format/source constraints (preserve=%t options=%d fulliso-disabled=%t)",preserveExists,options,isoDisabled))
+    }
+    app.outputPickerOpen=false
+    gameOutputMask=core.GameOutputXISO|core.GameOutputCCI
+    gameOutputPreserve=true
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    applyExists=false
+    for _,hit:=range app.hits{if hit.Action=="apply"{applyExists=true}}
+    if !applyExists||!libraryApplyReady(){panic("Apply Patch remains disabled after explicit valid multi-format selection")}
+    app.input="SyntheticOther.xbe"
+    selectGameSource(app.input)
+    if gameOutputMask!=0||gameOutputPreserve||libraryApplyReady(){
+        panic("New source inherited prior output choice without explicit consent")
+    }
+
+    // Conditional diagnostic-connection controls: Connect only when the
+    // Windows Credential Manager connection is absent.
+    githubConnected.Store(false)
+    app.tab=6
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    controls:=map[string]bool{}
+    for _,hit:=range app.hits{
+        if strings.HasPrefix(hit.Action,"maint-"){controls[hit.Action]=true}
+    }
+    if !controls["maint-connect"]||controls["maint-disconnect"]||controls["maint-reports"]||controls["maint-sync"]{
+        panic("Disconnected Maintenance exposes private reporting actions")
+    }
+    githubConnected.Store(true)
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    controls=map[string]bool{}
+    for _,hit:=range app.hits{
+        if strings.HasPrefix(hit.Action,"maint-"){controls[hit.Action]=true}
+    }
+    if controls["maint-connect"]||!controls["maint-disconnect"]||!controls["maint-reports"]||!controls["maint-sync"]{
+        panic("Connected Maintenance lacks conditional diagnostic actions")
+    }
+    githubConnected.Store(false)
+
     app.tab=8
     for mode:=0;mode<5;mode++{
         manager.mu.Lock();manager.mode=mode;manager.mu.Unlock()
