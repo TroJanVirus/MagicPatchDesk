@@ -567,6 +567,7 @@ func drawSettings(hdc uintptr, w, h int32) {
 	}
 	panel(hdc, ir(x, 524, width, 201), surface, 17)
 	textAt(hdc, "PROBLEM REPORT GROUPS", x+28, 535, width-210, 27, app.fonts.Title, white)
+    button(hdc,"Crash logs",ir(x+width-284,531,110,33),"diagnostics-crashfolder",0,false)
 	button(hdc, "Reports folder", ir(x+width-167, 531, 143, 33), "diagnostics-folder", 0, false)
 	app.mu.Lock()
 	groupCount := len(app.diagnosticGroups)
@@ -585,7 +586,9 @@ func drawSettings(hdc uintptr, w, h int32) {
 	}
 	textAt(hdc, strLimit(headline, 104), x+28, 572, width-57, 23, app.fonts.Small, white)
 	textAt(hdc, strLimit(detail, 115), x+28, 596, width-57, 23, app.fonts.Small, muted)
-	buttons := [][2]string{{"Previous", "diagnostics-prev"}, {"Next", "diagnostics-next"}, {"View group", "diagnostics-view"}, {"Copy summary", "diagnostics-copy"}, {"Find matches", "diagnostics-find"}, {"Report issue", "diagnostics-github"}}
+	viewLabel:="View group"
+    if hasGroup&&g.Latest.CrashEvidenceID!=""{viewLabel="View crash log"}
+    buttons := [][2]string{{"Previous", "diagnostics-prev"}, {"Next", "diagnostics-next"}, {viewLabel, "diagnostics-view"}, {"Copy summary", "diagnostics-copy"}, {"Find matches", "diagnostics-find"}, {"Report issue", "diagnostics-github"}}
 	cell2 := (width - 78) / 3
 	for i, v := range buttons {
 		bx := x + 27 + int32(i%3)*(cell2+12)
