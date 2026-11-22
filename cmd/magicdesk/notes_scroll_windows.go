@@ -3,6 +3,7 @@
 package main
 
 import (
+    "fmt"
     "magicpatchdesk/core"
     "syscall"
     "unsafe"
@@ -85,22 +86,57 @@ func changeScrollByWheel(section string,delta int){
     case "notes":setScrollSection(section,app.notesScroll-steps*58)
     }
 }
-func selectedPatchNoteText()string{
-    if app.parsed!=nil {return core.FormatJMPNotes(app.parsed.Headers["notes"])}
+// The modal can display either the author's complete notes= header or a
+// complete JMP record-group comment. Neither path changes enabled records.
+func selectedPatchNoteRaw()string{
+    if app.notesTargetGroup>=0 {
+        if app.parsed!=nil&&app.notesTargetGroup<len(app.parsed.Groups){
+            return app.parsed.Groups[app.notesTargetGroup].Name
+        }
+        return ""
+    }
+    if app.parsed!=nil{return app.parsed.Headers["notes"]}
     app.mu.Lock()
     defer app.mu.Unlock()
-    if app.selectedGame>=0&&app.selectedGame<len(app.cat.Games) {
+    if app.selectedGame>=0&&app.selectedGame<len(app.cat.Games){
         g:=app.cat.Games[app.selectedGame]
         if app.selectedPatch>=0&&app.selectedPatch<len(g.Patches){
-            return core.FormatJMPNotes(g.Patches[app.selectedPatch].Notes)
+            return g.Patches[app.selectedPatch].Notes
         }
     }
     return ""
 }
+func selectedPatchNoteText()string{return core.FormatJMPNotes(selectedPatchNoteRaw())}
+func selectedPatchNoteLinks()[]core.JMPNoteLink{
+    return core.ExtractJMPNoteLinks(selectedPatchNoteRaw())
+}
+
+// Opening a URL is a distinct deliberate user action, with a native review
+// dialog. Only actual HTTP(S) URLs are accepted; no HTML is ever executed.
+func openSelectedJMPWebLink(candidate string){
+    target,valid:=core.SafeJMPLinkURL(candidate)
+    if !valid{
+        notify("Only safe HTTP/HTTPS website links can be opened.")
+        return
+    }
+    prompt:="Open this external website in your browser?\\n\\n"+target+
+        "\\n\\nThis link comes from a third-party patch and is not verified by Magic Patch Desk."
+    response:=sysCall(user32.NewProc("MessageBoxW"),app.hwnd,
+        uintptr(unsafe.Pointer(ptr(prompt))),
+        uintptr(unsafe.Pointer(ptr("Review external patch link"))),0x31) // OK/Cancel + warning icon
+    if response!=1{return}
+    result:=sysCall(shellExecute,app.hwnd,
+        uintptr(unsafe.Pointer(ptr("open"))),
+        uintptr(unsafe.Pointer(ptr(target))),0,0,SW_SHOW)
+    if result<=32{notify("Windows could not open the external website. Copy the URL instead.")}
+}
+
 func drawFullPatchNotes(hdc uintptr,w,h int32){
     body:=selectedPatchNoteText()
-    // Reverse-hit-test modal prevents interactions with the underlying Patch
-    // Library while the notes reader is active.
+    links:=selectedPatchNoteLinks()
+    group:=app.notesTargetGroup>=0
+    // Reverse-hit-test modal prevents accidental toggling of underlying JMP
+    // group states while reading a long comment.
     background:=ir(233,0,w-233,h-42)
     panel(hdc,background,0x101B2B,0)
     addHit(background,"notes-close",0)
@@ -113,11 +149,33 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
         return
     }
     panel(hdc,ir(x,y,width,height),surface,15)
-    textAt(hdc,"FULL JMP PATCH NOTES",x+20,y+15,width-274,30,app.fonts.Title,white)
-    button(hdc,"Copy all notes",ir(x+width-270,y+13,139,35),"notes-copy",0,false)
+    title:="FULL JMP PATCH NOTES"
+    if group{title="FULL PATCH GROUP COMMENT"}
+    titleWidth:=width-297
+    if titleWidth<65{titleWidth=65}
+    titleFont:=app.fonts.Title
+    if width<590{
+        // On compact windows, use short readable headings instead of a
+        // half-visible title next to Copy / Close.
+        if group{title="GROUP DETAILS"}else{title="PATCH NOTES"}
+        titleFont=app.fonts.Small
+    }
+    textAt(hdc,title,x+20,y+15,titleWidth,30,titleFont,white)
+    if width>=690{
+        button(hdc,"Copy text",ir(x+width-392,y+13,122,35),"notes-copy",0,false)
+        button(hdc,"Copy original",ir(x+width-262,y+13,132,35),"notes-copy-original",0,false)
+    }else{
+        button(hdc,"Copy original",ir(x+width-266,y+13,136,35),"notes-copy-original",0,false)
+    }
     button(hdc,"Close",ir(x+width-120,y+13,100,35),"notes-close",0,false)
-    textAt(hdc,"HTML line breaks, lists and entities are shown as readable text. Nothing is omitted.",x+21,y+54,width-44,23,app.fonts.Small,muted)
-    area:=ir(x+19,y+87,width-38,height-105)
+    help:="Read the full instructions, including HTML paragraphs and lists. Copy text or review external URLs below."
+    if group{help="Complete original record comment. Reading it does not enable or disable any patch records."}
+    textWrapped(hdc,help,x+21,y+56,width-44,43,app.fonts.Small,muted)
+
+    footerHeight:=int32(0)
+    if len(links)>0 {footerHeight=95}
+    area:=ir(x+19,y+102,width-38,height-120-footerHeight)
+    if area.B-area.T<48{return}
     panel(hdc,area,0x202F47,9)
     textLeft:=area.L+14
     textTop:=area.T+10
@@ -127,21 +185,44 @@ func drawFullPatchNotes(hdc uintptr,w,h int32){
     if body==""{body="No notes are present for the selected patch."}
     wide:=syscall.StringToUTF16(body)
     measured:=ir(textLeft,textTop,textWidth,32000)
+    oldFont:=sysCall(selectObject,hdc,app.fonts.Regular)
     sysCall(drawText,hdc,uintptr(unsafe.Pointer(&wide[0])),uintptr(len(wide)-1),
         uintptr(unsafe.Pointer(&measured)),DT_WORDBREAK|dtCalcRect|dtNoPrefix)
+    if oldFont!=0{sysCall(selectObject,hdc,oldFont)}
     totalHeight:=measured.B-measured.T+12
     if totalHeight<visibleHeight{totalHeight=visibleHeight}
     barMax:=int(totalHeight-visibleHeight)
     app.notesScroll=boundedScroll(app.notesScroll,barMax)
-    save:=gdi32.NewProc("SaveDC")
-    restore:=gdi32.NewProc("RestoreDC")
-    clip:=gdi32.NewProc("IntersectClipRect")
-    dc:=sysCall(save,hdc)
-    sysCall(clip,hdc,uintptr(textLeft),uintptr(textTop),uintptr(textLeft+textWidth),uintptr(textTop+visibleHeight))
+    dc:=sysCall(gdi32.NewProc("SaveDC"),hdc)
+    sysCall(gdi32.NewProc("IntersectClipRect"),hdc,
+        uintptr(textLeft),uintptr(textTop),
+        uintptr(textLeft+textWidth),uintptr(textTop+visibleHeight))
     textRect:=ir(textLeft,textTop-int32(app.notesScroll),textWidth,totalHeight)
     txt(hdc,body,textRect,app.fonts.Regular,white,DT_WORDBREAK|dtNoPrefix)
-    if dc!=0{sysCall(restore,hdc,dc)}
-    // Scroll in 1px units for long notes rather than discarding text.
+    if dc!=0{sysCall(gdi32.NewProc("RestoreDC"),hdc,dc)}
     app.notesBar=drawScrollBar(hdc,ir(area.R-19,textTop,11,visibleHeight),
         app.notesScroll,int(totalHeight),int(visibleHeight),"notes")
+    if len(links)==0{return}
+
+    if app.notesLinkIndex<0||app.notesLinkIndex>=len(links){app.notesLinkIndex=0}
+    current:=links[app.notesLinkIndex]
+    linkTop:=y+height-95
+    fill(hdc,ir(x+20,linkTop-6,width-40,1),0x354258)
+    textAt(hdc,
+        "EXTERNAL LINK "+fmt.Sprintf("%d OF %d",app.notesLinkIndex+1,len(links))+" · "+current.Label,
+        x+22,linkTop,width-43,20,app.fonts.Small,white)
+    textAt(hdc,current.URL,x+22,linkTop+23,width-43,19,app.fonts.Small,muted)
+    buttonY:=linkTop+50
+    spacing:=int32(7)
+    buttonWidth:=(width-42-spacing*3)/4
+    if buttonWidth<60{buttonWidth=60}
+    for i,action:=range []struct{label,key string}{
+        {"Previous","notes-link-prev"},
+        {"Open link","notes-link-open"},
+        {"Next","notes-link-next"},
+        {"Copy URL","notes-link-copy"},
+    }{
+        button(hdc,action.label,ir(x+21+int32(i)*(buttonWidth+spacing),buttonY,buttonWidth,34),
+            action.key,0,action.key=="notes-link-open")
+    }
 }

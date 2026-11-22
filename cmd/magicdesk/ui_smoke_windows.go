@@ -188,6 +188,70 @@ func smokePaintAndExit() {
         }
     }
 
+    // Long JMP comments must never be accessible solely through a clipped
+    // group-row label. The Read hit opens an independent, scrollable modal
+    // with complete comments and trusted, explicitly opened HTTP(S) URLs.
+    oldCatalog,oldSelectedGame,oldSelectedPatch:=app.cat,app.selectedGame,app.selectedPatch
+    oldParsed,oldExpanded:=app.parsed,app.expandedGroup
+    oldNotesTarget,oldNotesLink,oldNotesOpen:=app.notesTargetGroup,app.notesLinkIndex,app.notesOpen
+    longComment:=`Widescreen Support (Everything is less stretched, and the HUD is centred correctly) Please read these important setup instructions before applying the patch. <a href="https://example.org/patch-guide?game=phantom&amp;mode=wide">Detailed installation guide</a>`
+    fixture:=`#Jay's Magic Patcher
+system=Xbox
+game-title=UI fixture
+region=NTSC
+version=
+author=QA
+notes=Patch notes <a href="https://example.org/notes">notes link</a>
+#`+longComment+`
+0x300:0102
+`
+    viewerPatch,err:=core.ParseJMP("viewer-fixture.jmp",[]byte(fixture))
+    if err!=nil{panic(fmt.Sprintf("Invalid comment viewer fixture: %v",err))}
+    app.cat=core.Catalog{Games:[]core.Game{{
+        Title:"Viewer Fixture",
+        Patches:[]core.CatalogPatch{{Name:"Widescreen test",Type:"Widescreen",Author:"QA"}},
+    }}}
+    app.selectedGame=0
+    app.selectedPatch=0
+    app.parsed=viewerPatch
+    app.expandedGroup=-1
+    app.tab=0
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    readFound,toggleFound:=false,false
+    for _,hit:=range app.hits{
+        if hit.Action=="group"&&hit.Index==0{toggleFound=true}
+        if hit.Action=="group-details"&&hit.Index==0{
+            readFound=true
+            click,_:=mouseHit(hit.R.L+5,hit.R.T+5)
+            if click.Action!="group-details"{panic("Read action is covered by group-toggle hitbox")}
+        }
+    }
+    if !readFound||!toggleFound{panic("Group must offer separate toggle and Read details controls")}
+    beforeEnabled:=viewerPatch.Groups[0].Enabled
+    handle("group-details",0)
+    if !app.notesOpen||app.notesTargetGroup!=0||
+        !strings.Contains(selectedPatchNoteText(),"Detailed installation guide")||
+        !strings.Contains(selectedPatchNoteText(),"Please read these important setup instructions")||
+        len(selectedPatchNoteLinks())!=1{
+        panic("Full JMP group details or its external link were not available")
+    }
+    if viewerPatch.Groups[0].Enabled!=beforeEnabled{panic("Opening group details accidentally toggled patch")}
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    modalActions:=map[string]bool{"notes-copy":false,"notes-link-open":false,"notes-link-copy":false,"notes-close":false}
+    for _,hit:=range app.hits{if _,ok:=modalActions[hit.Action];ok{modalActions[hit.Action]=true}}
+    for key,ok:=range modalActions{if !ok{panic("Comment viewer missing action "+key)}}
+    handle("notes-close",0)
+    handle("notes-open",0)
+    if app.notesTargetGroup!=-1||len(selectedPatchNoteLinks())!=1{
+        panic("Read Full Notes did not return to notes= header links")
+    }
+    handle("notes-close",0)
+    app.cat,app.selectedGame,app.selectedPatch=oldCatalog,oldSelectedGame,oldSelectedPatch
+    app.parsed,app.expandedGroup=oldParsed,oldExpanded
+    app.notesTargetGroup,app.notesLinkIndex,app.notesOpen=oldNotesTarget,oldNotesLink,oldNotesOpen
+
     // A standalone Game Outputs tab must NOT be navigable: its previous
     // single-game functionality now belongs to Patch Library.
     app.tab=0

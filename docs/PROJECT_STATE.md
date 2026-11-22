@@ -1,3 +1,20 @@
+## 2026-11-22 — v0.14.0-test.14 published and verified
+
+Release: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.14
+Successful one-shot run: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/44995671424 — all required gates completed **success**: permanent updater v1 contract, media-index fixture, JMP Windows icon, `go test -count=1 ./...` (new HTML/URL safety and full comment tests), `go test -race -count=1 ./core`, `go vet ./...`, native Windows x64 GUI cross-build, PE identification and SHA256 manifest verification.
+
+Canonical asset `MagicPatchDesk-Windows-x64.exe`: **7,742,976 bytes**, SHA256 `e0c2f70ebaa593cef6bd5a53074512ba8603ac1abe4c96a46c7a4169ab3aa6a7`. `SHA256SUMS.txt` published. Early scoped CI attempts caught and fixed Go's RE2 regex repeat-count ceiling and a quoted test fixture syntax issue; the final successful run includes both fixes. `README.md` stays untouched, updater protocol `1` and canonical release assets retained. No claim of actual Windows GUI smoke execution, real third-party link clicks, physical Xbox testing or prior crash resolution. Changes are presentation-only; notes and JMP group/comments remain stored verbatim and patch toggle behavior is unchanged.
+
+## 2026-11-22 — v0.14.0-test.14 candidate: complete record group comments + useful links
+
+- Owner screenshot shows **Phantom Crash** JMP group title cut off: `Widescreen Support (Everything is less stretched ...` despite available space. Some group comments and `notes=` headers include vital HTML, full URLs, instructions and multi-line explanatory content. Requirement: make them readable/useful without altering patch semantics or losing anything. Human owner `README.md` remains untouched.
+- Actual clipping source in `drawGameDetails`: `textAt(hdc, strLimit(g.Name, 50), ...)` for each group, a deliberate **50-character cutoff**. Replaced with a **two-line wrapped preview**, larger row height (60), and distinct **Read** button per group. Reading group details is intentionally separate from its existing checkbox/toggle and + record expansion.
+- New modal uses the existing Win32 scrollable notes UI for either `notes=` or full `Group.Name` selected via `notesTargetGroup` (-1 means header notes). Link navigator `Previous / Open link / Next / Copy URL` is shown only for valid HTTP(S) URLs. URL launch requires explicit confirmation, validated with `core.SafeJMPLinkURL` before `ShellExecute`. No HTML execution, WebView or remote content.
+- `core.FormatJMPNotes` preserves HTML `<a href>` link destinations visibly in text while converting HTML paragraph/list/break tags and entities to plain text; `core.ExtractJMPNoteLinks` parses anchor, Markdown and bare HTTP(S) URL references with deduplication, safety bounds and rejection of script/file schemes, credentials and control characters.
+- UI provides **Copy original** for complete unaltered HTML or long raw comments (viewing is still bounded to avoid huge Win32 GDI allocations). Where space permits, also provide **Copy text** for readable form.
+- New portable tests `core/jmp_notes_links_test.go` and Windows smoke assertions cover long comments, valid/invalid links, grouping unchanged, toggle vs Read hitboxes, and header-notes switching.
+- Release version is `v0.14.0-test.14`, updater protocol v1, canonical assets and patch data untouched. Native Windows GUI execution still unverified if Linux cross-build only; previous crash remains open. More: `docs/RELEASE_NOTES_v0.14.0-test.14.md`.
+
 ## 2026-11-22 — v0.14.0-test.13 published successfully
 
 Preview: https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.13

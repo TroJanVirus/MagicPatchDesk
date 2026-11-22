@@ -463,11 +463,12 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
             }
         }
     }
-	textAt(hdc, "Toggle a whole group, or expand + to select records.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
+	textAt(hdc, "Toggle a group · + expands records · Read shows full comments and links.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
 	rowY := groupY + 56
-	visible := int((bottom - rowY - 82) / 38)
+    rowHeight:=int32(60) // two-line group preview plus a separate full comment action
+    visible:=int((bottom-rowY-82)/rowHeight)
 	if visible < 1 {visible=1}
-    app.recordViewport=ir(x+18,rowY,width-36,int32(visible)*38)
+    app.recordViewport=ir(x+18,rowY,width-36,int32(visible)*rowHeight)
 	type row struct {
 		group  int
 		record int
@@ -491,13 +492,13 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	}
 	for i := 0; i < visible && i+app.groupScroll < len(rows); i++ {
 		r := rows[i+app.groupScroll]
-		y := rowY + int32(i)*38
+        y:=rowY+int32(i)*rowHeight
 		if r.record >= 0 {
 			rec := p.Records[r.record]
 			color := uint32(0x1F2F45)
 			if app.hoverAction == "record" && app.hoverIndex == r.record { color = 0x2B4260 }
-			panel(hdc, ir(x+34, y, width-52, 34), color, 8)
-			mark(hdc, ir(x+47, y+8, 18, 18), rec.Enabled)
+			panel(hdc,ir(x+34,y,width-52,rowHeight-4),color,8)
+			mark(hdc,ir(x+47,y+18,18,18),rec.Enabled)
 			label := fmt.Sprintf("#%d  %s", r.record+1, rec.Kind)
             if target, targetErr := p.RecordTarget(rec); targetErr == nil && target != "default.xbe" {
                 label += " → " + target
@@ -511,37 +512,41 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			if rec.Kind == core.Append {
 				label += fmt.Sprintf("  ·  %d bytes", len(rec.Data))
 			}
-			textAt(hdc, strLimit(label, 67), x+78, y+5, width-126, 24, app.fonts.Small, muted)
+			textWrapped(hdc,label,x+78,y+5,width-126,rowHeight-12,app.fonts.Small,muted)
 			if !app.busy {
-				addHit(ir(x+34, y, width-52, 34), "record", r.record)
+				addHit(ir(x+34,y,width-52,rowHeight-4),"record",r.record)
 			}
 			continue
 		}
 		g := p.Groups[r.group]
 		groupColor := uint32(0x24344B)
 		if app.hoverAction == "group" && app.hoverIndex == r.group {groupColor = 0x325071}
-		panel(hdc, ir(x+18, y, width-36, 34), groupColor, 9)
-		mark(hdc, ir(x+47, y+8, 18, 18), g.Enabled)
+		panel(hdc,ir(x+18,y,width-36,rowHeight-4),groupColor,9)
+		mark(hdc,ir(x+47,y+18,18,18),g.Enabled)
 		if g.Mixed {
-			textAt(hdc, "–", x+50, y+6, 14, 21, app.fonts.Micro, white)
+			textAt(hdc,"–",x+50,y+18,14,21,app.fonts.Micro,white)
 		}
-		textAt(hdc, strLimit(g.Name, 50), x+78, y+5, width-185, 24, app.fonts.Medium, white)
-		textAt(hdc, fmt.Sprintf("×%d", g.Count), x+width-76, y+6, 54, 23, app.fonts.Small, muted)
+		// The parser keeps the FULL group comment. Show two readable lines here;
+        // the separate Read control opens a scrollable uncropped view.
+        preview:=core.FormatJMPNotes(g.Name)
+        textWrapped(hdc,preview,x+78,y+6,width-257,rowHeight-12,app.fonts.Medium,white)
+		textAt(hdc,fmt.Sprintf("×%d",g.Count),x+width-77,y+17,52,22,app.fonts.Small,muted)
 		if g.Count > 1 {
 			chevron := "+"
 			if app.expandedGroup == r.group {
 				chevron = "−"
 			}
-			textAt(hdc, chevron, x+26, y+5, 18, 22, app.fonts.Title, blue)
+			textAt(hdc,chevron,x+26,y+17,18,22,app.fonts.Title,blue)
 			if !app.busy {
-				addHit(ir(x+18, y, 29, 34), "expand", r.group)
+				addHit(ir(x+18,y,29,rowHeight-4),"expand",r.group)
 			}
 		}
 		if !app.busy {
-			addHit(ir(x+48, y, width-66, 34), "group", r.group)
+			addHit(ir(x+48,y,width-66,rowHeight-4),"group",r.group)
+            button(hdc,"Read",ir(x+width-165,y+10,77,35),"group-details",r.group,false)
 		}
 	}
-    app.recordBar=drawScrollBar(hdc,ir(x+width-29,rowY,11,int32(visible)*38-3),
+    app.recordBar=drawScrollBar(hdc,ir(x+width-29,rowY,11,int32(visible)*rowHeight-3),
         app.groupScroll,len(rows),visible,"records")
 	foot := bottom - 72
 	fill(hdc, ir(x+18, foot-7, width-36, 1), 0x354258)
