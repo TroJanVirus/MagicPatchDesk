@@ -131,6 +131,8 @@ func sanitizeReportForIssue(r DiagnosticReport) DiagnosticReport {
 		"invalid_patch":      "The patch could not be decoded safely.",
 		"operation_warning":  "The operation reported warnings or skipped an edit.",
 		"operation_failed":   "The operation failed; sensitive error text is excluded.",
+        "unhandled_panic": "The app encountered an unhandled panic; private stack trace remains on the user device.",
+        "unexpected_exit": "The previous app process did not shut down cleanly. Possible crash, forced exit or power interruption.",
 	}
 	safe.Explanation = messages[safe.ErrorCode]
 	if safe.Explanation == "" {
