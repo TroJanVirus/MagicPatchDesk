@@ -6,12 +6,24 @@ import (
     "fmt"
     "magicpatchdesk/core"
     "strings"
+    "syscall"
+    "unsafe"
 )
 
 // smokePaintAndExit exercises all native workspaces and the common 720p-height
 // Game Outputs layout. It is strictly opt-in via --mpd-ui-smoke-v1 and avoids
 // all network sync, auto-reporting and patch/image modification.
 func smokePaintAndExit() {
+    // Validate the actual release executable, not just a mock UI drawing:
+    // the complete native caption and official JMP .rsrc group icon must exist.
+    caption:=make([]uint16,256)
+    n:=sysCall(user32.NewProc("GetWindowTextW"),app.hwnd,
+        uintptr(unsafe.Pointer(&caption[0])),uintptr(len(caption)))
+    if n==0||syscall.UTF16ToString(caption[:n])!="Magic Patch Desk | Powered by Patch Hub"{
+        panic("Window caption does not match the requested Patch Hub branding")
+    }
+    icon:=sysCall(user32.NewProc("LoadIconW"),sysCall(getModule,0),1)
+    if icon==0{panic("Official JMP icon missing from compiled Windows EXE resources")}
     for _,tab:=range []int{0,1,2,3,4,5,6,8}{
         app.tab=tab
         redraw()
