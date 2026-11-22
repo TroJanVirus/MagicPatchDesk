@@ -78,7 +78,7 @@ func smokePaintAndExit() {
     savedParsed,savedDirect:=app.parsed,app.directFile
     savedInput,savedModified,savedSelected:=app.convertPatchFile,app.bFile,app.aFile
     savedFormat,savedExplicit:=app.format,app.convertFormatChosen
-    offsetJMP:=[]byte("#Jay's Magic Patcher\\nsystem=Xbox\\ngame-title=Smoke\\nregion=\\nversion=\\nauthor=\\nnotes=\\n#Offset\\n0x300:AABBCC\\n")
+    offsetJMP:=[]byte("#Jay's Magic Patcher\nsystem=Xbox\ngame-title=Smoke\nregion=\nversion=\nauthor=\nnotes=\n#Offset\n0x300:AABBCC\n")
     patch,e:=core.ParseJMP("offset.jmp",offsetJMP)
     if e!=nil{panic(fmt.Sprintf("Offset JMP smoke fixture invalid: %v",e))}
     app.parsed=patch
@@ -99,7 +99,7 @@ func smokePaintAndExit() {
     handle("tab",0)
     handle("tab",1)
     if app.format!=4 {panic("Explicit BPS format was overwritten by library tab navigation")}
-    searchJMP:=[]byte("#Jay's Magic Patcher\\nsystem=Xbox\\ngame-title=Smoke\\nregion=\\nversion=\\nauthor=\\nnotes=\\n#Find\\n414243\\n444546\\n")
+    searchJMP:=[]byte("#Jay's Magic Patcher\nsystem=Xbox\ngame-title=Smoke\nregion=\nversion=\nauthor=\nnotes=\n#Find\n414243\n444546\n")
     searchPatch,e:=core.ParseJMP("search.jmp",searchJMP)
     if e!=nil{panic(fmt.Sprintf("Search JMP smoke fixture invalid: %v",e))}
     app.parsed=searchPatch
