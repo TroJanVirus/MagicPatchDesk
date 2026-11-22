@@ -68,6 +68,22 @@ func inspectGamePath(path string)(core.XBEInfo,string,string,error){
     return info,partSummary,kind,err
 }
 
+// Output permissions are derived only from a successfully parsed source.
+// This helper never touches disk: the file dialog, painting and output
+// chooser cannot accidentally scan a multi-gigabyte ISO on the GUI thread.
+func setGameOutputValidation(path,kind string,valid bool){
+    selected:=chosenGameSource()
+    same:=selected==path
+    folder:=strings.EqualFold(filepath.Base(path),"default.xbe")&&
+        selected==filepath.Dir(path)
+    if !same&&!folder{return}
+    gameOutputKind=""
+    gameOutputValidated=false
+    if !valid{return}
+    if folder{gameOutputKind="folder"}else{gameOutputKind=kind}
+    gameOutputValidated=gameOutputKind!=""
+}
+
 // The event handler calls this only on the Win32 UI thread, after dropping any
 // stale result from a previous file picker operation. The existing selection
 // is retained when it already belongs to the same matched game.
@@ -80,16 +96,7 @@ func commitGameInspection(result gameInspection) {
     app.inputPartSummary=result.partSummary
     app.inputErr=""
     app.inputKind=""
-    // Only a verified scan may expose output choices. In particular, a
-    // full-disc ISO must not be mistaken for an XISO while still loading.
-    selectedSource:=chosenGameSource()
-    ownsOutput:=selectedSource==result.path||
-        (strings.EqualFold(filepath.Base(result.path),"default.xbe")&&
-            selectedSource==filepath.Dir(result.path))
-    if ownsOutput {
-        gameOutputValidated=false
-        gameOutputKind=""
-    }
+    setGameOutputValidation(result.path,result.sourceKind,result.err==nil)
     if result.err!=nil{
         app.inputErr=result.err.Error()
         app.status="Cannot identify game: "+result.err.Error()
