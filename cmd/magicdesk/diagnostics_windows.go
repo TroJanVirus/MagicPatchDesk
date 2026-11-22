@@ -166,6 +166,11 @@ func diagnosticsAction(action string) {
 		return
 	}
 	switch action {
+    case "diagnostics-crashfolder":
+        app.mu.Lock();root:=app.root;app.mu.Unlock()
+        path:=core.CrashDirectory(root)
+        if e:=os.MkdirAll(path,0700);e!=nil{notify("Crash folder unavailable: "+e.Error());return}
+        openDiagnosticURL(path)
 	case "diagnostics-folder":
 		path, err := diagnosticFolder()
 		if err != nil {
@@ -179,6 +184,20 @@ func diagnosticsAction(action string) {
 			notify("No failures have been recorded yet.")
 			return
 		}
+        // Open private raw evidence for review; only the separate redacted
+        // diagnostic Summary may be sent to public GitHub Issues. Never send
+        // a stack trace, process dump or file path automatically.
+        evidence:=group.Latest.CrashEvidenceID
+        if evidence!=""{
+            app.mu.Lock();root:=app.root;app.mu.Unlock()
+            path:=core.CrashEvidencePath(root,evidence)
+            if _,e:=os.Stat(path);e!=nil{path=core.RuntimeCrashLogPath(root,evidence)}
+            if _,e:=os.Stat(path);e==nil{
+                openDiagnosticURL(path)
+                notify("Opened private crash evidence for review. Only sanitized reports can be shared automatically.")
+                return
+            }
+        }
 		body := group.Summary() + "\n\nAll original reports remain in the local Reports folder. Review before sharing."
 		title := "Diagnostic group · " + group.ID
 		sysCall(diagnosticMessageBox, app.hwnd, uintptr(unsafe.Pointer(ptr(body))), uintptr(unsafe.Pointer(ptr(title))), 0x40)
