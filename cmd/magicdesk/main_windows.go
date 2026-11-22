@@ -665,15 +665,27 @@ func autoSelectXBE(info core.XBEInfo) {
 		}
 	}
     if bestScore==0 {
-        // The embedded XBE still identifies a real game, even when no JMP
-        // currently matches it. Give an actionable status rather than
-        // silently leaving the previous selected game onscreen.
-        app.mu.Lock()
-        app.selectedGame=-1
-        app.selectedPatch=-1
-        app.parsed=nil
-        app.mu.Unlock()
-        notify("Identified "+info.Title+" ("+info.TitleID+") · no matching patch found in library")
+        // A user deliberately selected a patch before choosing the game;
+        // never silently destroy that selection just because auto-matching
+        // does not find the expected revision.
+        notify("Identified "+info.Title+" ("+info.TitleID+") · no library match; existing patch selection retained")
+        return
+    }
+    app.mu.Lock()
+    selectedAlready:=app.selectedGame==bestGame&&
+        app.selectedPatch>=0&&
+        app.selectedPatch<len(catalog.Games[bestGame].Patches)
+    selectedIndex:=app.selectedPatch
+    app.mu.Unlock()
+    if selectedAlready{
+        selected:=catalog.Games[bestGame].Patches[selectedIndex]
+        if selected.CRC!="No CRC32 required"&&
+            !strings.Contains(strings.ToUpper(selected.CRC),info.CRC32){
+            notify("Selected patch retained for "+info.Title+" · XBE CRC32 does not match patch requirements; verify before applying")
+        }else{
+            notify("Original XBE identified for "+info.Title+" · your selected patch was retained")
+        }
+        redraw()
         return
     }
 	app.mu.Lock()
