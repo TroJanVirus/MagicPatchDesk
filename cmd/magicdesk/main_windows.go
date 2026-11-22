@@ -1,5 +1,7 @@
 //go:build windows
 
+//go:generate python ../../scripts/build_windows_icon.py
+
 package main
 
 import (
