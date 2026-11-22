@@ -1,4 +1,5 @@
 name: One-shot Magic Patch Desk test.7 release
+# Retry after removing legacy hardcoded media reference.
 
 on:
   push:
