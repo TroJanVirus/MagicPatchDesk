@@ -218,6 +218,7 @@ type appState struct {
 	patchScroll   int
 	groupScroll   int
 	workers       int
+    theme         string
 	override      bool
 	status        string
 	syncStatus    string
@@ -429,6 +430,7 @@ func initApp() {
     }()
 	runtime.LockOSThread()
 	app.workers = 4
+    app.theme="Midnight"
 	app.ipsRLE = true
 	app.expandedGroup = -1
 	app.selectedGame = -1
@@ -444,8 +446,10 @@ func initApp() {
 	refreshDiagnosticGroups()
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
+        app.theme=prefs.Theme
         if prefs.GameOutputFormats!=nil {gameOutputFormats=prefs.GameOutputFormats}
 	}
+	setTheme(app.theme)
 	app.status = "Loading local patch library…"
 	app.syncStatus = "Connecting to GitHub…"
 	initArtwork()
@@ -791,7 +795,7 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 
 // Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
 func savePreferences() {
-	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, GameOutputFormats: gameOutputFormats}); err != nil {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, GameOutputFormats: gameOutputFormats}); err != nil {
 		notify("Could not save interface preferences: " + err.Error())
 	}
 }
@@ -1212,7 +1216,15 @@ func handle(action string, index int) {
 		sysCall(shellExecute, app.hwnd, uintptr(unsafe.Pointer(ptr("open"))), uintptr(unsafe.Pointer(ptr(path))), 0, 0, SW_SHOW)
 	case "refresh":
 		go reloadCatalog()
-	case "workers":
+	case "theme":
+        switch app.theme {
+        case "Midnight":app.theme="Forest"
+        case "Forest":app.theme="Plum"
+        default:app.theme="Midnight"
+        }
+        setTheme(app.theme)
+        savePreferences()
+    case "workers":
 		app.workers += index
 		if app.workers < 1 {
 			app.workers = 1
