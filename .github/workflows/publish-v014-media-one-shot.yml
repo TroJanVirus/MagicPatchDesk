@@ -129,4 +129,4 @@ jobs:
           verified="$(gh release view v0.14.0-test.6 --repo "${GITHUB_REPOSITORY}" --json tagName,isPrerelease,assets \
             --jq '(.tagName=="v0.14.0-test.6") and .isPrerelease and (any(.assets[]; .name=="MagicPatchDesk-Windows-x64.exe")) and (any(.assets[]; .name=="SHA256SUMS.txt"))')"
           test "$verified" = true
-# A single-use validated preview build; remove after release to save Actions minutes.
+# Rerun gated verification after correcting duplicated Go regex source; remove after validated publication.
