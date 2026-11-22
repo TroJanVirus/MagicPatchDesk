@@ -1,6 +1,7 @@
 package core
 
 import (
+    "context"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -104,6 +105,10 @@ func (r *CCIReader) Close() error {
 	return first
 }
 func OpenCCI(path string) (*CCIReader, error) {
+    return OpenCCIContext(context.Background(),path)
+}
+func OpenCCIContext(ctx context.Context,path string)(*CCIReader,error){
+    if err:=ctx.Err();err!=nil{return nil,err}
 	paths, err := discoverCCIParts(path)
 	if err != nil {
 		return nil, err
@@ -116,6 +121,7 @@ func OpenCCI(path string) (*CCIReader, error) {
 		}
 	}()
 	for _, p := range paths {
+        if e:=ctx.Err();e!=nil{return nil,e}
 		f, e := os.Open(p)
 		if e != nil {
 			return nil, e
@@ -147,13 +153,20 @@ func OpenCCI(path string) (*CCIReader, error) {
 		if indexBytes > cciMaxIndexSize || indexAt > uint64(info.Size()) || uint64(indexBytes) > uint64(info.Size())-indexAt {
 			return nil, errors.New("CCI index outside image")
 		}
+        // CCI index allocation can be megabytes per part. Release it on
+        // cancellation and stop before queuing additional split parts.
+        if e:=ctx.Err();e!=nil{return nil,e}
 		buf := make([]byte, indexBytes)
 		if _, e = f.ReadAt(buf, int64(indexAt)); e != nil {
 			return nil, e
 		}
+        if e:=ctx.Err();e!=nil{return nil,e}
 		idx := make([]uint32, sectors+1)
 		var prev int64
 		for i := range idx {
+            if i&4095==0 {
+                if e:=ctx.Err();e!=nil{return nil,e}
+            }
 			idx[i] = binary.LittleEndian.Uint32(buf[i*4:])
 			pos := int64(idx[i]&0x7FFFFFFF) << 2
 			if i == 0 {
