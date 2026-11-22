@@ -11,6 +11,29 @@ import (
     "testing"
 )
 
+// Build a real game-partition XDVDFS rather than the older synthetic
+// multi-file test fixture, which deliberately overlaps the cfg sector with
+// a large default.xbe and is unsuitable for byte-for-byte identity tests.
+func isoPickerFixture(t *testing.T,full bool)string{
+    t.Helper()
+    folder:=t.TempDir()
+    if err:=os.WriteFile(filepath.Join(folder,"default.xbe"),fakeXBE(),0600);err!=nil{t.Fatal(err)}
+    if err:=os.WriteFile(filepath.Join(folder,"extra.bin"),[]byte("not part of executable"),0600);err!=nil{t.Fatal(err)}
+    game:=filepath.Join(t.TempDir(),"game.iso")
+    if err:=BuildGameXISO(folder,game);err!=nil{t.Fatal(err)}
+    if !full{return game}
+    original,err:=os.Open(game)
+    if err!=nil{t.Fatal(err)}
+    defer original.Close()
+    fullPath:=filepath.Join(t.TempDir(),"full.iso")
+    out,err:=os.Create(fullPath)
+    if err!=nil{t.Fatal(err)}
+    if _,err=out.Seek(0x02080000,io.SeekStart);err!=nil{out.Close();t.Fatal(err)}
+    if _,err=io.Copy(out,original);err!=nil{out.Close();t.Fatal(err)}
+    if err=out.Close();err!=nil{t.Fatal(err)}
+    return fullPath
+}
+
 // The exact workflow is: choose a library patch, then choose an ISO. The
 // parser must identify its real default.xbe without altering the game image.
 func TestXISOIdentificationForPatchSelectedBeforeISO(t *testing.T){
@@ -18,7 +41,7 @@ func TestXISOIdentificationForPatchSelectedBeforeISO(t *testing.T){
         name:="game-partition"
         if full{name="full-disc"}
         t.Run(name,func(t *testing.T){
-            path:=makeMultifileXISO(t,full)
+            path:=isoPickerFixture(t,full)
             before,err:=os.ReadFile(path)
             if err!=nil{t.Fatal(err)}
             image,err:=OpenXISO(path)
@@ -81,7 +104,7 @@ func TestXDVDFSLongSkewedDirectoryTreeDoesNotRecurse(t *testing.T){
 }
 
 func TestXISORejectsTruncationAndInvalidDirectoryBounds(t *testing.T){
-    path:=makeMultifileXISO(t,false)
+    path:=isoPickerFixture(t,false)
     im,err:=OpenXISO(path)
     if err!=nil{t.Fatal(err)}
     entry,err:=im.DefaultXBE()
@@ -95,7 +118,7 @@ func TestXISORejectsTruncationAndInvalidDirectoryBounds(t *testing.T){
         t.Fatalf("truncated XBE member not rejected: %v",err)
     }
 
-    malformed:=makeMultifileXISO(t,false)
+    malformed:=isoPickerFixture(t,false)
     f,err:=os.OpenFile(malformed,os.O_RDWR,0)
     if err!=nil{t.Fatal(err)}
     invalid:=make([]byte,4)
@@ -124,7 +147,7 @@ func TestXISORejectsNonRegularFile(t *testing.T){
 }
 
 func TestXISOHeadersAndDirectoryCorruptionReturnsErrorNotPanic(t *testing.T){
-    src:=makeMultifileXISO(t,false)
+    src:=isoPickerFixture(t,false)
     original,err:=os.ReadFile(src)
     if err!=nil{t.Fatal(err)}
     // Mutate volume metadata, directory offsets and filename entries. Some
