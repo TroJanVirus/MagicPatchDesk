@@ -266,7 +266,9 @@ func managerRunBatch(){
 func managerOpenInOutputs(){
     job,choice,ok:=managerSelected()
     if !ok{return}
-    selectGameSource(job.Game.Path)
+    // Validate full-disc vs game-partition ISO off-thread before making any
+    // output choice usable, just as the regular Patch Library picker does.
+    openInput(job.Game.Path)
     if job.OutputMask!=0 {gameOutputMask=job.OutputMask}
     app.directFile=chosenManagerPatch(job.Game,choice)
     app.parsed=nil
