@@ -1,3 +1,7 @@
+## 2026-11-23 — v0.14.0-test.23 alias cover fix; gated prerelease candidate
+
+User test.22 diagnosis proves the app's `CoverFolder="Miscellaneous-Prototype [American Idol]"` caused two 404s for Xbox Title ID `434D0027`, whereas the existing JPEG is at `All-Patches/titles/American Idol (Prototype)/434D0027.jpg`. Public Patch Hub HTML ALSO labels the entry Miscellaneous-Prototype, so it's not simply an outdated local JSON. `core.CoverCandidates` previously used the Hub alias *exclusively*, ignoring the canonical JMP title even when the same Title ID establishes that they are one game. Corrected with Title-ID-corroborated dual-directory resolution; canonical JMP title first; capped safe JPG/PNG candidates; no website or JMP changes, no arbitrary fuzzy guesses. Exact owner-diagnostic and real JMP+hub-cache regression tests added. Releasing test.23 with one scoped gate. Do not claim passed until GitHub run verified, native Windows UI and owner's real test still required. Preserve the existing test22 artwork diagnostic UI and updater v1.
+
 ## 2026-11-23 — v0.14.0-test.22 diagnostic prerelease published and merged; owner field result PENDING
 
 - **Diagnostic release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.22
