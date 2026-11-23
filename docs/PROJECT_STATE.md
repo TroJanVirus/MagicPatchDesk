@@ -1,3 +1,9 @@
+## 2026-11-23 — Cover delivery regression diagnosed: bounded queue + native GDI+ smoke candidate
+
+After updating to v0.14.0-test.20 and syncing GitHub, the owner still sees the American Idol (Prototype) letter tile. Confirmed the exact JPEG is accessible and the live website shows Title ID `434D0027`. A one-shot live GitHub runner `45142481317` directly exercised `core.DownloadCover` successfully, validating **154,187 bytes**, and `core.SyncPatchHub`/catalogue parsing produced the exact expected canonical image URL and one version. No website or GitHub JMP changes needed.
+
+**Concrete GUI scheduling flaw found:** old test20 `scheduleCoverCandidates` returned immediately when the 3 download slots were full and relied on redraw from *success* only. Failed jobs did not trigger repaint; visible covers could remain unrequested after worker congestion, especially with slow/absent artwork on neighboring games. An invalid local `g.Cover` file could also suppress otherwise-valid fallback art. Candidate fix introduces three persistent workers + 48 bounded requests, mandatory completion-driven repaint, per-URL timeout, short cooldown after failures, and fallback despite stale local art. Added `smokeVerifiedCoverDrawing` invoked by existing real Windows `--mpd-ui-smoke-v1`: creates a tiny verified JPEG in isolated temp cache, resolves via hashed cover path, actually draws via GDI+ and cleans up. This is a candidate only; build, CI and actual user Windows display remain pending.
+
 ## 2026-11-23 — v0.14.0-test.20 RELEASED and merged, native Windows smoke PASSED
 
 - **Release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.20

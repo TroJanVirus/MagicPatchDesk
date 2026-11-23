@@ -104,21 +104,72 @@ func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 	return v == 0
 }
 
-var coverSlots = make(chan struct{}, 3)
+// The image loader must not depend on further mouse movement or a successful
+// sibling download to make progress. Exactly three workers consume a bounded
+// queue, avoiding both dropped requests and unbounded goroutine growth.
+const coverWorkerCount = 3
 var coverMu sync.Mutex
 var coverAttempts = map[string]coverAttempt{}
+var coverJobs = make(chan coverRequest, 48)
+var coverWorkers sync.Once
 
 type coverAttempt struct {
-	InFlight bool
-	Next     time.Time
+	InFlight bool // queued or currently downloading
+	Next time.Time
+}
+type coverRequest struct {
+	Key string
+	Sources []string
+	Root string
+	HWND uintptr
 }
 
-// Only three cover workers may exist; never leave hundreds of goroutines
-// waiting for a semaphore during rapid scrolling. Cache works offline.
-func scheduleCover(source string) string {
-	return scheduleCoverCandidates([]string{source})
+func coverWorkerLoop() {
+	defer catchFatalPanic()
+	for job := range coverJobs {
+		found := false
+		// Bound any single image request, not the whole set. A slow/broken
+		// primary URL must not exhaust the timeout of a valid Title-ID fallback.
+		for _, source := range job.Sources {
+			ctx, cancel := context.WithTimeout(context.Background(), 18*time.Second)
+			result, err := core.DownloadCover(ctx, job.Root, source)
+			cancel()
+			if err == nil && result != "" && core.ValidCoverFile(result) {
+				found = true
+				break
+			}
+		}
+		coverMu.Lock()
+		item := coverAttempts[job.Key]
+		item.InFlight = false
+		if found {
+			item.Next = time.Time{}
+		} else {
+			// Transient failures retry instead of staying invisible for half
+			// an hour; repeated redraws do not hammer PatchHub.
+			item.Next = time.Now().Add(2 * time.Minute)
+		}
+		coverAttempts[job.Key] = item
+		coverMu.Unlock()
+		// Always repaint, including failures. It also gives any visible cover
+		// which was rejected by a full queue another chance to enqueue.
+		if job.HWND != 0 {
+			sysCall(postMsg, job.HWND, WM_APP+1, 0, 0)
+		}
+	}
 }
 
+func startCoverWorkers() {
+	coverWorkers.Do(func() {
+		for i := 0; i < coverWorkerCount; i++ {
+			go coverWorkerLoop()
+		}
+	})
+}
+
+// scheduleCoverCandidates is called only on the UI thread while painting.
+// It never blocks on network access or waits for a free worker, and it first
+// returns a validated cached cover regardless of the previous retry state.
 func scheduleCoverCandidates(sources []string) string {
 	if len(sources) == 0 {
 		return ""
@@ -143,44 +194,25 @@ func scheduleCoverCandidates(sources []string) string {
 		coverMu.Unlock()
 		return ""
 	}
-	select {
-	case coverSlots <- struct{}{}:
-	default:
-		coverMu.Unlock()
-		return ""
-	}
+	job := coverRequest{Key: key, Sources: append([]string(nil), sources...), Root: app.root, HWND: app.hwnd}
+	// Queuing a request claims its identity atomically; a full queue leaves it
+	// eligible for retry on the next completion-triggered repaint.
 	item.InFlight = true
 	coverAttempts[key] = item
 	coverMu.Unlock()
-	candidates := append([]string(nil), sources...)
-	go func() {
-		defer func() { <-coverSlots }()
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		defer cancel()
-		found := false
-		for _, source := range candidates {
-			result, err := core.DownloadCover(ctx, app.root, source)
-			if err == nil && result != "" && core.ValidCoverFile(result) {
-				found = true
-				break
-			}
-			if ctx.Err() != nil {
-				break
-			}
-		}
+	startCoverWorkers()
+	select {
+	case coverJobs <- job:
+	default:
 		coverMu.Lock()
-		item := coverAttempts[key]
+		item = coverAttempts[key]
 		item.InFlight = false
-		if found {
-			item.Next = time.Time{}
-		} else {
-			item.Next = time.Now().Add(30 * time.Minute)
-		}
 		coverAttempts[key] = item
 		coverMu.Unlock()
-		if found && app.hwnd != 0 {
-			sysCall(postMsg, app.hwnd, WM_APP+1, 0, 0)
-		}
-	}()
+	}
 	return ""
+}
+
+func scheduleCover(source string) string {
+	return scheduleCoverCandidates([]string{source})
 }
