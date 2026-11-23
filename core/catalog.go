@@ -49,6 +49,7 @@ type Game struct {
 	Patches  []CatalogPatch
 	Cover    string
 	CoverURL string
+	CoverFolder string // PatchHub exact game directory for URL fallbacks
 	Versions []HubVersion
 }
 type CatalogDuplicate struct { Kept, Collapsed string }
@@ -372,6 +373,9 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 		}
 		if g.CoverURL == "" {
 			g.CoverURL = hg.Image
+		}
+		if g.CoverFolder == "" {
+			g.CoverFolder = hg.Title
 		}
         if len(hg.Screenshots)>0 {AttachHubGallery(g.Patches,hg.Screenshots)}
 		if len(g.Versions) == 0 {

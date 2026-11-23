@@ -1,3 +1,9 @@
+## 2026-11-23 — Game-cover Title-ID fallback candidate (testing pending)
+
+Owner reports a missing game tile for American Idol (Prototype); website art exists under `All-Patches/titles/American Idol (Prototype)/434D0027.jpg`. The patch lists Title ID `434D0027`. Added display-only cover URL candidates from that known Title ID (and other known IDs up to three) using the exact matching PatchHub folder name, prioritized behind explicit HTML card image URLs and local covers. Only a successfully downloaded, verified image may display; `.jpg` and `.png` are tried, then a 30-minute retry cooldown. Covers use a strict maximum of three running goroutines; fast scrolling cannot queue unlimited workers. No website/JMP names or patch applicability changes.
+
+**Verification:** candidate-builder Go tests passed in isolation; the full repository tests, Win64 build/native UI smoke, live PatchHub URL download and user Windows field test are not yet verified. This is PR source only, not a published release. Keep v0.14.0-test.19 as latest confirmed working release and preserve updater protocol v1, human README and manual-only Actions.
+
 ## 2026-11-23 — v0.14.0-test.19 RELEASED and merged; PatchHub region aliases
 
 - **Release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.19
