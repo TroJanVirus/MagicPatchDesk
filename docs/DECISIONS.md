@@ -1,3 +1,7 @@
+## 2026-11-23 — Fix proven game cover alias mismatch (American Idol prototype)
+
+The **test.22 owner diagnosis** showed a definitive 404 caused by `CoverFolder="Miscellaneous-Prototype [American Idol]"` while the true cover is hosted under `All-Patches/titles/American Idol (Prototype)/434D0027.jpg`. The live public Patch Hub *HTML* itself calls the record Miscellaneous-Prototype [American Idol], so this is **not just a stale JSON cache**; `patchhub-index.json` is generated locally from HTML and `patchhub-media-v1.json` independently indexes patch-specific screenshots. The old `CoverCandidates` code incorrectly preferred `CoverFolder` exclusively. Code fix: try canonical JMP game title directory **first**, but only if the patch/HUB ID match confirms alias equivalence, then try alternate Hub directory with bounded URLs/valid image checks. No speculative title similarity or website/JMP renaming. Add exact owner diagnostic and cached-index integration regression tests; user Windows field validation remains required.
+
 ## 2026-11-23 — Intelligent cover lookup without renaming website files
 
 Owner explicitly requests a general solution for missing game covers like `American Idol (Prototype)/434D0027.jpg`, not one-off game special cases. Prefer exact website metadata; use known per-game XBE Title IDs and the matching PatchHub folder for bounded, verified cover probes. Do not rename PatchHub/GitHub JMP assets, infer arbitrary unrelated titles, relax patch applicability or add recurring CI.
