@@ -20,7 +20,7 @@ The live PatchHub game index lists **BeatDown - Fists of Vengeance**. The previo
 
 ## Verification and compatibility
 
-The single branch-scoped GitHub Actions run tests Go suite/race/vet, website media manifest fixture, updater protocol v1, official JMP icon, Windows 64-bit build and checksum, and native Windows `--mpd-ui-smoke-v1` plus updater healthcheck. A test release is published **only after those gates pass**.
+The single branch-scoped GitHub Actions run https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45148618555 **PASSED** the complete Go test suite/race/vet, media fixture, updater protocol v1, official icon, Windows PE build/SHA256, native Windows UI/cover smoke and updater healthcheck. Assets were published **only after** Windows checks passed.
 
 **Field test:** Search BeatDown after updating to test.24. Expect one game entry with all three patches and its previously working cover, while unrelated games remain separate. Confirm with the owner before marking the reported issue resolved.
 
