@@ -1,0 +1,765 @@
+--- a/AgentMB/The Incredible Hulk - Ultimate Destruction {Misc} (Global) [AgentEB].JMP
++++ b/AgentMB/The Incredible Hulk - Ultimate Destruction {Misc} (Global) [AgentEB].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=The Incredible Hulk: Ultimate Destruction
++game-title=The Incredible Hulk - Ultimate Destruction
+ region=NTSC, JAPAN, PAL
+ version=56550039 (VU-057)
+--- a/Author Unknown/Army Men - Sarge's War {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Army Men - Sarge's War {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Army Men®: Sarge's War™
++game-title=Army Men - Sarge's War
+ region=NTSC
+ version=54540014 (TT-020)
+--- a/Author Unknown/Black Stone - Magic & Steel {720p} (NTSC+PAL) [Author Unknown].JMP
++++ b/Author Unknown/Black Stone - Magic & Steel {720p} (NTSC+PAL) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Black Stone: Magic & Steel
++game-title=Black Stone - Magic & Steel
+ region=NTSC+PAL
+ version=58490004 (XI-004)
+--- a/Author Unknown/Burnout 2 - Point of Impact {720p} (All Regions) [Author Unknown].JMP
++++ b/Author Unknown/Burnout 2 - Point of Impact {720p} (All Regions) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Burnout 2: Point of Impact
++game-title=Burnout 2 - Point of Impact
+ region=All regions
+ version=41430019 (AC-025)
+--- a/Author Unknown/Burnout 2 - Point of Impact {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Burnout 2 - Point of Impact {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Burnout 2: Point of Impact
++game-title=Burnout 2 - Point of Impact
+ region=NTSC
+ version=41430019 (AC-025)
+--- a/Author Unknown/Call of Cthulhu - Dark Corners of the Earth {720p - Alt} (All Regions) [Author Unknown].JMP
++++ b/Author Unknown/Call of Cthulhu - Dark Corners of the Earth {720p - Alt} (All Regions) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Call of Cthulhu: Dark Corners of the Earth
++game-title=Call of Cthulhu - Dark Corners of the Earth
+ region=All Regions
+ version=42530007 (BS-007)
+--- a/Author Unknown/Call of Cthulhu - Dark Corners of the Earth {720p} (All Regions) [Author Unknown].JMP
++++ b/Author Unknown/Call of Cthulhu - Dark Corners of the Earth {720p} (All Regions) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Call of Cthulhu: Dark Corners of the Earth
++game-title=Call of Cthulhu - Dark Corners of the Earth
+ region=All Regions
+ version=42530007 (BS-007)
+--- a/Author Unknown/Call of Duty - Finest Hour {720p} (GLOBAL) [Author Unknown].JMP
++++ b/Author Unknown/Call of Duty - Finest Hour {720p} (GLOBAL) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Call of Duty: Finest Hour
++game-title=Call of Duty - Finest Hour
+ region=GLOBAL
+ version=4156002A (AV-042) [00000001]
+--- a/Author Unknown/Chase Hollywood Stunt Driver {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Chase Hollywood Stunt Driver {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Chase: Hollywood Stunt Driver
++game-title=Chase - Hollywood Stunt Driver
+ region=NTSC
+ version=424D0001 (BM-001)
+--- a/Author Unknown/Classified - The Sentinel Crisis {720p} (GLOBAL) [Author Unknown].JMP
++++ b/Author Unknown/Classified - The Sentinel Crisis {720p} (GLOBAL) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Classified: The Sentinel Crisis
++game-title=Classified - The Sentinel Crisis
+ region=GLOBAL
+ version=5454007D (TT-125)
+--- a/Author Unknown/Curse - The Eye of Isis {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Curse - The Eye of Isis {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Curse: The Eye of Isis
++game-title=Curse - The Eye of Isis
+ region=NTSC
+ version=57450005 (WE-005) [00000004]
+--- a/Author Unknown/Fatal Frame II - Crimson Butterfly - Director's Cut {720p} (NTSC+JPN) [Author Unknown].JMP
++++ b/Author Unknown/Fatal Frame II - Crimson Butterfly - Director's Cut {720p} (NTSC+JPN) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Fatal Frame II - Crimson Butterfly - Director's Cut (Project Zero II)
++game-title=Fatal Frame II - Crimson Butterfly (Director's Cut) (Project Zero II)
+ region=NTSC+JPN
+ version=5443000A (TC-010) {1F9FE333}
+--- a/Author Unknown/Final Fight - Streetwise {480i Fix} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Final Fight - Streetwise {480i Fix} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Final Fight - Streetwise
++game-title=Final Fight - "Streetwise"
+ region=NTSC
+ version=43430013 (CC-019) {769B6775} {094E0DE2}
+--- a/Author Unknown/Final Fight - Streetwise {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Final Fight - Streetwise {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Final Fight - Streetwise
++game-title=Final Fight - "Streetwise"
+ region=NTSC
+ version=43430013 (CC-019) {769B6775}
+--- a/Author Unknown/Grand Theft Auto III {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Grand Theft Auto III {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Grand Theft Auto III
++game-title=Grand Theft Auto - III
+ region=NTSC
+ version=5454000E (TT-014) {84B5E974}
+--- a/Author Unknown/Headhunter - Redemption {720p} (NTSC+PAL) [Author Unknown].JMP
++++ b/Author Unknown/Headhunter - Redemption {720p} (NTSC+PAL) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Headhunter: Redemption
++game-title=Headhunter Redemption
+ region=NTSC, PAL
+ version=53450025 (SE-037) {D38358F2}
+--- a/Author Unknown/Oddworld - Munch's Oddysee {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/Oddworld - Munch's Oddysee {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Oddworld: Munch's Oddysee
++game-title=Oddworld - Munch's Oddysee
+ region=NTSC
+ version=4D530001 (MS-001)
+--- a/Author Unknown/The Chronicles of Riddick - Escape From Butcher Bay {720p} (NTSC-JPN) [Author Unknown].JMP
++++ b/Author Unknown/The Chronicles of Riddick - Escape From Butcher Bay {720p} (NTSC-JPN) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=The Chronicles of Riddick: Escape From Butcher Bay
++game-title=The Chronicles of Riddick - Escape From Butcher Bay
+ region=NTSC, JAPAN, PAL
+ version=56550026 (VU-038) [00000001] {E6F83FB7}
+--- a/Author Unknown/The Fairly OddParents! - Breakin' Da Rules {720p} (NTSC) [Author Unknown].JMP
++++ b/Author Unknown/The Fairly OddParents! - Breakin' Da Rules {720p} (NTSC) [Author Unknown].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=The Fairly OddParents! - Breakin' Da Rules
++game-title=The Fairly OddParents! -  Breakin' Da Rules
+ region=NTSC
+ version=54510020 (TQ-032) {4CABDEF7}
+--- a/CT24/Ice Age 2 - The Meltdown {720p} (NTSC) [CT24].JMP
++++ b/CT24/Ice Age 2 - The Meltdown {720p} (NTSC) [CT24].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Ice Age 2: The Meltdown
++game-title=Ice Age 2 - The Meltdown
+ region=NTSC, JAPAN, PAL
+ version=5655004B (VU-075) {DE1A1B5E}
+--- a/CT24/Ice Age 2 - The Meltdown {720p} (PAL) [CT24].JMP
++++ b/CT24/Ice Age 2 - The Meltdown {720p} (PAL) [CT24].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Ice Age 2 The Meltdown
++game-title=Ice Age 2 - The Meltdown
+ region=PAL
+ version=5655004B (VU-075) {BC1DB44A}
+--- a/Esppiral/Castlevania - Curse of Darkness {Widescreen} (PAL) [Esppiral].JMP
++++ b/Esppiral/Castlevania - Curse of Darkness {Widescreen} (PAL) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Castlevania: Curse of Darkness
++game-title=Castlevania - Curse of Darkness
+ region=PAL
+ version=4B4E002D (KN-045) [00000003]
+--- a/Esppiral/Crimson Skies - High Road to Revenge {Misc} (Multi Region) [Esppiral].JMP
++++ b/Esppiral/Crimson Skies - High Road to Revenge {Misc} (Multi Region) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Crimson Skies: High Road to Revenge
++game-title=Crimson Skies - High Road to Revenge
+ region=Multi Region
+ version=4D530021 (MS-033) [NTSC 00000001]+[PAL 00000003]+[JPN 00000002]
+--- a/Esppiral/Dinosaur Hunting - Ushinawareta Daichi {Widescreen} (JPN) [Esppiral].JMP
++++ b/Esppiral/Dinosaur Hunting - Ushinawareta Daichi {Widescreen} (JPN) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dinosaur Hunting (Ushinawareta Daichi)
++game-title=Dinosaur Hunting - Ushinawareta Daichi
+ region=JPN
+ version=4D530069 (MS-105)
+--- a/Esppiral/Grand Theft Auto III {Widescreen} (All Regions) [Esppiral].JMP
++++ b/Esppiral/Grand Theft Auto III {Widescreen} (All Regions) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Grand Theft Auto III
++game-title=Grand Theft Auto - III
+ region=All Regions
+ version=5454000E (TT-014) {27CF9225} {062DC5BD} {4E9BDD79} {77172A56} {84B5E974}
+--- a/Esppiral/Mashed - Drive to Survive {Widescreen} (PAL) [Esppiral].JMP
++++ b/Esppiral/Mashed - Drive to Survive {Widescreen} (PAL) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Mashed: Drive to Survive
++game-title=Mashed - Drive to Survive
+ region=PAL
+ version=454D000A (EM-010)
+--- a/Esppiral/Star Wars - Starfighter Special Edition {Widescreen} (NTSC) [Esppiral].JMP
++++ b/Esppiral/Star Wars - Starfighter Special Edition {Widescreen} (NTSC) [Esppiral].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Star Wars - Starfighter Special Edition
++game-title=Star Wars - Starfighter - Special Edition
+ region=NTSC
+ version=4C410002 (LA-002)
+--- a/Jao12345/Call of Duty 2 - Big Red One {Misc} (All Regions) [Jao12345].JMP
++++ b/Jao12345/Call of Duty 2 - Big Red One {Misc} (All Regions) [Jao12345].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Call of Duty 2: Big Red One
++game-title=Call of Duty 2 - Big Red One
+ region=All Regions
+ version=41560051 (AV-081)
+--- a/Jao12345/Marvel Ultimate Alliance {Misc} (Global) [Jao12345].JMP
++++ b/Jao12345/Marvel Ultimate Alliance {Misc} (Global) [Jao12345].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Marvel: Ultimate Alliance
++game-title=Marvel Ultimate Alliance
+ region=NTSC, JAPAN, PAL
+ version=4156005C (AV-092) {4C062E00}
+--- a/Jao12345/Medal of Honor - Rising Sun {Misc} (All Regions) [Jao12345].JMP
++++ b/Jao12345/Medal of Honor - Rising Sun {Misc} (All Regions) [Jao12345].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Medal of Honor Rising Sun
++game-title=Medal of Honor - Rising Sun
+ region=All Regions
+ version=4541003F (EA-063) {6E59C78F} {76103C91} {2BBAA70F} {C2F4F88D} {FDE162D7}
+--- a/Jao12345/Operation Flashpoint - Elite {Misc} (Global) [Jao12345].JMP
++++ b/Jao12345/Operation Flashpoint - Elite {Misc} (Global) [Jao12345].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Operation Flashpoint: Elite
++game-title=Operation Flashpoint - Elite
+ region=Global
+ version=434D005A (CM-090) {A3C5FC3D}
+--- a/Jay/Dragon Ball Z Sagas {Widescreen} (NTSC) [Multi Authors].JMP
++++ b/Jay/Dragon Ball Z Sagas {Widescreen} (NTSC) [Multi Authors].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dragon Ball Z Sagas
++game-title=Dragon Ball Z - Sagas
+ region=NTSC
+ version=4947007A (IG-122)
+--- a/Jay/Spartan - Total Warrior {MISC} (NTSC+JPN) [Jay].JMP
++++ b/Jay/Spartan - Total Warrior {MISC} (NTSC+JPN) [Jay].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Spartan: Total Warrior
++game-title=Spartan - Total Warrior
+ region=NTSC, JAPAN
+ version=5345008B (SE-139)
+--- a/Jay/The Incredible Hulk - Ultimate Destruction {MISC} (GLOBAL) [Jay].JMP
++++ b/Jay/The Incredible Hulk - Ultimate Destruction {MISC} (GLOBAL) [Jay].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=The Incredible Hulk: Ultimate Destruction
++game-title=The Incredible Hulk - Ultimate Destruction
+ region=USA/Canada & Japan & Everywhere Else
+ version=56550039 (VU-057) (And all other versions)
+--- a/Lexx/Azurik - Rise of Perathia {720p} (PAL) [Lexx].JMP
++++ b/Lexx/Azurik - Rise of Perathia {720p} (PAL) [Lexx].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Azurik: Rise of Perathia
++game-title=Azurik - Rise of Perathia
+ region=PAL
+ version=4D530007 (MS-007)
+--- a/Nemesis2000/Fatal Frame II - Crimson Butterfly - Director's Cut {Widescreen} (NTSC) [Nemesis2000].JMP
++++ b/Nemesis2000/Fatal Frame II - Crimson Butterfly - Director's Cut {Widescreen} (NTSC) [Nemesis2000].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Fatal Frame II - Crimson Butterfly - Director's Cut (Project Zero II)
++game-title=Fatal Frame II - Crimson Butterfly (Director's Cut) (Project Zero II)
+ region=NTSC+JPN
+ version=5443000A (TC-010) {1F9FE333}
+--- a/Nemesis2000/Final Fight - Streetwise {Widescreen} (PAL) [Nemesis2000].JMP
++++ b/Nemesis2000/Final Fight - Streetwise {Widescreen} (PAL) [Nemesis2000].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Final Fight - Streetwise
++game-title=Final Fight - "Streetwise"
+ region=PAL
+ version=43430013 (CC-019) {4019679A}
+--- a/Nemesis2000/Grand Theft Auto III {Misc} (NTSC) [Nemesis2000].JMP
++++ b/Nemesis2000/Grand Theft Auto III {Misc} (NTSC) [Nemesis2000].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Grand Theft Auto III
++game-title=Grand Theft Auto - III
+ region=NTSC
+ version=5454000E (TT-014) {84B5E974}
+--- a/OldGreenAndWise/Disney-Pixar Finding Nemo {720p} (NTSC) [OldGreenAndWise].JMP
++++ b/OldGreenAndWise/Disney-Pixar Finding Nemo {720p} (NTSC) [OldGreenAndWise].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Disney-Pixar Finding Nemo
++game-title=Disney-Pixar - Finding Nemo
+ region=NTSC
+ version=5451001E (TQ-030) {80D5BAB8}
+--- a/OldGreenAndWise/Disney-Pixar Finding Nemo {Widescreen} (NTSC) [OldGreenAndWise].JMP
++++ b/OldGreenAndWise/Disney-Pixar Finding Nemo {Widescreen} (NTSC) [OldGreenAndWise].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Disney/Pixar Finding Nemo
++game-title=Disney-Pixar - Finding Nemo
+ region=NTSC
+ version=5451001E (TQ-030) {80D5BAB8}
+--- a/Pixelise/Kao the Kangaroo - Round 2 {Widescreen} (PAL) [Pixelise].JMP
++++ b/Pixelise/Kao the Kangaroo - Round 2 {Widescreen} (PAL) [Pixelise].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Kao the Kangaroo - Round 2
++game-title=Kao the Kangaroo Round 2
+ region=PAL
+ version=4A570003 (JW-003) {56D9936B}
+--- a/SPPV/Barbie Horse Adventures - Wild Horse Rescue {720p} (NTSC+JPN) [SPPV].JMP
++++ b/SPPV/Barbie Horse Adventures - Wild Horse Rescue {720p} (NTSC+JPN) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Barbie™ Horse Adventures: Wild Horse Rescue
++game-title=Barbie - Horse Adventures - Wild Horse Rescue
+ region=NTSC+JPN
+ version=5655002A (VU-042)
+--- a/SPPV/Bruce Lee - Quest of the Dragon {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Bruce Lee - Quest of the Dragon {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Bruce Lee: Quest of the Dragon
++game-title=Bruce Lee - Quest of the Dragon
+ region=NTSC
+ version=56550016 (VU-022) [Version 1]
+--- a/SPPV/Carmen Sandiego - The Secret of the Stolen Drums {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Carmen Sandiego - The Secret of the Stolen Drums {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Carmen Sandiego: The Secret of the Stolen Drums
++game-title=Carmen Sandiego - The Secret of the Stolen Drums
+ region=NTSC
+ version=424D0006 (BM-006) [00000001]
+--- a/SPPV/Conspiracy - Weapons of Mass Destruction {720p} (PAL) [SPPV].JMP
++++ b/SPPV/Conspiracy - Weapons of Mass Destruction {720p} (PAL) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Conspiracy: Weapons of Mass Destruction
++game-title=Conspiracy - Weapons of Mass Destruction
+ region=PAL
+ version=4F580001 (OX-001)
+--- a/SPPV/Crime Life Gang Wars {720p} (All Regions) [SPPV].JMP
++++ b/SPPV/Crime Life Gang Wars {720p} (All Regions) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Crime Life: Gang Wars
++game-title=Crime Life - Gang Wars
+ region=All Regions
+ version=4B4E001C (KN-028)
+--- a/SPPV/DOOM 3 - Resurrection of Evil {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/DOOM 3 - Resurrection of Evil {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=DOOM 3 - Resurrection of Evil
++game-title=DOOM 3 Resurrection of Evil
+ region=NTSC
+ version=4156004E (AV-078)
+--- a/SPPV/Dinotopia The Sunstone Odyssey {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Dinotopia The Sunstone Odyssey {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dinotopia: The Sunstone Odyssey
++game-title=Dinotopia - The Sunstone Odyssey
+ region=NTSC
+ version=544D000F {D73F0538}
+--- a/SPPV/Dr. Seuss The Cat In The Hat {720p} (NTSC+JPN) [SPPV].JMP
++++ b/SPPV/Dr. Seuss The Cat In The Hat {720p} (NTSC+JPN) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dr. Seuss The Cat In The Hat
++game-title=Dr. Seuss' The Cat in the Hat
+ region=NTSC+JPN
+ version=56550028 (VU-040)
+--- a/SPPV/Final Fight - Streetwise {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Final Fight - Streetwise {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Final Fight - Streetwise
++game-title=Final Fight - "Streetwise"
+ region=NTSC
+ version=43430013 (CC-019) {769B6775} {094E0DE2}
+--- a/SPPV/Grand Theft Auto - Vice City {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Grand Theft Auto - Vice City {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Grand Theft Auto: Vice City
++game-title=Grand Theft Auto - Vice City
+ region=NTSC
+ version=5454000F (TT-015) {83A9CDC8}
+--- a/SPPV/Jurassic Park - Operation Genesis {720p} (PAL) [SPPV].JMP
++++ b/SPPV/Jurassic Park - Operation Genesis {720p} (PAL) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Jurassic Park: Operation Genesis
++game-title=Jurassic Park - Operation Genesis
+ region=PAL
+ version=5656000A (VV-010) {9F1F0F58}
+--- a/SPPV/Rayman Arena {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Rayman Arena {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Rayman Arena
++game-title=Rayman - Arena
+ region=NTSC
+ version=55530003 (US-003) {293A7EFF}
+--- a/SPPV/Spikeout - Battle Street {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/Spikeout - Battle Street {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Spikeout: Battle Street
++game-title=Spikeout - Battle Street
+ region=NTSC
+ version=53450029 (SE-041)
+--- a/SPPV/X2 - Wolverine's Revenge {720p} (NTSC) [SPPV].JMP
++++ b/SPPV/X2 - Wolverine's Revenge {720p} (NTSC) [SPPV].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=X2 Wolverine's Revenge
++game-title=X2 - Wolverine's Revenge
+ region=NTSC
+ version=41560008 (AV-008) {37F52EEC}
+--- a/Sifaw99/DreamWorks - Over the Hedge {480i Fix} (GLOBAL) [Sifaw99].JMP
++++ b/Sifaw99/DreamWorks - Over the Hedge {480i Fix} (GLOBAL) [Sifaw99].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=DreamWorks Over the Hedge
++game-title=DreamWorks - Over the Hedge
+ region=GLOBAL
+ version=41560058 (AV-088)
+--- a/Sifaw99/Scooby-Doo! Mystery Mayhem {480i Fix} (GLOBAL) [Sifaw99].JMP
++++ b/Sifaw99/Scooby-Doo! Mystery Mayhem {480i Fix} (GLOBAL) [Sifaw99].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Scooby-Doo! Mystery Mayhem
++game-title=Scooby-Doo! - Mystery Mayhem
+ region=GLOBAL
+ version=5451000E (TQ-014)
+--- a/Sifaw99/Shellshock Nam '67 {480i Fix} (GLOBAL) [Sifaw99].JMP
++++ b/Sifaw99/Shellshock Nam '67 {480i Fix} (GLOBAL) [Sifaw99].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Shellshock Nam '67
++game-title=ShellShock - NAM '67
+ region=GLOBAL
+ version=45530013 (ES-019)
+--- a/Silverrock/America's Army - Rise of a Soldier {720p} (NTSC) [Silverrock].JMP
++++ b/Silverrock/America's Army - Rise of a Soldier {720p} (NTSC) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=America's Army: Rise of a Soldier
++game-title=America’s Army - Rise of a Soldier
+ region=NTSC
+ version=55530043 (US-067)
+--- a/Silverrock/BeatDown - Fists of Vengeance {720p} (NTSC) [Silverrock].JMP
++++ b/Silverrock/BeatDown - Fists of Vengeance {720p} (NTSC) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=BeatDown: Fists of Vengeance
++game-title=BeatDown - Fists of Vengeance
+ region=NTSC
+ version=43430015 (CC-021)
+--- a/Silverrock/Blazing Angels - Squadrons of WWII {720p} (GLOBAL) [Silverrock].JMP
++++ b/Silverrock/Blazing Angels - Squadrons of WWII {720p} (GLOBAL) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Blazing Angels: Squadrons of WWII
++game-title=Blazing Angels - Squadrons of WWII
+ region=GLOBAL
+ version=55530057 (US-087)
+--- a/Silverrock/Call of Duty 2 - Big Red One {720p} (GLOBAL) [Silverrock].JMP
++++ b/Silverrock/Call of Duty 2 - Big Red One {720p} (GLOBAL) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Call of Duty 2: Big Red One
++game-title=Call of Duty 2 - Big Red One
+ region=GLOBAL
+ version=41560051 (AV-081) [00000001]
+--- a/Silverrock/Crimson Skies - High Road to Revenge {720p} (NTSC) [Silverrock].JMP
++++ b/Silverrock/Crimson Skies - High Road to Revenge {720p} (NTSC) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Crimson Skies: High Road to Revenge
++game-title=Crimson Skies - High Road to Revenge
+ region=NTSC
+ version=4D530021 (MS-033) [00000001]
+--- a/Silverrock/Die Hard - Vendetta {720p} (Multi Region) [Silverrock].JMP
++++ b/Silverrock/Die Hard - Vendetta {720p} (Multi Region) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Die Hard: Vendetta
++game-title=Die Hard - Vendetta
+ region=Multi Region
+ version=56560029 (VV-041) {4B1558BF} {E86237A4}
+--- a/Silverrock/Dragon Ball Z Sagas {720p} (NTSC) [Silverrock].JMP
++++ b/Silverrock/Dragon Ball Z Sagas {720p} (NTSC) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dragon Ball Z Sagas
++game-title=Dragon Ball Z - Sagas
+ region=NTSC
+ version=4947007A (IG-122)
+--- a/Silverrock/Goldeneye - Rogue Agent {720p} (NTSC) [Silverrock].JMP
++++ b/Silverrock/Goldeneye - Rogue Agent {720p} (NTSC) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Goldeneye: Rogue Agent
++game-title=GoldenEye - Rogue Agent
+ region=NTSC
+ version=4541005D (EA-093) {A0C1D53E}
+--- a/Silverrock/Half-Life 2 {720p} (GLOBAL) [Silverrock].JMP
++++ b/Silverrock/Half-Life 2 {720p} (GLOBAL) [Silverrock].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Half Life 2
++game-title=Half-Life 2
+ region=NTSC, JAPAN, PAL
+ version=45410091 (EA-145) {5DC8E588}
+--- a/Silverrock/Oddworld - Munch's Oddysee {720p} (NTSC) [Combo Patch].JMP
++++ b/Silverrock/Oddworld - Munch's Oddysee {720p} (NTSC) [Combo Patch].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Oddworld: Munch's Oddysee
++game-title=Oddworld - Munch's Oddysee
+ region=NTSC
+ version=4D530001 (MS-001)
+--- a/Zorlon/Antz Extreme Racing {480 Fix} (PAL) [Zorlon].JMP
++++ b/Zorlon/Antz Extreme Racing {480 Fix} (PAL) [Zorlon].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Antz Extreme Racing
++game-title=Antz - Extreme Racing
+ region=PAL
+ version=454D0001 (EM-001)
+--- a/Zorlon/Burger King - Big Bumpin' {Misc} (NTSC) [Zorlon].JMP
++++ b/Zorlon/Burger King - Big Bumpin' {Misc} (NTSC) [Zorlon].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Burger King: Big Bumpin
++game-title=Burger King - Big Bumpin'
+ region=NTSC
+ version=4D5300D2 (MS-210)
+--- a/Zorlon/Headhunter - Redemption {480i Fix} (NTSC+PAL) [Zorlon].JMP
++++ b/Zorlon/Headhunter - Redemption {480i Fix} (NTSC+PAL) [Zorlon].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Headhunter - Redemption
++game-title=Headhunter Redemption
+ region=NTSC, PAL
+ version=53450025 (SE-037) {D38358F2}
+--- a/Zorlon/Operation Flashpoint - Elite {Misc} (Global) [Zorlon].JMP
++++ b/Zorlon/Operation Flashpoint - Elite {Misc} (Global) [Zorlon].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Operation Flashpoint: Elite
++game-title=Operation Flashpoint - Elite
+ region=Global
+ version=434D005A (CM-090)
+--- a/Zorlon/Yetisports - Arctic Adventures {480i Fix} (NTSC+PAL) [Zorlon].JMP
++++ b/Zorlon/Yetisports - Arctic Adventures {480i Fix} (NTSC+PAL) [Zorlon].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Yetisports Arctic Adventures
++game-title=Yetisports - Arctic Adventures
+ region=NTSC, PAL
+ version=4A570004 (JW-004) {07DF815B}
+--- a/dust08/The Chronicles of Riddick - Escape From Butcher Bay {720p} (NTSC-JPN) [dust08].JMP
++++ b/dust08/The Chronicles of Riddick - Escape From Butcher Bay {720p} (NTSC-JPN) [dust08].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=The Chronicles of Riddick: Escape From Butcher Bay
++game-title=The Chronicles of Riddick - Escape From Butcher Bay
+ region=NTSC, JAPAN, PAL
+ version=56550026 (VU-038) [00000001] {E6F83FB7}
+--- a/icup321/Crimson Skies - High Road to Revenge {Widescreen} (Multi Region) [icup321].JMP
++++ b/icup321/Crimson Skies - High Road to Revenge {Widescreen} (Multi Region) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Crimson Skies: High Road to Revenge
++game-title=Crimson Skies - High Road to Revenge
+ region=Multi Region
+ version=4D530021 (MS-033) [NTSC 00000001]+[PAL 00000003]+[JPN 00000002]
+--- a/icup321/Disney-Pixar - The Incredibles {720p} (NTSC+JPN) [icup321].JMP
++++ b/icup321/Disney-Pixar - The Incredibles {720p} (NTSC+JPN) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Disney/Pixar The Incredibles
++game-title=Disney-Pixar - The Incredibles
+ region=NTSC+JPN
+ version=54510028 (TQ-040) [00000001]
+--- a/icup321/Disney-Pixar The Incredibles - Rise of the Underminer {720p} (NTSC+JPN) [icup321].JMP
++++ b/icup321/Disney-Pixar The Incredibles - Rise of the Underminer {720p} (NTSC+JPN) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Disney/Pixar The Incredibles: Rise of the Underminer
++game-title=Disney-Pixar - The Incredibles - Rise of the Underminer
+ region=NTSC+JPN
+ version=545100F6 (TQ-246) [00000001]
+--- a/icup321/Dragon Ball Z Sagas {720p} (NTSC) [icup321].JMP
++++ b/icup321/Dragon Ball Z Sagas {720p} (NTSC) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Dragon Ball Z Sagas
++game-title=Dragon Ball Z - Sagas
+ region=NTSC
+ version=4947007A (IG-122)
+--- a/icup321/Prince of Persia - The Sands of Time {Misc} (NTSC) [icup321].JMP
++++ b/icup321/Prince of Persia - The Sands of Time {Misc} (NTSC) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Prince of Persia: The Sands of Time
++game-title=Prince of Persia - The Sands of Time
+ region=NTSC, JAPAN
+ version=5553001D (US-029) {C39268AA}
+--- a/icup321/Rayman Arena {720p} (NTSC) [icup321].JMP
++++ b/icup321/Rayman Arena {720p} (NTSC) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Rayman Arena
++game-title=Rayman - Arena
+ region=NTSC
+ version=55530003 (US-003) {293A7EFF}
+--- a/icup321/Rayman Arena {Widescreen} (NTSC) [icup321].JMP
++++ b/icup321/Rayman Arena {Widescreen} (NTSC) [icup321].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Rayman Arena
++game-title=Rayman - Arena
+ region=NTSC
+ version=55530003 (US-003)
+--- a/retroszur/Grand Theft Auto - Vice City {Misc} (All Regions) [retroszur].JMP
++++ b/retroszur/Grand Theft Auto - Vice City {Misc} (All Regions) [retroszur].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Grand Theft Auto: Vice City
++game-title=Grand Theft Auto - Vice City
+ region=All Regions
+ version=5454000F (TT-015) {4D66BBDE} {309C56DE} {0D4A03E4} {5ACBD11C} {65C09A95} {11ECC6CE} {83A9CDC8} {72FFA66D}
+--- a/steocullen91/Rayman Arena {Widescreen} (NTSC) [steocullen91].JMP
++++ b/steocullen91/Rayman Arena {Widescreen} (NTSC) [steocullen91].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Rayman Arena
++game-title=Rayman - Arena
+ region=NTSC
+ version=55530003 (US-003) {293A7EFF}
+--- a/xbox7887/Halo - Combat Evolved {720p} (NTSC) [Xbox7887].JMP
++++ b/xbox7887/Halo - Combat Evolved {720p} (NTSC) [Xbox7887].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Halo: Combat Evolved
++game-title=Halo - Combat Evolved
+ region=NTSC
+ version=4D530004 (MS-004) {55EA3A03} {8A454B8E} {EE2672D1}
+--- a/xbox7887/Halo - Combat Evolved {Misc} (NTSC) [Combo Authors].JMP
++++ b/xbox7887/Halo - Combat Evolved {Misc} (NTSC) [Combo Authors].JMP
+@@ -1,5 +1,5 @@
+ #Jay's Magic Patcher (www.jayxbox.com)
+ system=Xbox
+-game-title=Halo: Combat Evolved
++game-title=Halo - Combat Evolved
+ region=NTSC
+ version=4D530004 (MS-004) {55EA3A03} {8A454B8E} {EE2672D1}
