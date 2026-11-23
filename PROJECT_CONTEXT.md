@@ -1,3 +1,15 @@
+## 2026-11-23 — v0.14.0-test.22 diagnostic prerelease published and merged; owner field result PENDING
+
+- **Diagnostic release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.22
+- **EXE:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.22/MagicPatchDesk-Windows-x64.exe — 7,877,120 bytes; SHA256 `7f2e96af1fdb832c506a727b4697adc3550c22ea60fadc4cee1b20098f668f87`
+- **Checksums:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.22/SHA256SUMS.txt
+- **Single release gate:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45144905341 — **all 3 jobs SUCCESS**: Go suite, race detector, vet, update contract, media fixture, embedded icon, Windows PE cross-build, actual Windows GUI smoke validating cover controls / copyable report / synthetic cached JPG GDI+ drawing, and Windows updater healthcheck. Published only after Windows checks succeeded.
+- **PR #36:** https://github.com/TroJanVirus/MagicPatchDesk/pull/36 squash-merged as `741d60070297cdcd48b95d4babd041d8b683f727`. Temporary one-shot workflow removed from main after release.
+- Owner reports cover STILL MISSING on v0.14.0-test.21. Live probe `45142481317` independently confirmed actual JPEG (154,187 bytes) downloads and decodes on GitHub runner, and exact PatchHub metadata; this does NOT prove the image fetch works in the owner's Windows environment. Native synthetic GDI+ passing also doesn't prove live download-and-draw.
+- test22 adds selected-game **Check cover** and **Copy details**, with visible status and classified per-URL HTTP/TLS/DNS/image errors / GDI+ load/draw failures. Clipboard report includes public game/Title ID/URL/cache-status only, never local user path or binary content.
+- **Next step required:** owner runs test22, selects American Idol (Prototype), clicks Check cover, waits for result, then copies details into ChatGPT. Do not claim resolved without this evidence. Do not change site/JMP filenames or ship another speculative fix.
+- Original README, updater protocol v1, game-file safety, privacy controls and manual-only Actions remain intact.
+
 ## 2026-11-23 — v0.14.0-test.22 diagnostics-only candidate, gated prerelease
 
 The user continues to report missing American Idol (Prototype) artwork in test.21. Neither live GitHub-runner HTTP image fetch nor synthetic native GDI+ paint reproduces that specific Windows failure. Source adds per-game status, explicit Check cover and privacy-filtered Copy details; records per-candidate failure category and GDI+ error. A one-shot workflow now gates a **diagnostic** release on all Go/updater tests, cross-build and native Windows smoke of JPEG drawing plus the controls. Do NOT state this is a proven artwork fix; wait for user to submit local diagnosis. No automatic issue reporting, no local paths in copied text, no changes to website or JMPs, no recurring Actions.

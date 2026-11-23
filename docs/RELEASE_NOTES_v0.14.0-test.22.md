@@ -14,6 +14,6 @@ GitHub one-shot live probe https://github.com/TroJanVirus/MagicPatchDesk/actions
 
 ## Verification and safety
 
-Gated one-shot workflow must pass portable Go tests/race/vet, updater-v1 contract, icon generation, Windows PE build and checksums, real Windows UI smoke (now checking the cover controls, copy report and synthetic JPEG GDI+ rendering) and updater healthcheck **before** publishing. Same mandatory `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` assets, portable+installed updater contract, original README, privacy and offline support.
+One-shot workflow https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45144905341 **PASSED** portable Go tests/race/vet, updater-v1 contract, icon generation, Windows PE build and checksums, real Windows UI smoke (checking the cover controls, copied report and synthetic JPEG GDI+ rendering), and updater healthcheck **before** publishing. Same mandatory `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt` assets, portable+installed updater contract, original README, privacy and offline support.
 
 **Owner next step:** update to test.22, open American Idol (Prototype) in Patch Library, click **Check cover**, then **Copy details** and paste the text back. The initial status before pressing Check cover can also reveal whether the image is already cached but GDI+ cannot draw it.
