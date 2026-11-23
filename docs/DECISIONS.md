@@ -1,3 +1,7 @@
+## 2026-11-23 — Patch Hub is the canonical game-title authority
+
+Owner explicitly requires (1) use Patch Hub game titles as canonical display names, (2) bring every JMP's game-title metadata into alignment, (3) update the relevant JSON while retaining stable patch records and correct game associations. Implement automation as a **dry-run audit followed by reviewed, confidence-gated edits**. Always use the real Xbox Title ID and word-token constraints; do NOT trust just a reused Title ID or fuzzy name. Keep filenames/cover directories separate from display titles so artwork and comparison-image paths remain valid. Do not invent writes to the PHP site's unavailable master database; local patchhub-index is a generated cache and hosted patchhub-media-v1 is a screenshot manifest.
+
 ## 2026-11-23 — Require exact Xbox ID + token-equivalent title for JMP catalogue merging
 
 BeatDown silverrock's `game-title=BeatDown: Fists of Vengeance` and Nemesis/Franky `game-title=BeatDown - Fists of Vengeance` must appear as one game with three distinct patches. Header `43430015 (CC-021)` is identical for all. Match punctuation/space variant names only when all patches in each group independently agree on the same valid nonzero Xbox Title ID; no merge based solely on ID, fuzzy similarity, or initials. Keep distinct source patches and alias cover paths. Prefer the variant already carrying more JMPs or local artwork for display. Make Hub ID index unique-only (conflicted IDs must not steal metadata). Maintain site/JMP filenames, originals, updater protocol, and user cache.

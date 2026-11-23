@@ -1,3 +1,15 @@
+## 2026-11-23 — LIVE Patch Hub vs all 663 JMPs: canonical title audit (review-only)
+
+**Owner instruction:** Patch Hub's live game titles should be canonical; JMP `game-title=` headers should be reconciled to them, and a JSON master-data snapshot should reflect the authoritative title inventory. Do not auto-rename unrelated games, or mix Title IDs, patch records, screenshots or cover folders.
+
+**Evidence:** One short GitHub Actions audit run https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45151288280 successfully cloned the 663-JMP public repo read-only, fetched the current public Patch Hub HTML and indexed **1,023 game titles**. Breakdown: **473 already aligned; 85 safe punctuation/spacing-only corrections backed by the same valid Title ID; 105 uncertain/semantically different names requiring manual review.** Output is preserved in `docs/audits/` on branch `tools/patchhub-jmp-title-audit-20261123`: full CSV, review CSV, a proposed 85-edit header-only `.patch` (about 30 KB), `canonical-titles.v1.json` (site snapshot), and summary JSON. **No JMP files in JayYardley repo were edited. No site JSON was uploaded, replaced, or changed.** Connected GitHub permissions for Jay repo: `push=false`; TroJanVirus/MagicPatchDesk has push access. A PR or write connection is required for direct patch repo updates.
+
+**Safety:** helper `scripts/patchhub_title_reconcile.py` is dry-run by default and applies only same-word-sequence+same-ID `game-title=` corrections in a local clone with `--apply-safe`; never auto-renames JMP filenames, patch record bytes, cover directories or source games. Cases where an XBE Title ID identifies a different named game on Patch Hub are routed to review (e.g. an AMF Xtreme Bowling NTSC JMP reports ID `4B4E0002`, which Patch Hub lists for Airforce Delta Storm). **Do not auto-correct that header.**
+
+**JSON distinction:** `patchhub-index.json` is a client-generated cache of the site HTML, not the authoritative server DB. `patchhub-media-v1.json` is for patch-specific comparison images; it does not govern game titles. The new `canonical-titles.v1.json` is a **proposed canonical snapshot** for website master-data integration. When deployed/consumed, separately verify physical cover filenames via `--titles-root`, especially American Idol where historic display aliases and actual cover directories differed. Current live page in this audit now presents American Idol (Prototype) as the canonical label. Site's source DB/JSON is not in either inspected repository.
+
+**Next steps:** review `docs/audits/manual-review.csv` and the `proposed-title-changes.patch`; gain GitHub push permission to `JayYardley/Xbox-Magic-Patches-by-Jay` or apply the reviewed header-only patch from a local Git branch. To update the actual website database/JSON, supply its server path or connect that repo. This audit is not a production release. No automatic workflows should remain once this snapshot is generated.
+
 ## 2026-11-23 — v0.14.0-test.24 RELEASED and PR #38 merged (owner test pending)
 
 - **Release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.24
