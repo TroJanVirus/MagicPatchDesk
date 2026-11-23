@@ -8,7 +8,7 @@
 - Preserve original game files, all JMP patches, original PatchHub filenames, game source inspection, report privacy, official JMP icon, updater v1 and Windows 10/11 compatibility.
 
 ## Tests and known limitations
-The release pipeline must pass all Go tests, race detector, vet, existing media-index fixtures, updater contract, Windows PE build, native Windows GUI smoke, and update healthcheck **before** GitHub Release assets publish.
+The gated release pipeline **passed** all Go tests, the race detector, vet, existing media-index fixtures, the updater contract, Windows PE cross-build and SHA256 verification, and native Windows GUI smoke and updater healthcheck. The GitHub prerelease assets were published only after the Windows checks succeeded. Run: https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45141316528.
 
 Real-world PatchHub cover downloads and the user's interactive Windows catalogue are not guaranteed by synthetic tests; please check American Idol (Prototype) and other previously missing covers on your system. The app still shows a letter tile when no valid image is found. Current source patch identity / Title-ID checks remain strict.
 

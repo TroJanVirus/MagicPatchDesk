@@ -1,3 +1,14 @@
+## 2026-11-23 — v0.14.0-test.20 RELEASED and merged, native Windows smoke PASSED
+
+- **Release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.20
+- **EXE:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.20/MagicPatchDesk-Windows-x64.exe — 7,827,456 bytes; SHA256 `4a6ca99e5e807416e2d61adb571c0fd49008385f1ca35b87d39a4065aec31a35`
+- **Checksum manifest:** https://github.com/TroJanVirus/MagicPatchDesk/releases/download/v0.14.0-test.20/SHA256SUMS.txt
+- **Single gated run:** https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45141316528 — **all three jobs SUCCESS**: media index fixtures, updater protocol 1, official icon, `go test -count=1 ./...`, race detector, vet, Win64 GUI PE build, checksum verification, actual Windows `--mpd-ui-smoke-v1` and `--mpd-healthcheck-v1`. GitHub prerelease created **only after** native Windows smoke passed, targeting source commit `3d681b23d2bda81fb5c0736b8c36e8f91e1cc201`.
+- **PR #34:** https://github.com/TroJanVirus/MagicPatchDesk/pull/34 squash-merged as `af001682a382e64546b5ca643a97b496d485fa84`. Temporary one-shot release workflow removed from `main` to conserve Actions minutes.
+- Fix: game-cover fallback via validated, on-page game Title ID and exact PatchHub folder, using bounded JPG/PNG candidates; authoritative card URLs and local files take priority. Existing safe downloader caches for offline use. Limit background cover workers to three without unbounded waiting goroutines. Example American Idol (Prototype) `434D0027`.
+- **Unverified:** actual live jayxbox.com download/display on the user's interactive Windows machine and artwork for all missing-cover games. User field test is still required. Do not imply a green synthetic UI smoke proves live artwork retrieval.
+- No changed website/JMP filenames or original game binaries; updater protocol v1, the human owner README and all privacy restrictions are retained.
+
 ## 2026-11-23 — v0.14.0-test.20 guarded release candidate (one-shot gate initiated)
 
 PR #34 Title-ID game cover fallback changes are staged at `fix/title-id-cover-art-fallback`. Current source `core.AppVersion = v0.14.0-test.20`. Owner requested an EXE test release, so a *one-shot, branch-scoped* release workflow now builds only when its workflow file is first added, preserving GitHub Actions allowance. The pipeline must pass Go tests/race/vet, icon and updater contract, Windows PE build and checksum, and an **actual Windows --mpd-ui-smoke-v1 + --mpd-healthcheck-v1 run**, before it creates a prerelease with `MagicPatchDesk-Windows-x64.exe` and `SHA256SUMS.txt`. No automatic uploads of diagnostics or user files. No manual change to PatchHub website/JMP or user README.
