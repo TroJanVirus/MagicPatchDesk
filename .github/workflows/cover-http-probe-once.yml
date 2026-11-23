@@ -1,0 +1,61 @@
+name: One-shot live PatchHub cover HTTP diagnosis
+on:
+  push:
+    branches:
+      - diagnostic/patchhub-cover-http-20261123
+    paths:
+      - .github/workflows/cover-http-probe-once.yml
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Probe live website and actual Go cover downloader
+        run: |
+          cat > /tmp/mpd_cover_probe.go <<'GO'
+          package main
+          import (
+            "context"
+            "fmt"
+            "os"
+            "strings"
+            "time"
+            "magicpatchdesk/core"
+          )
+          func main() {
+            root,err:=os.MkdirTemp("","mpd-cover-test-")
+            if err!=nil {panic(err)}
+            defer os.RemoveAll(root)
+            game:=core.Game{Title:"American Idol (Prototype)",Patches:[]core.CatalogPatch{{TitleID:"434D0027"}}}
+            for _,u:=range core.CoverCandidates(game) {
+              ctx,cancel:=context.WithTimeout(context.Background(),20*time.Second)
+              file,er:=core.DownloadCover(ctx,root,u)
+              cancel()
+              if er!=nil {fmt.Printf("Go downloader FAIL for American Idol: %s\n",er)} else {
+                st,e:=os.Stat(file)
+                fmt.Printf("Go downloader PASS: cached_valid=%v, size=%d, site=%s\n",core.ValidCoverFile(file),st.Size(),strings.HasPrefix(u,"https://www.jayxbox.com/"))
+                _=e
+                break
+              }
+            }
+            ctx,cancel:=context.WithTimeout(context.Background(),35*time.Second)
+            defer cancel()
+            _,err=core.SyncPatchHub(ctx,root)
+            if err!=nil{fmt.Printf("PatchHub index sync failed: %s\n",err);return}
+            cat,err:=core.LoadCatalog(root,1)
+            if err!=nil{fmt.Printf("Catalogue load failed: %s\n",err);return}
+            for _,g:=range cat.Games{
+              if strings.Contains(strings.ToLower(g.Title),"american idol"){
+                fmt.Printf("Parsed live catalogue game=%q, coverURL=%q, coverFolder=%q, versions=%d, candidate_urls=%v\n",g.Title,g.CoverURL,g.CoverFolder,len(g.Versions),core.CoverCandidates(g))
+              }
+            }
+          }
+          GO
+          go run /tmp/mpd_cover_probe.go
