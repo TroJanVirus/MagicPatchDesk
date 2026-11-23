@@ -127,6 +127,7 @@ type coverAttempt struct {
 	InFlight bool // queued or currently downloading
 	Next time.Time
 	LastResult string // safe category only, not a Windows path or HTTP response body
+	CandidateResults []string // status of each candidate URL, never private URLs or paths
 	Attempted int
 	LastChecked time.Time
 }
@@ -143,6 +144,7 @@ func coverWorkerLoop() {
 		found := false
 		attempted := 0
 		lastReason := "No candidates"
+		results := make([]string,0,len(job.Sources))
 		// Bound any single image request, not the whole set. A slow/broken
 		// primary URL must not exhaust the timeout of a valid Title-ID fallback.
 		for _, source := range job.Sources {
@@ -153,14 +155,17 @@ func coverWorkerLoop() {
 			if err == nil && result != "" && core.ValidCoverFile(result) {
 				found = true
 				lastReason = "Downloaded and decoded"
+				results = append(results,lastReason)
 				break
 			}
 			if err == nil { lastReason = "Downloaded file failed image validation" } else { lastReason = coverFailureClass(err) }
+			results = append(results,lastReason)
 		}
 		coverMu.Lock()
 		item := coverAttempts[job.Key]
 		item.InFlight = false
 		item.LastResult = lastReason
+		item.CandidateResults = results
 		item.Attempted = attempted
 		item.LastChecked = time.Now()
 		if found {
@@ -281,7 +286,9 @@ func coverStatus(g core.Game) string {
 	coverMu.Unlock()
 	switch {
 	case state.InFlight: return "Downloading or queued"
-	case state.LastResult!="": return state.LastResult
+	case state.LastResult!="":
+		if state.Attempted>1 && state.LastResult!="Downloaded and decoded" {return "All candidate downloads failed"}
+		return state.LastResult
 	default: return "Not downloaded yet"
 	}
 }
@@ -328,6 +335,7 @@ func selectedCoverDiagnosticText() string {
 	for i,u:=range candidates {
 		p:=core.CoverCachePath(app.root,u)
 		fmt.Fprintf(&b,"%d. %s\n   Cached valid: %t\n",i+1,u,core.ValidCoverFile(p))
+		if i<len(state.CandidateResults) { fmt.Fprintf(&b,"   Last download: %s\n",state.CandidateResults[i]) }
 		if issue:=artDrawFailures[p];issue!=""{fmt.Fprintf(&b,"   Rendering: %s\n",issue)}
 	}
 	// Never include local directory/user names in a shareable report.
