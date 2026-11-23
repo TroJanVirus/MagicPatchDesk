@@ -20,6 +20,9 @@ func testBeatDownJMP(t *testing.T,root,dir,name,game,group string) {
 	// distinct patches, NOT fingerprints to collapse as duplicates.
 	src = strings.ReplaceAll(src,"#Widescreen","#"+group)
 	src = strings.Replace(src,"region=Global","region=NTSC",1)
+	author:=dir
+	if dir=="icup321" { author="FrankyBuster" }
+	src = strings.Replace(src,"author=Tester","author="+author,1)
 	if err:=os.WriteFile(filepath.Join(folder,name),[]byte(src),0644);err!=nil{ t.Fatal(err) }
 }
 
