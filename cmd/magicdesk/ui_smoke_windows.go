@@ -476,6 +476,28 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
     if app.galleryPage!=0{panic("Gallery Previous failed to return to first image pair")}
     handle("gallery-close",0)
     if app.galleryOpen{panic("Patch gallery did not close")}
+    // One or two screenshots have a single page. Both controls must be
+    // visually disabled and must never present a navigation hit target.
+    savedGallery:=app.cat.Games[0].Patches[0].Gallery
+    app.cat.Games[0].Patches[0].Gallery=savedGallery[:2]
+    app.galleryPage=0
+    app.galleryOpen=true
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    disabledCount:=0
+    for _,hit:=range app.hits{
+        if hit.Action=="gallery-prev"||hit.Action=="gallery-next"{
+            panic("Single image pair exposes active paging controls")
+        }
+        if hit.Action=="gallery-disabled"{disabledCount++}
+    }
+    if disabledCount!=2{panic("Single gallery pair must disable both directions")}
+    handle("gallery-disabled",0)
+    if !app.galleryOpen||app.galleryPage!=0{
+        panic("Disabled gallery button unexpectedly closed single-page gallery")
+    }
+    handle("gallery-close",0)
+    app.cat.Games[0].Patches[0].Gallery=savedGallery
     // Same-patch click must deselect it (and restore the empty instructions)
     // without unloading the currently chosen game.
     sourceBefore:=chosenGameSource()

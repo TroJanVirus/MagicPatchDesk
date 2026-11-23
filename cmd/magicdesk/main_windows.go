@@ -1216,6 +1216,7 @@ func handle(action string, index int) {
             app.parsed=nil
             app.groupScroll=0
             app.expandedGroup=-1
+            app.status="Patch unselected · Choose a patch to review its records"
             refreshConversionHint()
         }else{
             selectPatch(index)
