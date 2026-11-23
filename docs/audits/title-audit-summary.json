@@ -1,0 +1,12 @@
+{
+  "site_games": 1023,
+  "jmps": 663,
+  "counts": {
+    "safe": 85,
+    "aligned": 473,
+    "review": 105
+  },
+  "proposed_changes": 85,
+  "locally_changed": 0,
+  "remote_changes": 0
+}
