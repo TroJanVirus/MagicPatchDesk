@@ -10,8 +10,8 @@ The Patch Hub source page listed **1,023 game titles** when this audit ran. The 
 
 Files in this directory:
 
-- `title_audit.csv` — every JMP, original title, website title, Xbox Title ID, status, reason, original SHA256.
-- `manual_review.csv` — uncertain mappings **and filename differences**. Filename differences alone do not mean a JMP header is wrong; prefixes such as `Halo 2 - DLC` can describe legitimate patch variants.
+- `title-audit.csv` — every JMP, original title, website title, Xbox Title ID, status, reason, original SHA256.
+- `manual-review.csv` — uncertain mappings **and filename differences**. Filename differences alone do not mean a JMP header is wrong; prefixes such as `Halo 2 - DLC` can describe legitimate patch variants.
 - `proposed-title-changes.patch` — **85 suggested `game-title=` header-only changes**. This is not applied to the magic-patches repository.
 - `canonical-titles.v1.json` — full **proposed** game-title index from the live website (not an existing client cache schema, not deployed on the PHP server).
 - `title-audit-summary.json` — machine-readable counts.
