@@ -152,7 +152,7 @@ func TestVerifiedPunctuationAliasCoverFallback(t *testing.T) {
 	got:=CoverCandidates(g)
 	want:="https://www.jayxbox.com/All-Patches/titles/BeatDown%20-%20Fists%20of%20Vengeance/43430015.jpg"
 	if len(got)!=4 || got[0]!=want ||
-		!strings.HasSuffix(got[2],"/BeatDown%3A%20Fists%20of%20Vengeance/43430015.jpg"){
+		!strings.HasSuffix(got[2],"/BeatDown:%20Fists%20of%20Vengeance/43430015.jpg"){
 		t.Fatalf("title alias cover resolution is not retained: %#v",got)
 	}
 }

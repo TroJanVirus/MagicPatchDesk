@@ -65,7 +65,7 @@ func TestBeatDownThreeJMPVariantsMergeAndKeepTheirPatches(t *testing.T) {
 	}
 	urls:=CoverCandidates(game)
 	if len(urls)!=4 || urls[0]!=hub.Games[0].Image ||
-		!strings.Contains(urls[2],"BeatDown%3A%20Fists%20of%20Vengeance/43430015.jpg") {
+		!strings.Contains(urls[2],"BeatDown:%20Fists%20of%20Vengeance/43430015.jpg") {
 		t.Fatalf("missing canonical cover and safe alias fallback: %#v",urls)
 	}
 }
