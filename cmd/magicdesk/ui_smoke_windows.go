@@ -25,6 +25,7 @@ func smokePaintAndExit() {
     }
     icon:=sysCall(user32.NewProc("LoadIconW"),sysCall(getModule,0),1)
     if icon==0{panic("Official JMP icon missing from compiled Windows EXE resources")}
+    smokeVerifiedCoverDrawing()
     if app.tab!=9 {panic("Home must be the initial landing tab")}
     app.tab=9
     redraw()

@@ -1,0 +1,97 @@
+name: One-shot v0.14.0-test.21 gated cover-recovery release
+on:
+  push:
+    branches:
+      - fix/cover-art-queue-and-render-20261123
+    paths:
+      - .github/workflows/one-shot-release-test21.yml
+permissions:
+  contents: write
+concurrency:
+  group: magicpatchdesk-test21-release-once
+  cancel-in-progress: false
+
+jobs:
+  verify-and-build:
+    if: github.repository == 'TroJanVirus/MagicPatchDesk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate website media fixture, updater and test version
+        run: |
+          python3 scripts/test_patchhub_media_index.py
+          bash scripts/verify_release_contract.sh
+          grep -Fq 'const AppVersion = "v0.14.0-test.21"' core/update.go
+      - name: Generate official JMP Win64 icon
+        run: python3 scripts/build_windows_icon.py
+      - name: All portable Go checks
+        run: |
+          go test -count=1 ./...
+          go test -race -count=1 ./core
+          go vet ./...
+      - name: Build and verify Windows executable
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          go build -trimpath -ldflags="-H windowsgui -s -w" -o MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
+          file MagicPatchDesk-Windows-x64.exe | grep 'PE32+'
+          sha256sum MagicPatchDesk-Windows-x64.exe > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-windows-test21
+          path: |
+            MagicPatchDesk-Windows-x64.exe
+            SHA256SUMS.txt
+          retention-days: 2
+          if-no-files-found: error
+  native-windows-smoke:
+    needs: verify-and-build
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-windows-test21
+          path: .
+      - name: Execute GUI smoke with real GDI plus JPEG drawing and updater health
+        shell: pwsh
+        run: |
+          $exe=Join-Path $pwd "MagicPatchDesk-Windows-x64.exe"
+          $p=Start-Process -FilePath $exe -ArgumentList "--mpd-ui-smoke-v1" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Native Windows UI smoke (including cover JPEG draw) failed: $($p.ExitCode)" }
+          $p=Start-Process -FilePath $exe -ArgumentList "--mpd-healthcheck-v1" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Self-updater healthcheck failed: $($p.ExitCode)" }
+  publish:
+    needs: native-windows-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-windows-test21
+          path: .
+      - name: Publish verified GitHub prerelease after native Windows passes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          sha256sum -c SHA256SUMS.txt
+          if gh release view v0.14.0-test.21 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to modify existing assets'
+            exit 1
+          fi
+          gh release create v0.14.0-test.21 MagicPatchDesk-Windows-x64.exe SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" --prerelease \
+            --title "Magic Patch Desk v0.14.0 test 21 — cover worker recovery" \
+            --notes-file docs/RELEASE_NOTES_v0.14.0-test.21.md

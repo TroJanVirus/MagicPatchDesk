@@ -52,10 +52,12 @@ func cover(hdc uintptr, x, y int32, title, art string, artURLs []string) {
 	p := []uint32{0x244F66, 0x584273, 0x31555B, 0x5C4C37, 0x384D7A, 0x364F47}
 	color := p[h%uint32(len(p))]
 	panel(hdc, ir(x, y, 52, 52), color, 13)
-	if art == "" && len(artURLs) != 0 {
-		art = scheduleCoverCandidates(artURLs)
+	if art != "" && drawArt(hdc, art, x+2, y+2, 48, 48) {
+		return
 	}
-	if drawArt(hdc, art, x+2, y+2, 48, 48) {
+	// A stale or corrupt locally imported cover must not hide valid artwork
+	// already known from PatchHub or a matching Xbox Title ID.
+	if len(artURLs) != 0 && drawArt(hdc, scheduleCoverCandidates(artURLs), x+2, y+2, 48, 48) {
 		return
 	}
 	initial := "?"
