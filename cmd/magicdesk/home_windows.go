@@ -2,6 +2,47 @@
 
 package main
 
+import (
+    "bytes"
+    _ "embed"
+    "os"
+    "path/filepath"
+    "sync"
+)
+
+// This transparent Patch Hub logo was provided by the project owner.
+// Bundling its PNG inside the executable keeps the app self-contained.
+//go:embed patchhub_home_logo.png
+var patchHubHomeLogoPNG []byte
+
+var patchHubLogoOnce sync.Once
+var patchHubLogoFile string
+
+// GDI+ needs a real UTF-16 file path for GdipLoadImageFromFile. Materialize
+// the embedded, public branding image once in the app's own user-data assets
+// directory; never depend on a bundled sidecar or a network request.
+func patchHubHomeLogoPath() string {
+    patchHubLogoOnce.Do(func(){
+        if app.root==""{return}
+        dir:=filepath.Join(app.root,"Assets")
+        if err:=os.MkdirAll(dir,0700);err!=nil{return}
+        dest:=filepath.Join(dir,"patchhub-home-logo-v1.png")
+        if old,err:=os.ReadFile(dest);err==nil&&bytes.Equal(old,patchHubHomeLogoPNG){
+            patchHubLogoFile=dest
+            return
+        }
+        tmp,err:=os.CreateTemp(dir,".patchhub-logo-*.png")
+        if err!=nil{return}
+        defer os.Remove(tmp.Name())
+        if _,err=tmp.Write(patchHubHomeLogoPNG);err!=nil{tmp.Close();return}
+        if err=tmp.Sync();err!=nil{tmp.Close();return}
+        if err=tmp.Close();err!=nil{return}
+        if err=os.Rename(tmp.Name(),dest);err!=nil{return}
+        patchHubLogoFile=dest
+    })
+    return patchHubLogoFile
+}
+
 // The landing screen is deliberately a short, human-facing introduction;
 // technical format caveats live in the Help/About areas and documentation.
 // All actions use the existing input, library and browser code paths.
@@ -60,12 +101,32 @@ func drawHome(hdc uintptr,w,h int32) {
     if contentW<610{featuresBottom=featuresY+3*69+2*7}
     linkY:=h-120
     if linkY<featuresBottom+12{linkY=featuresBottom+12}
-    // Keep the trusted website visible and clickable without implying that
-    // the app itself is the Patch Hub website or an official upstream client.
-    if linkY+58<h-45 {
-        panel(hdc,ir(x,linkY,contentW,58),surface,13)
-        textAt(hdc,"Discover more patches on Patch Hub",x+16,linkY+6,contentW-210,23,app.fonts.Medium,white)
-        textAt(hdc,"jayxbox.com",x+16,linkY+30,contentW-210,19,app.fonts.Small,muted)
-        button(hdc,"Visit Patch Hub",ir(x+contentW-177,linkY+11,160,36),"home-patchhub",0,false)
+    // The app already syncs the complete public JMP catalogue, so the
+    // website link is about visiting the original Patch Hub, NOT discovering
+    // missing patches. The entire branded card is one accessible click target.
+    if linkY+72<h-43 {
+        frame:=ir(x,linkY,contentW,72)
+        panelColor:=surface
+        if app.hoverAction=="home-patchhub"{panelColor=surface2}
+        panel(hdc,frame,panelColor,13)
+        logoW:=int32(204)
+        if contentW<680{logoW=156}
+        logoArea:=ir(x+13,linkY+9,logoW,53)
+        if path:=patchHubHomeLogoPath();path!=""{
+            if !drawArtFitted(hdc,path,logoArea.L,logoArea.T,
+                logoArea.R-logoArea.L,logoArea.B-logoArea.T){
+                textAt(hdc,"PATCH HUB",logoArea.L+8,logoArea.T+9,logoW-12,36,app.fonts.Title,mint)
+            }
+        }else{
+            textAt(hdc,"PATCH HUB",logoArea.L+8,logoArea.T+9,logoW-12,36,app.fonts.Title,mint)
+        }
+        textX:=x+logoW+25
+        textW:=contentW-logoW-64
+        textWrapped(hdc,"Check out the Patch Hub online!",textX,linkY+11,
+            textW,31,app.fonts.Medium,white)
+        textAt(hdc,"So pretty!  ·  jayxbox.com",textX,linkY+39,
+            textW,20,app.fonts.Small,muted)
+        textAt(hdc,"↗",x+contentW-39,linkY+19,26,34,app.fonts.Title,mint)
+        addHit(frame,"home-patchhub",0)
     }
 }
