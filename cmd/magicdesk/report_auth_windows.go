@@ -175,7 +175,7 @@ func syncStoredReports() {
 func maintenanceStorePath(root string) string { return filepath.Join(root, "maintenance.json") }
 func loadMaintenanceSettings(root string) {
 	prefs := struct{ AutoReports, Beta, NoAutoCheck bool }{}
-	prefs.Beta = true // Include prereleases by default until a stable release exists.
+	prefs.Beta = false // Stable channel is the default now that v0.14.0 is released.
 	b, e := os.ReadFile(maintenanceStorePath(root))
 	if e == nil { // Keep missing fields backward-compatible.
 		var loaded struct{ AutoReports, Beta, NoAutoCheck bool }

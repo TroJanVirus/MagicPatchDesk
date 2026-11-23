@@ -27,6 +27,20 @@ func smokePaintAndExit() {
     if icon==0{panic("Official JMP icon missing from compiled Windows EXE resources")}
     smokeVerifiedCoverDrawing()
     if app.tab!=9 {panic("Home must be the initial landing tab")}
+    // A real embedded PNG must be available in the standalone EXE and GDI+
+    // must be able to decode it without any external sidecar.
+    logo:=patchHubHomeLogoPath()
+    if logo==""||!core.ValidCoverFile(logo){
+        panic("Owner-provided embedded Patch Hub branding did not materialize as a valid PNG")
+    }
+    logoDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
+    if logoDC==0||!drawArtFitted(logoDC,logo,25,25,176,46){
+        panic("GDI+ failed to draw the embedded Patch Hub logo")
+    }
+    sysCall(user32.NewProc("ReleaseDC"),app.hwnd,logoDC)
+    if sysCall(user32.NewProc("IsWindowVisible"),app.hwnd)==0{
+        panic("Window must be shown only after DWM caption initialization")
+    }
     app.tab=9
     redraw()
     sysCall(updateWindow,app.hwnd)
@@ -44,6 +58,30 @@ func smokePaintAndExit() {
     for action,present:=range homeControls{
         if !present{panic("Home missing clickable action: "+action)}
     }
+    // Maintenance controls whether the developer Diagnostics workspace is
+    // shown. Verify both sidebar states without modifying user preferences.
+    originalDiagnostics:=app.showDiagnostics
+    app.showDiagnostics=false
+    app.tab=6
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    foundToggle,foundHiddenTab:=false,false
+    for _,hit:=range app.hits{
+        if hit.Action=="maint-diagnostics-tab"{foundToggle=true}
+        if hit.Action=="tab"&&hit.Index==3{foundHiddenTab=true}
+    }
+    if !foundToggle||foundHiddenTab{panic("Diagnostics must be hidden with a visible Maintenance toggle")}
+    handle("tab",3)
+    if app.tab!=6{panic("Hidden Diagnostics tab can still be opened")}
+    app.showDiagnostics=true
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    foundShownTab:=false
+    for _,hit:=range app.hits{
+        if hit.Action=="tab"&&hit.Index==3{foundShownTab=true}
+    }
+    if !foundShownTab{panic("Enabled Diagnostics tab missing from sidebar")}
+    app.showDiagnostics=originalDiagnostics
     handle("home-library",0)
     if app.tab!=0{panic("Home Browse patches does not navigate to Patch Library")}
     handle("home-convert",0)
@@ -415,6 +453,17 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
 
     }
     manager.mu.Lock();manager.mode=0;manager.mu.Unlock()
+    // Regression for the actual overlapping patch-name/metadata screenshot.
+    boundsDC:=sysCall(user32.NewProc("GetDC"),app.hwnd)
+    if boundsDC==0{panic("Cannot measure Patch Library text bounds")}
+    for _,kind:=range []string{"720p","Widescreen","Other"}{
+        title,meta:=libraryPatchRowTextAreas(boundsDC,600,205,600,kind)
+        if title.T<205||title.B>meta.T||meta.B>205+55||
+            title.L<600||title.R>1200||meta.L!=title.L{
+            panic(fmt.Sprintf("Patch text overlaps row boundary for %s: title=%+v meta=%+v",kind,title,meta))
+        }
+    }
+    sysCall(user32.NewProc("ReleaseDC"),app.hwnd,boundsDC)
     // Test a multi-image PatchHub patch at the same 1024x720 bounds without
     // performing any network fetch or using copyrighted game/screenshot data.
     app.cat=core.Catalog{Games:[]core.Game{{Title:"Synthetic PatchHub Game",
@@ -441,6 +490,11 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
         }
     }
     if !foundButton{panic("Patch Library screenshot viewer button missing")}
+    for _,hit:=range app.hits{
+        if hit.Action=="gallery-discover"{
+            panic("Redundant Find images hit must not appear in the Patch Library")
+        }
+    }
     app.galleryOpen=true
     redraw()
     sysCall(updateWindow,app.hwnd)
