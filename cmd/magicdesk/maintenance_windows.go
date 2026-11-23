@@ -362,7 +362,12 @@ func maintenanceAction(action string) {
 		saveMaintenanceSettings()
 		maintenanceUpdate.Found = false
 		checkForNewRelease(false)
-	case "maint-autocheck":
+    case "maint-diagnostics-tab":
+        app.showDiagnostics=!app.showDiagnostics
+        if !app.showDiagnostics&&app.tab==3{app.tab=6}
+        savePreferences()
+        app.status=map[bool]string{true:"Diagnostics tab visible",false:"Diagnostics tab hidden"}[app.showDiagnostics]
+    case "maint-autocheck":
 		maintenancePref.NoAutoCheck = !maintenancePref.NoAutoCheck
 		saveMaintenanceSettings()
 	case "maint-reports":

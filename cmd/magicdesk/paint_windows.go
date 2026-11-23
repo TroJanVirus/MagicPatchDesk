@@ -172,10 +172,11 @@ func drawSidebar(hdc uintptr,w,h int32){
         {"Patch Library","◈",0},
         {"Convert Patch","◇",1},
         {"Batch Process","▤",8},
-        {"Diagnostics","◉",3},
-        {"Recent","◷",5},
-        {"Maintenance","⚒",6},
     }
+    if app.showDiagnostics {
+        topNav=append(topNav,navItem{"Diagnostics","◉",3})
+    }
+    topNav=append(topNav,navItem{"Recent","◷",5},navItem{"Maintenance","⚒",6})
     for i,item:=range topNav{drawNav(item,navStart+int32(i)*navStep)}
     // Keep Settings/About clear of the footer and top workspaces.
     dividerY:=h-156
@@ -393,6 +394,18 @@ func drawLibrary(hdc uintptr, w, h int32) {
         // No hit target: truly disabled until patch, game AND choice exist.
     }
 }
+// Patch name and metadata occupy disjoint regions fully inside each 60px row.
+// The badge width determines the text start so titles align beside badges
+// without the large unused gap in the earlier layout.
+func libraryPatchRowTextAreas(hdc uintptr,x,y,width int32,patchType string)(rect,rect){
+    labelX:=x+26+tagWidth(hdc,patchType)+13
+    maxX:=x+width-92
+    if labelX>maxX{labelX=maxX}
+    textW:=x+width-28-labelX
+    if textW<1{textW=1}
+    return ir(labelX,y+3,textW,35),ir(labelX,y+39,textW,15)
+}
+
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
     // Keep a consistent cover area within the selected game's header.
     // The actual image remains aspect-fitted, never cropped or stretched.
@@ -439,7 +452,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			color = 0x2D496B
 		}
 		panel(hdc, ir(x+16, y, width-32, rowH-5), color, 11)
-        tag(hdc,p.Type,x+26,y+19,0x3B5271)
+        tag(hdc,p.Type,x+26,y+16,0x3B5271)
 		label := p.Name
 		if len(g.Title) > 0 && strings.HasPrefix(strings.ToLower(label), strings.ToLower(g.Title)) {
 			label = strings.TrimSpace(strings.TrimPrefix(label, label[:len(g.Title)]))
@@ -448,7 +461,10 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 		if label == "" {
 			label = p.Type
 		}
-        textWrapped(hdc,label,x+149,y+5,width-179,40,app.fonts.Medium,white)
+        // Two separate, non-overlapping text rows fit inside the 55px card.
+        // The previous 40px title + 19px metadata at y+47 overflowed it.
+        titleArea,metaArea:=libraryPatchRowTextAreas(hdc,x,y,width,p.Type)
+        txt(hdc,label,titleArea,app.fonts.ButtonCompact,white,DT_WORDBREAK|DT_END_ELLIPSIS)
 		detail := strings.TrimSpace(p.Region + "  ·  " + p.Author)
 		if p.TitleID != "" {
 			detail += "  ·  " + p.TitleID
@@ -457,7 +473,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 			detail += "  ·  " + p.RAM
 		}
         if count:=len(galleryForPatch(p));count>0{detail+=fmt.Sprintf("  ·  %d patch images",count)}
-        textAt(hdc,detail,x+150,y+47,width-181,19,app.fonts.Small,muted)
+        txt(hdc,detail,metaArea,app.fonts.Small,muted,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS)
 
 		addHit(ir(x+16, y, width-32, rowH-5), "patch", idx)
 	}
@@ -472,15 +488,12 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
 	}
     textAt(hdc,fmt.Sprintf("PATCH RECORD GROUPS  ·  %d RECORDS",len(p.Records)),x+23,groupY,width-199,23,app.fonts.Micro,muted)
     if app.selectedPatch>=0&&app.selectedPatch<len(g.Patches){
-        chosen:=g.Patches[app.selectedPatch]
-        shots:=galleryForPatch(chosen)
+        // All known PatchHub artwork is indexed/refreshed automatically.
+        // A no-image "Find images" button no longer serves a useful purpose.
+        shots:=galleryForPatch(g.Patches[app.selectedPatch])
         if len(shots)>0 {
-            button(hdc,fmt.Sprintf("View images (%d)",len(shots)),ir(x+width-168,groupY-1,150,30),"gallery-open",0,false)
-        }else if mediaDiscoveryRunning(chosen){
-            textAt(hdc,"Finding images…",x+width-164,groupY+2,145,24,app.fonts.Small,muted)
-        }else{
-            // Show the useful user action, not the former debug report button.
-            button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
+            button(hdc,fmt.Sprintf("View images (%d)",len(shots)),
+                ir(x+width-168,groupY-1,150,30),"gallery-open",0,false)
         }
     }
 	textAt(hdc, "Toggle a group · + expands records · Read shows full comments and links.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
@@ -586,7 +599,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
     }
     textAt(hdc, "AUTHOR "+strLimit(p.Headers["author"], 20)+"  •  "+strLimit(crcLabel, 80), x+23, foot, width-46, 20, app.fonts.Small, crcColor)
     if p.Headers["notes"]!="" {
-        button(hdc,"READ FULL NOTES · formatted + scrollable",ir(x+18,foot+24,width-36,32),"notes-open",0,false)
+        button(hdc,"READ FULL NOTES",ir(x+18,foot+24,width-36,32),"notes-open",0,false)
     }else{
         textAt(hdc,"No JMP notes were provided.",x+23,foot+26,width-46,22,app.fonts.Small,muted)
     }

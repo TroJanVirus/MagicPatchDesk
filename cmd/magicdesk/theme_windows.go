@@ -12,7 +12,23 @@ func updateWindowsTitleBarTheme() {
     if app.hwnd==0{return}
     dark:=int32(1)
     if app.theme=="Light" {dark=0}
-    sysCall(dwmAttr,app.hwnd,20,uintptr(unsafe.Pointer(&dark)),4)
+    // Windows 10/11 use DWMWA_USE_IMMERSIVE_DARK_MODE (20), with an older
+    // Windows 10 DWM attribute (19) supported as a harmless fallback.
+    if hr:=sysCall(dwmAttr,app.hwnd,20,uintptr(unsafe.Pointer(&dark)),4);hr!=0 {
+        sysCall(dwmAttr,app.hwnd,19,uintptr(unsafe.Pointer(&dark)),4)
+    }
+    refreshWindowsFrame()
+}
+
+// A DWM caption theme change needs a non-client frame update. Otherwise the
+// caption can remain half-painted/highlighted from CreateWindowEx until the
+// user resizes, maximizes or changes focus.
+func refreshWindowsFrame(){
+    if app.hwnd==0{return}
+    // SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED.
+    sysCall(user32.NewProc("SetWindowPos"),app.hwnd,0,0,0,0,0,0x37)
+    // RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME.
+    sysCall(user32.NewProc("RedrawWindow"),app.hwnd,0,0,0x501)
 }
 
 func themeSurfaceColor(c uint32) uint32 {

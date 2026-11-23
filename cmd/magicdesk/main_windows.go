@@ -225,6 +225,7 @@ type appState struct {
 	groupScroll   int
 	workers       int
     theme         string
+    showDiagnostics bool
 	override      bool
 	status        string
 	syncStatus    string
@@ -520,6 +521,7 @@ func initApp() {
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
         app.theme=prefs.Theme
+        app.showDiagnostics=prefs.ShowDiagnostics
         if prefs.GameOutputFormats!=nil {gameOutputFormats=prefs.GameOutputFormats}
 	}
 	setTheme(app.theme)
@@ -539,13 +541,17 @@ func initApp() {
 	if sysCall(regClass, uintptr(unsafe.Pointer(&class))) == 0 {
 		panic("RegisterClassEx failed")
 	}
-	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
+	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW, 100, 80, 1320, 840, 0, 0, instance, 0)
 	if app.hwnd == 0 {
 		panic("CreateWindowEx failed")
 	}
 	updateWindowsTitleBarTheme()
 	sysCall(dragAccept, app.hwnd, 1)
+    // Create hidden, theme the non-client frame, then show exactly once.
+    // Make Windows repaint the caption before any background sync/work begins.
 	sysCall(showWindow, app.hwnd, SW_SHOW)
+    refreshWindowsFrame()
+    sysCall(updateWindow, app.hwnd)
     if smokeWindowsUI {
         smokePaintAndExit()
         return
@@ -555,7 +561,8 @@ func initApp() {
     // still see the cached catalogue and can run either check manually.
     if maintenancePref.NoAutoCheck {go runProtectedBackgroundTask("library_sync",reloadCatalog)}else{checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go runProtectedBackgroundTask("library_sync",syncStoredReports)}
-	sysCall(updateWindow, app.hwnd)
+    redraw()
+    sysCall(updateWindow, app.hwnd)
     markCrashStage("ui_callback")
 	var m msg
 	for {
@@ -878,7 +885,7 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 
 // Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
 func savePreferences() {
-	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, GameOutputFormats: gameOutputFormats}); err != nil {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, ShowDiagnostics: app.showDiagnostics, GameOutputFormats: gameOutputFormats}); err != nil {
 		notify("Could not save interface preferences: " + err.Error())
 	}
 }
@@ -1161,7 +1168,7 @@ func handle(action string, index int) {
     case "home-patchhub":
         url:="https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php"
         sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(url))),0,0,SW_SHOW)
-    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
+    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress", "maint-diagnostics-tab":
 		maintenanceAction(action)
 	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-preserve", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
@@ -1173,6 +1180,8 @@ func handle(action string, index int) {
         app.notesOpen=false
         app.galleryOpen=false
         app.coverOpen=false
+        // Hidden developer tools cannot be opened by stale tab hit targets.
+        if index==3&&!app.showDiagnostics {index=6}
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
         if index==1 {
@@ -1278,8 +1287,6 @@ func handle(action string, index int) {
         setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
     case "patch-scroll-thumb","records-scroll-thumb","notes-scroll-thumb":
         // Drag handled directly by the mouse capture loop.
-    case "gallery-discover":
-        discoverSelectedPatchMedia(true)
     case "cover-view":
         if app.selectedGame>=0 && app.selectedGame<len(app.cat.Games) &&
             visibleGameCover(app.cat.Games[app.selectedGame])!="" {

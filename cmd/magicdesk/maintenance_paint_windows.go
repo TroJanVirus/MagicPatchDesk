@@ -16,6 +16,8 @@ func drawMaintenance(hdc uintptr,w,h int32){
     narrow:=width<665
     hUpdate,hReports,hCCI,gap:=int32(260),int32(135),int32(99),int32(12)
     if compact{hUpdate,hReports,hCCI,gap=244,113,90,8}
+    // Reserve an independent toggle row without overlapping report actions.
+    hReports+=40
     // At smaller widths, place the folder buttons on their own row. Do not
     // squeeze every action into 80px labels or let rows overlap one another.
     if narrow{hUpdate+=52}
@@ -74,6 +76,10 @@ func drawMaintenance(hdc uintptr,w,h int32){
         }
     }
     textAt(hdc,info,x+24,y+38,width-47,23,app.fonts.Small,muted)
+    diagnosticLabel:="Show Diagnostics tab"
+    if app.showDiagnostics{diagnosticLabel="Hide Diagnostics tab"}
+    button(hdc,diagnosticLabel,ir(x+22,y+69,215,34),"maint-diagnostics-tab",0,app.showDiagnostics)
+    textAt(hdc,"Optional developer tools",x+248,y+74,width-272,24,app.fonts.Small,muted)
     if !connected{
         button(hdc,"Connect",ir(x+22,y+hReports-47,156,35),"maint-connect",0,false)
     }else{
