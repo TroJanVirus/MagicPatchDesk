@@ -14,6 +14,8 @@ type Preferences struct {
 	Workers int `json:"workers"`
 	Filter  int `json:"catalog_filter"`
     Theme string `json:"theme,omitempty"`
+    // Developer dashboard (sidebar Diagnostics) is opt-in and hidden on new installs.
+    ShowDiagnostics bool `json:"show_diagnostics,omitempty"`
 	GameOutputFormats map[string]uint32 `json:"game_output_formats,omitempty"`
 }
 

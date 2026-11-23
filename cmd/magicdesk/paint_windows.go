@@ -172,10 +172,11 @@ func drawSidebar(hdc uintptr,w,h int32){
         {"Patch Library","◈",0},
         {"Convert Patch","◇",1},
         {"Batch Process","▤",8},
-        {"Diagnostics","◉",3},
-        {"Recent","◷",5},
-        {"Maintenance","⚒",6},
     }
+    if app.showDiagnostics {
+        topNav=append(topNav,navItem{"Diagnostics","◉",3})
+    }
+    topNav=append(topNav,navItem{"Recent","◷",5},navItem{"Maintenance","⚒",6})
     for i,item:=range topNav{drawNav(item,navStart+int32(i)*navStep)}
     // Keep Settings/About clear of the footer and top workspaces.
     dividerY:=h-156

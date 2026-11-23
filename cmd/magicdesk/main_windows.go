@@ -225,6 +225,7 @@ type appState struct {
 	groupScroll   int
 	workers       int
     theme         string
+    showDiagnostics bool
 	override      bool
 	status        string
 	syncStatus    string
@@ -520,6 +521,7 @@ func initApp() {
 	if prefs, err := core.LoadPreferences(app.root); err == nil {
 		app.workers, app.filter = prefs.Workers, prefs.Filter
         app.theme=prefs.Theme
+        app.showDiagnostics=prefs.ShowDiagnostics
         if prefs.GameOutputFormats!=nil {gameOutputFormats=prefs.GameOutputFormats}
 	}
 	setTheme(app.theme)
@@ -878,7 +880,7 @@ func atomicPatchISO(source, dest string, apply func([]byte) ([]byte, error), wor
 
 // Preferences intentionally exclude the CRC/Title-ID bypass: it resets OFF at launch.
 func savePreferences() {
-	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, GameOutputFormats: gameOutputFormats}); err != nil {
+	if err := core.SavePreferences(app.root, core.Preferences{Workers: app.workers, Filter: app.filter, Theme: app.theme, ShowDiagnostics: app.showDiagnostics, GameOutputFormats: gameOutputFormats}); err != nil {
 		notify("Could not save interface preferences: " + err.Error())
 	}
 }
@@ -1161,7 +1163,7 @@ func handle(action string, index int) {
     case "home-patchhub":
         url:="https://www.jayxbox.com/Retail-Game-Modification/PatchHub.php"
         sysCall(shellExecute,app.hwnd,uintptr(unsafe.Pointer(ptr("open"))),uintptr(unsafe.Pointer(ptr(url))),0,0,SW_SHOW)
-    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress":
+    case "maint-install", "maint-check", "maint-update", "maint-beta", "maint-autocheck", "maint-reports", "maint-connect", "maint-disconnect", "maint-sync", "maint-data", "maint-program", "maint-cci-decompress", "maint-cci-compress", "maint-diagnostics-tab":
 		maintenanceAction(action)
 	case "game-source", "game-folder", "game-use-loaded", "game-format", "game-preserve", "game-export", "game-credits", "game-patch-toggle":
 		gameOutputAction(action,index)
@@ -1173,6 +1175,8 @@ func handle(action string, index int) {
         app.notesOpen=false
         app.galleryOpen=false
         app.coverOpen=false
+        // Hidden developer tools cannot be opened by stale tab hit targets.
+        if index==3&&!app.showDiagnostics {index=6}
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
         if index==1 {
