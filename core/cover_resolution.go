@@ -14,7 +14,7 @@ import (
 // A title alias is eligible only when the JMP and Hub share a valid Title ID.
 // This changes artwork lookup ONLY, never patch compatibility.
 func CoverCandidates(g Game) []string {
-	candidates := make([]string, 0, 13)
+	candidates := make([]string, 0, 25)
 	seen := make(map[string]bool)
 	add := func(raw string) {
 		if raw != "" && !seen[raw] {
@@ -57,7 +57,7 @@ func CoverCandidates(g Game) []string {
 	folders := []string{}
 	folderSeen := map[string]bool{}
 	addFolder := func(name string) {
-		if !safeCoverFolder(name) { return }
+		if len(folders) >= 4 || !safeCoverFolder(name) { return }
 		key := strings.ToLower(name)
 		if folderSeen[key] { return }
 		folderSeen[key] = true
@@ -71,6 +71,10 @@ func CoverCandidates(g Game) []string {
 		addFolder(g.Title)
 	}
 	addFolder(g.CoverFolder)
+	// A safely merged punctuation-only JMP alias can have the actual image
+	// directory even when its spelling is not the chosen display title.
+	// These aliases were admitted only after a corroborating Xbox Title ID.
+	for _, alias := range g.TitleAliases { addFolder(alias) }
 	// In the normal one-title case, only the canonical directory is tried.
 	for _, folder := range folders {
 		base := "https://www.jayxbox.com/All-Patches/titles/" + url.PathEscape(folder) + "/"
