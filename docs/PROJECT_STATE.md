@@ -1,3 +1,7 @@
+## 2026-11-23 — v0.14.0-test.21 one-shot prerelease gate STARTED (not yet verified)
+
+PR #35 fixes image-worker queue starvation, failure-triggered repaint and stale local art fallback after user reports no cover difference in test.20. Live test https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45142481317 confirms website URL, 154,187-byte downloaded JPEG and metadata matching; no website update is needed. Candidate source version raised to `v0.14.0-test.21`. One scoped three-job release gate checks source/updater contract and PE, Go tests/race/vet, **native Windows UI GDI+ JPEG draw smoke**, updater healthcheck, then (only on success) publishes canonical EXE and checksum. No always-on Actions. Do not mark as released until verified GitHub asset and run results. Remove one-shot workflow afterward, preserve human README and live owner field-test requirement.
+
 ## 2026-11-23 — Cover delivery regression diagnosed: bounded queue + native GDI+ smoke candidate
 
 After updating to v0.14.0-test.20 and syncing GitHub, the owner still sees the American Idol (Prototype) letter tile. Confirmed the exact JPEG is accessible and the live website shows Title ID `434D0027`. A one-shot live GitHub runner `45142481317` directly exercised `core.DownloadCover` successfully, validating **154,187 bytes**, and `core.SyncPatchHub`/catalogue parsing produced the exact expected canonical image URL and one version. No website or GitHub JMP changes needed.
