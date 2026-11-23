@@ -81,6 +81,7 @@ func drawPatchGallery(hdc uintptr,w,h int32){
     }else{
         panel(hdc,previous,0x283245,9)
         txt(hdc,"← Previous",previous,app.fonts.Small,muted,DT_SINGLELINE|DT_CENTER|DT_VCENTER)
+        addHit(previous,"gallery-disabled",0)
     }
     textAt(hdc,fmt.Sprintf("Image pair %d / %d",app.galleryPage+1,pages),x+width/2-87,footerY,174,35,app.fonts.Medium,white)
     next:=ir(x+width-166,footerY,147,35)
@@ -89,5 +90,6 @@ func drawPatchGallery(hdc uintptr,w,h int32){
     }else{
         panel(hdc,next,0x283245,9)
         txt(hdc,"Next →",next,app.fonts.Small,muted,DT_SINGLELINE|DT_CENTER|DT_VCENTER)
+        addHit(next,"gallery-disabled",0)
     }
 }

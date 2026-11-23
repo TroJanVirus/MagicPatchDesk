@@ -444,20 +444,50 @@ notes=Patch notes <a href="https://example.org/notes">notes link</a>
     app.galleryOpen=true
     redraw()
     sysCall(updateWindow,app.hwnd)
-    modal:=map[string]bool{"gallery-close":false,"gallery-prev":false,"gallery-next":false}
-    for _,hit:=range app.hits{
-        if _,ok:=modal[hit.Action];ok{
-            modal[hit.Action]=true
-            if hit.R.B>app.h-42{panic("Patch gallery navigation clipped below app footer")}
+    checkGalleryActions:=func(wantPrev,wantNext bool){
+        prev,next,closeButton,disabled:=false,false,false,0
+        for _,hit:=range app.hits{
+            if hit.Action=="gallery-prev"{prev=true}
+            if hit.Action=="gallery-next"{next=true}
+            if hit.Action=="gallery-close"{closeButton=true}
+            if hit.Action=="gallery-disabled"{disabled++}
+            if strings.HasPrefix(hit.Action,"gallery-") && hit.R.B>app.h-42 {
+                panic("Patch gallery control clipped below app footer")
+            }
+        }
+        if prev!=wantPrev||next!=wantNext||!closeButton||disabled!=1{
+            panic(fmt.Sprintf("Gallery boundary buttons wrong: prev=%t next=%t disabled=%d close=%t",prev,next,disabled,closeButton))
         }
     }
-    for action,present:=range modal{
-        if !present{panic("Patch gallery missing action "+action)}
-    }
+    // Initial page: Previous is disabled and non-clickable.
+    checkGalleryActions(false,true)
+    handle("gallery-disabled",0)
+    if !app.galleryOpen||app.galleryPage!=0{panic("Disabled Previous closed or paged the gallery")}
     handle("gallery-next",0)
     if app.galleryPage!=1{panic("Multi-image gallery cannot page to the second image pair")}
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    checkGalleryActions(true,false)
+    handle("gallery-disabled",0)
+    if !app.galleryOpen||app.galleryPage!=1{panic("Disabled Next closed or paged the gallery")}
+    handle("gallery-next",0)
+    if app.galleryPage!=1{panic("Gallery paging exceeded last image pair")}
+    handle("gallery-prev",0)
+    if app.galleryPage!=0{panic("Gallery Previous failed to return to first image pair")}
     handle("gallery-close",0)
     if app.galleryOpen{panic("Patch gallery did not close")}
+    // Same-patch click must deselect it (and restore the empty instructions)
+    // without unloading the currently chosen game.
+    sourceBefore:=chosenGameSource()
+    handle("patch",0)
+    if app.selectedPatch!=-1||app.parsed!=nil||app.selectedGame!=0||
+        chosenGameSource()!=sourceBefore||app.galleryOpen{
+        panic("Second patch click failed to return to unselected patch state")
+    }
+    // Restore synthetic patch for the remaining independent-scroll tests.
+    app.selectedPatch=0
+    app.parsed=&core.Patch{Headers:map[string]string{"author":"Test"}}
+
     // Exercise the two separately scrollable regions and long formatted notes.
     app.cat.Games[0].Patches=append(app.cat.Games[0].Patches,
         core.CatalogPatch{Name:"Variant B"},core.CatalogPatch{Name:"Variant C"},

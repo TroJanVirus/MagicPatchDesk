@@ -452,7 +452,7 @@ func hoverAt(hwnd uintptr, x, y int32) {
 		app.mouseTracked = true
 	}
 	cursor := uintptr(IDC_ARROW)
-	if found {
+	if found && h.Action!="gallery-disabled" {
 		cursor = IDC_HAND
 	}
 	sysCall(setCursor, sysCall(loadCursor, 0, cursor))
@@ -1292,6 +1292,8 @@ func handle(action string, index int) {
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
     case "gallery-close":
         app.galleryOpen=false
+    case "gallery-disabled":
+        // Intentionally inert edge control, so a click cannot close the modal.
     case "gallery-prev":
         if app.galleryPage>0{app.galleryPage--}
     case "gallery-next":
@@ -1626,7 +1628,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                 redraw()
                 return 0
             }
-            if app.galleryOpen{return 0}
+            if app.galleryOpen||app.coverOpen{return 0}
             var pos point
             sysCall(user32.NewProc("GetCursorPos"),uintptr(unsafe.Pointer(&pos)))
             sysCall(user32.NewProc("ScreenToClient"),hwnd,uintptr(unsafe.Pointer(&pos)))
