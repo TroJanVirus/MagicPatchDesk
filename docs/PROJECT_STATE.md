@@ -1,3 +1,7 @@
+## 2026-11-23 — v0.14.0-test.22 diagnostics-only candidate, gated prerelease
+
+The user continues to report missing American Idol (Prototype) artwork in test.21. Neither live GitHub-runner HTTP image fetch nor synthetic native GDI+ paint reproduces that specific Windows failure. Source adds per-game status, explicit Check cover and privacy-filtered Copy details; records per-candidate failure category and GDI+ error. A one-shot workflow now gates a **diagnostic** release on all Go/updater tests, cross-build and native Windows smoke of JPEG drawing plus the controls. Do NOT state this is a proven artwork fix; wait for user to submit local diagnosis. No automatic issue reporting, no local paths in copied text, no changes to website or JMPs, no recurring Actions.
+
 ## 2026-11-23 — owner reports missing cover persists in v0.14.0-test.21; diagnostic instrumentation candidate
 
 User still sees letter tile after two live-tested releases. We have NOT demonstrated the root cause on user's PC. Linux GitHub one-shot `45142481317` proved `core.SyncPatchHub` extracts the correct American Idol (Prototype) `434D0027.jpg` URL, and Go downloaded/decoded 154,187-byte actual JPG. Windows runner `45143154661` proved GDI+ can render a **synthetic cached** JPEG, but no test has exercised a real HTTP download *and* native GDI+ draw on user's installation. DO NOT assert website, image queue, or GDI fix definitely resolved it.
