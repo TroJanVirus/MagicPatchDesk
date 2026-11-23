@@ -1,3 +1,7 @@
+## 2026-11-23 — v0.14.0-test.24 BeatDown punctuation-alias candidate, one-shot release gate pending
+
+PR #38 implements conservative catalogue grouping for 3 distinct JMPs (Silverrock 720p colon title; Nemesis2000 and FrankyBuster Widescreen hyphen titles), all with Title ID `43430015`, revision `CC-021`, region `NTSC`. Title similarity alone or shared ID alone never coalesces: require equal word-token sequence and all patches in each group to declare one identical valid ID. Prevent ambiguous shared IDs from arbitrarily borrowing PatchHub metadata; preserve original headers, authors, CRC, patch records, aliases for fallback cover folders, and no website/GitHub JMP renaming. PR tests cover actual 3-JMP catalogue fixture and conflicts. Source version incremented to `v0.14.0-test.24`; a single branch-scoped release workflow gates Go suite/race/vet, Win64 native GUI/cover smoke, updater v1 and SHA256 before publishing. **NOT YET VERIFIED/PUBLISHED until run and asset checked.** Original human README and user cache untouched. Remove temporary workflow after release to conserve Actions.
+
 ## 2026-11-23 — v0.14.0-test.23 RELEASED / PR #37 merged: confirmed title alias cover fix
 
 - **Verified release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.23
