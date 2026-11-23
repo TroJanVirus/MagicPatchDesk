@@ -1,0 +1,127 @@
+name: One-shot v0.14.0-test.23 verified cover alias release
+on:
+  push:
+    branches:
+      - fix/cover-hub-title-alias-434D0027
+    paths:
+      - .github/workflows/one-shot-release-test23.yml
+permissions:
+  contents: write
+concurrency:
+  group: magicpatchdesk-test23-alias-once
+  cancel-in-progress: false
+jobs:
+  verify-and-build:
+    if: github.repository == 'TroJanVirus/MagicPatchDesk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate updater, media fixtures and embedded icon
+        run: |
+          bash scripts/verify_release_contract.sh
+          python3 scripts/test_patchhub_media_index.py
+          grep -Fq 'const AppVersion = "v0.14.0-test.23"' core/update.go
+          python3 scripts/build_windows_icon.py
+      - name: Test actual mismatched Hub title and all core code
+        run: |
+          go test -count=1 ./...
+          go test -race -count=1 ./core
+          go vet ./...
+      - name: Verify real hosted American Idol JPEG and canonical URL
+        run: |
+          cat >/tmp/mpd_cover_check.go <<'GO'
+          package main
+          import (
+            "context"
+            "fmt"
+            "os"
+            "strings"
+            "time"
+            "magicpatchdesk/core"
+          )
+          func main() {
+            g:=core.Game{
+              Title:"American Idol (Prototype)",
+              CoverFolder:"Miscellaneous-Prototype [American Idol]",
+              Patches:[]core.CatalogPatch{{TitleID:"434D0027"}},
+              Versions:[]core.HubVersion{{TitleID:"434D0027"}},
+            }
+            urls:=core.CoverCandidates(g)
+            if len(urls)!=4 || !strings.HasSuffix(urls[0],"/American%20Idol%20%28Prototype%29/434D0027.jpg") {panic(fmt.Sprintf("wrong ordered cover URLs: %v",urls))}
+            root,e:=os.MkdirTemp("","mpd-cover-live-"); if e!=nil{panic(e)}
+            defer os.RemoveAll(root)
+            ctx,cancel:=context.WithTimeout(context.Background(),25*time.Second); defer cancel()
+            image,e:=core.DownloadCover(ctx,root,urls[0])
+            if e!=nil{panic(e)}
+            fi,e:=os.Stat(image);if e!=nil{panic(e)}
+            if !core.ValidCoverFile(image){panic("downloaded website cover is invalid")}
+            fmt.Printf("Verified actual American Idol cover: valid JPEG, %d bytes; first URL %s\n",fi.Size(),urls[0])
+          }
+          GO
+          go run /tmp/mpd_cover_check.go
+      - name: Cross-compile native Win64 GUI and verify checksum
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          go build -trimpath -ldflags="-H windowsgui -s -w" -o MagicPatchDesk-Windows-x64.exe ./cmd/magicdesk
+          file MagicPatchDesk-Windows-x64.exe | grep 'PE32+'
+          sha256sum MagicPatchDesk-Windows-x64.exe > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-test23-win64
+          path: |
+            MagicPatchDesk-Windows-x64.exe
+            SHA256SUMS.txt
+          retention-days: 2
+          if-no-files-found: error
+  native-windows-smoke:
+    needs: verify-and-build
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-test23-win64
+          path: .
+      - name: Native Windows UI cover/JPEG and update health checks
+        shell: pwsh
+        run: |
+          $exe=Join-Path $pwd "MagicPatchDesk-Windows-x64.exe"
+          $p=Start-Process -FilePath $exe -ArgumentList "--mpd-ui-smoke-v1" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Native Windows UI smoke failed: $($p.ExitCode)" }
+          $p=Start-Process -FilePath $exe -ArgumentList "--mpd-healthcheck-v1" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Updater healthcheck failed: $($p.ExitCode)" }
+  publish:
+    needs: native-windows-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-test23-win64
+          path: .
+      - name: Publish only after all checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          sha256sum -c SHA256SUMS.txt
+          if gh release view v0.14.0-test.23 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release exists; refusing overwrite'
+            exit 1
+          fi
+          gh release create v0.14.0-test.23 MagicPatchDesk-Windows-x64.exe SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" --prerelease \
+            --title "Magic Patch Desk v0.14.0 test 23 — cover aliases by Title ID" \
+            --notes-file docs/RELEASE_NOTES_v0.14.0-test.23.md
