@@ -17,7 +17,7 @@ The user provided the complete in-app report showing the app tried only `Miscell
 
 ## Gated testing
 
-One GitHub Actions workflow runs the full Go suite, race detector and vet, updater contract and official icon, native Windows x64 GUI cross-build, original Xbox source-switching/UI smoke and updater healthcheck, then publishes the canonical EXE plus SHA256SUMS.txt **only on success**. It also probes the actual public American Idol JPEG in that same run, verifying that the new first URL is downloadable as an image.
+The one-shot release workflow https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45146101134 **PASSED** full Go tests/race/vet, updater contract, official icon, the real live American Idol JPEG download (154,187 bytes) from the correct first fallback URL, Win64 native GUI build/SHA256 verification, Windows UI/cover GDI+ smoke, and updater healthcheck, then published the EXE plus SHA256SUMS.txt. PR #37 was merged.
 
 **Owner field verification remains required:** install test.23 and revisit American Idol (Prototype). The correct live URL and regression evidence strongly support this fix, but automated CI is not a substitute for the user's interactive Windows confirmation.
 
