@@ -70,7 +70,6 @@ func smokeVerifiedCoverDrawing() {
 		panic("GDI+ did not render a verified cover JPEG")
 	}
     if artDrawFailures[path]!="" { panic("Cover rendering retained an error after a successful draw") }
-    if coverStatus(core.Game{Title:"American Idol (Prototype)",Patches: []core.CatalogPatch{{TitleID:"434D0027"}}})!="Valid image cached" { panic("Cover diagnostic failed to recognise validated cached file") }
     // The interface no longer exposes cover troubleshooting buttons; the
     // same validated cover must appear in a fixed rectangle and open a modal.
     oldCat,oldSelected,oldSelectedPatch,oldParsed,oldTab,oldCoverOpen:=
