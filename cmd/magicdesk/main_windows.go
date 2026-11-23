@@ -1316,6 +1316,10 @@ func handle(action string, index int) {
         }
 	case "sync":
 		go runProtectedBackgroundTask("library_sync",reloadAndSync)
+    case "cover-check":
+        forceSelectedCoverRetry()
+    case "cover-copy":
+        if e:=copyDiagnosticText(selectedCoverDiagnosticText());e!=nil{notify("Could not copy cover report: "+e.Error())}else{notify("Cover diagnostic copied to clipboard — paste it into ChatGPT")}
 	case "apply":
         if !libraryApplyReady(){
             notify("Choose a source game, a patch, and at least one supported output format before applying.")
