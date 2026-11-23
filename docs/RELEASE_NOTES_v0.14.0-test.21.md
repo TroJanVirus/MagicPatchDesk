@@ -21,7 +21,7 @@ No website, JPG filename or JMP change is necessary. The remaining failure was w
 
 ## Compatibility and release gate
 
-Same `MagicPatchDesk-Windows-x64.exe`, `SHA256SUMS.txt`, v1 updater, portable and installed update paths, embedded JMP icon, no changes to executable patch applicability, privacy, original game files or human README. One scoped Actions run verifies Go tests, race, vet, image-index fixture, updater checks, Windows PE build, native Windows GUI smoke (including actual image drawing), and update healthcheck **before** publishing the prerelease. No new always-on workflows.
+Same `MagicPatchDesk-Windows-x64.exe`, `SHA256SUMS.txt`, v1 updater, portable and installed update paths, embedded JMP icon, no changes to executable patch applicability, privacy, original game files or human README. The one-shot Actions run https://github.com/TroJanVirus/MagicPatchDesk/actions/runs/45143154661 **passed** portable Go tests/race/vet, media fixture, updater checks, Windows PE build and checksum, native Windows GUI smoke including actual image drawing, and healthcheck **before** publishing the prerelease. No new always-on workflows.
 
 **Still needs owner field test:** Verify live cover download and display on Windows; synthetic Windows GDI+ drawing plus a successful Linux live HTTP probe do not prove the user's precise environment works.
 
