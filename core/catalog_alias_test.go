@@ -64,8 +64,8 @@ func TestBeatDownThreeJMPVariantsMergeAndKeepTheirPatches(t *testing.T) {
 		t.Fatalf("lost verified source-title alias: %+v",game.TitleAliases)
 	}
 	urls:=CoverCandidates(game)
-	if len(urls)!=5 || urls[0]!=hub.Games[0].Image ||
-		!strings.Contains(urls[3],"BeatDown%3A%20Fists%20of%20Vengeance/43430015.jpg") {
+	if len(urls)!=4 || urls[0]!=hub.Games[0].Image ||
+		!strings.Contains(urls[2],"BeatDown%3A%20Fists%20of%20Vengeance/43430015.jpg") {
 		t.Fatalf("missing canonical cover and safe alias fallback: %#v",urls)
 	}
 }
