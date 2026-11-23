@@ -43,7 +43,7 @@ func setTheme(name string) {
     }
 }
 
-func cover(hdc uintptr, x, y int32, title, art, artURL string) {
+func cover(hdc uintptr, x, y int32, title, art string, artURLs []string) {
 	h := uint32(2166136261)
 	for _, ch := range title {
 		h ^= uint32(ch)
@@ -52,8 +52,8 @@ func cover(hdc uintptr, x, y int32, title, art, artURL string) {
 	p := []uint32{0x244F66, 0x584273, 0x31555B, 0x5C4C37, 0x384D7A, 0x364F47}
 	color := p[h%uint32(len(p))]
 	panel(hdc, ir(x, y, 52, 52), color, 13)
-	if art == "" && artURL != "" {
-		art = scheduleCover(artURL)
+	if art == "" && len(artURLs) != 0 {
+		art = scheduleCoverCandidates(artURLs)
 	}
 	if drawArt(hdc, art, x+2, y+2, 48, 48) {
 		return
@@ -321,7 +321,7 @@ func drawLibrary(hdc uintptr, w, h int32) {
 		} else if row%2 == 0 {
             panel(hdc,ir(listX+10,y,listW-20,gameRowH-5),0x1D2B40,11)
 		}
-        cover(hdc,listX+18,y+12,g.Title,g.Cover,g.CoverURL)
+        cover(hdc,listX+18,y+12,g.Title,g.Cover,core.CoverCandidates(g))
         // Real wrapping preserves long game titles rather than silently
         // truncating the title after 29 characters.
         textWrapped(hdc,g.Title,listX+80,y+5,listW-106,47,app.fonts.Medium,white)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"magicpatchdesk/core"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -112,51 +113,72 @@ type coverAttempt struct {
 	Next     time.Time
 }
 
-// Downloads are asynchronous and rate-limited. A failed request gets a retry
-// window rather than being marked "downloaded" for the entire app session.
+// Only three cover workers may exist; never leave hundreds of goroutines
+// waiting for a semaphore during rapid scrolling. Cache works offline.
 func scheduleCover(source string) string {
-	path := core.CoverCachePath(app.root, source)
-	if core.ValidCoverFile(path) {
-		return path
+	return scheduleCoverCandidates([]string{source})
+}
+
+func scheduleCoverCandidates(sources []string) string {
+	if len(sources) == 0 {
+		return ""
 	}
-	// Older releases cached with .img and did not validate the bytes. Reuse only
-	// known-good files, otherwise redownload to a .jpg path GDI+ understands.
-	oldPath := path[:len(path)-4] + ".img"
-	if core.ValidCoverFile(oldPath) {
-		// Carry forward good offline artwork from earlier .img caches, but
-		// give GDI+ a conventional .jpg filename for reliable loading.
-		if err := os.Rename(oldPath, path); err == nil {
+	for _, source := range sources {
+		path := core.CoverCachePath(app.root, source)
+		if core.ValidCoverFile(path) {
 			return path
 		}
-		return oldPath
+		oldPath := path[:len(path)-4] + ".img"
+		if core.ValidCoverFile(oldPath) {
+			if err := os.Rename(oldPath, path); err == nil {
+				return path
+			}
+			return oldPath
+		}
 	}
+	key := strings.Join(sources, "\n")
 	coverMu.Lock()
-	item := coverAttempts[path]
+	item := coverAttempts[key]
 	if item.InFlight || time.Now().Before(item.Next) {
 		coverMu.Unlock()
 		return ""
 	}
+	select {
+	case coverSlots <- struct{}{}:
+	default:
+		coverMu.Unlock()
+		return ""
+	}
 	item.InFlight = true
-	item.Next = time.Now().Add(2 * time.Minute)
-	coverAttempts[path] = item
+	coverAttempts[key] = item
 	coverMu.Unlock()
+	candidates := append([]string(nil), sources...)
 	go func() {
-		coverSlots <- struct{}{}
 		defer func() { <-coverSlots }()
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		result, err := core.DownloadCover(ctx, app.root, source)
-		coverMu.Lock()
-		item := coverAttempts[path]
-		item.InFlight = false
-		if err != nil {
-			item.Next = time.Now().Add(2 * time.Minute)
-		} else {
-			item.Next = time.Time{}
+		found := false
+		for _, source := range candidates {
+			result, err := core.DownloadCover(ctx, app.root, source)
+			if err == nil && result != "" && core.ValidCoverFile(result) {
+				found = true
+				break
+			}
+			if ctx.Err() != nil {
+				break
+			}
 		}
-		coverAttempts[path] = item
+		coverMu.Lock()
+		item := coverAttempts[key]
+		item.InFlight = false
+		if found {
+			item.Next = time.Time{}
+		} else {
+			item.Next = time.Now().Add(30 * time.Minute)
+		}
+		coverAttempts[key] = item
 		coverMu.Unlock()
-		if err == nil && result != "" && core.ValidCoverFile(result) {
+		if found && app.hwnd != 0 {
 			sysCall(postMsg, app.hwnd, WM_APP+1, 0, 0)
 		}
 	}()
