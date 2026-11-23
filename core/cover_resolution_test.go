@@ -141,3 +141,18 @@ func TestCoverCandidatesImportedJMPAndMisnamedHubIndex(t *testing.T) {
 		t.Fatalf("real diagnostic alias failure reproduced, canonical fallback still absent: %#v",got)
 	}
 }
+
+
+func TestVerifiedPunctuationAliasCoverFallback(t *testing.T) {
+	g:=Game{
+		Title:"BeatDown - Fists of Vengeance",
+		TitleAliases:[]string{"BeatDown: Fists of Vengeance"},
+		Patches:[]CatalogPatch{{TitleID:"43430015"}},
+	}
+	got:=CoverCandidates(g)
+	want:="https://www.jayxbox.com/All-Patches/titles/BeatDown%20-%20Fists%20of%20Vengeance/43430015.jpg"
+	if len(got)!=4 || got[0]!=want ||
+		!strings.HasSuffix(got[2],"/BeatDown%3A%20Fists%20of%20Vengeance/43430015.jpg"){
+		t.Fatalf("title alias cover resolution is not retained: %#v",got)
+	}
+}

@@ -50,6 +50,7 @@ type Game struct {
 	Cover    string
 	CoverURL string
 	CoverFolder string // PatchHub exact game directory for URL fallbacks
+	TitleAliases []string // verified punctuation-only JMP title variants for cover lookup
 	Versions []HubVersion
 }
 type CatalogDuplicate struct { Kept, Collapsed string }
@@ -318,18 +319,16 @@ func LoadCatalog(root string, workers int) (Catalog, error) {
 		}
 		return filepath.SkipDir
 	})
+	// Merge JMP titles that differ only in punctuation/spacing AND share one
+	// nonzero Xbox Title ID. Keep files, patch identity and originals intact.
+	mergeSafeCatalogTitleAliases(games)
 	// Merge the public Patch Hub game index. This supplies title artwork and
 	// games that do not yet have a downloadable JMP. GitHub JMPs remain the
 	// only authoritative patch payloads; Hub metadata never executes anything.
 	hub := ReadHubCache(root)
-	byID := make(map[string]*Game)
-	for _, g := range games {
-		for _, p := range g.Patches {
-			if p.TitleID != "" && p.TitleID != "00000000" {
-				byID[strings.ToUpper(p.TitleID)] = g
-			}
-		}
-	}
+	// A reused Title ID is not sufficient evidence to select one of multiple
+	// unrelated local games. Only unique owners can receive Hub metadata by ID.
+	byID := uniqueCatalogTitleIDOwners(games)
 	// Unique normalized titles allow matching "Halo: Combat Evolved" against
 	// "Halo - Combat Evolved" without guessing between near-identical games.
 	byNormalizedName := make(map[string]*Game)
