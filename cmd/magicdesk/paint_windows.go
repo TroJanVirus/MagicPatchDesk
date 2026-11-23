@@ -394,7 +394,9 @@ func drawLibrary(hdc uintptr, w, h int32) {
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
     textWrapped(hdc,g.Title,x+22,top+10,width-43,52,app.fonts.Title,white)
-    textAt(hdc,fmt.Sprintf("%d available patches · Select one",len(g.Patches)),x+23,top+63,width-42,19,app.fonts.Small,muted)
+    textAt(hdc,fmt.Sprintf("%d patches · Cover: %s",len(g.Patches),coverStatus(g)),x+23,top+63,width-253,23,app.fonts.Small,muted)
+    button(hdc,"Check cover",ir(x+width-224,top+58,108,28),"cover-check",0,false)
+    button(hdc,"Copy details",ir(x+width-110,top+58,99,28),"cover-copy",0,false)
     listY:=top+91
     listRows:=3
     if bottom-top<485 {listRows=2} // reserve record space at 720p-height

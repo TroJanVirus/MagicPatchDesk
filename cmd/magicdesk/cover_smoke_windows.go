@@ -69,6 +69,8 @@ func smokeVerifiedCoverDrawing() {
 	if !drawn {
 		panic("GDI+ did not render a verified cover JPEG")
 	}
+    if artDrawFailures[path]!="" { panic("Cover rendering retained an error after a successful draw") }
+    if coverStatus(core.Game{Title:"American Idol (Prototype)",Patches: []core.CatalogPatch{{TitleID:"434D0027"}}})!="Valid image cached" { panic("Cover diagnostic failed to recognise validated cached file") }
 	// Verify no temporary input is retained and normal UI painting resumes.
 	_ = syscall.GetLastError()
 }

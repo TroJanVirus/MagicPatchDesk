@@ -1,3 +1,9 @@
+## 2026-11-23 — owner reports missing cover persists in v0.14.0-test.21; diagnostic instrumentation candidate
+
+User still sees letter tile after two live-tested releases. We have NOT demonstrated the root cause on user's PC. Linux GitHub one-shot `45142481317` proved `core.SyncPatchHub` extracts the correct American Idol (Prototype) `434D0027.jpg` URL, and Go downloaded/decoded 154,187-byte actual JPG. Windows runner `45143154661` proved GDI+ can render a **synthetic cached** JPEG, but no test has exercised a real HTTP download *and* native GDI+ draw on user's installation. DO NOT assert website, image queue, or GDI fix definitely resolved it.
+
+Candidate diagnostics: record per-cover safe HTTP/TLS/DNS/timeout/image failure categories, successful cache state and GDI+ load/draw status; show cover status for the selected game in Patch Library, add `Check cover` (force a bounded retry) and `Copy details` (copies Title IDs, published HTTP URLs, cache validity and failure categories, never user directory/file paths). Keep offline functionality, no upload/telemetry, no automatic Actions. Actual Windows field diagnosis must be returned before another speculative root-cause claim. After test, remove any one-shot workflow and keep source/README/update protocol protected.
+
 ## 2026-11-23 — v0.14.0-test.21 RELEASED and merged; actual Windows cover draw smoke PASSED
 
 - **Release:** https://github.com/TroJanVirus/MagicPatchDesk/releases/tag/v0.14.0-test.21

@@ -6,6 +6,8 @@ import (
 	"context"
 	"magicpatchdesk/core"
 	"os"
+	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,6 +27,9 @@ var gdiImageWidth = gdiplus.NewProc("GdipGetImageWidth")
 var gdiImageHeight = gdiplus.NewProc("GdipGetImageHeight")
 var gdiplusToken uintptr
 var artCache = map[string]uintptr{}
+// These diagnostic results never leave local memory unless the user copies them.
+// Only the UI thread updates and reads this map.
+var artDrawFailures = map[string]string{}
 
 type gdiplusStartupInput struct {
 	Version            uint32
@@ -75,7 +80,9 @@ func drawArtFitted(hdc uintptr,filename string,x,y,w,h int32)bool{
 }
 
 func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
-	if path == "" || gdiplusToken == 0 {
+	if path == "" { return false }
+	if gdiplusToken == 0 {
+		artDrawFailures[path] = "GDI+ did not initialize"
 		return false
 	}
 	art, ok := artCache[path]
@@ -86,6 +93,7 @@ func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 			loaded = 0
 		}
 		if loaded == 0 {
+			artDrawFailures[path] = fmt.Sprintf("GDI+ image load status %d", status)
 			return false
 		}
 		artCache[path] = loaded
@@ -97,10 +105,12 @@ func drawArt(hdc uintptr, path string, x, y, w, h int32) bool {
 	var graphics uintptr
 	status, _, _ := gdiCreate.Call(hdc, uintptr(unsafe.Pointer(&graphics)))
 	if status != 0 || graphics == 0 {
+		artDrawFailures[path] = fmt.Sprintf("GDI+ graphics context status %d", status)
 		return false
 	}
 	v, _, _ := gdiDraw.Call(graphics, art, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
 	gdiDelete.Call(graphics)
+	if v != 0 { artDrawFailures[path] = fmt.Sprintf("GDI+ image drawing status %d", v) } else { delete(artDrawFailures, path) }
 	return v == 0
 }
 
@@ -116,6 +126,9 @@ var coverWorkers sync.Once
 type coverAttempt struct {
 	InFlight bool // queued or currently downloading
 	Next time.Time
+	LastResult string // safe category only, not a Windows path or HTTP response body
+	Attempted int
+	LastChecked time.Time
 }
 type coverRequest struct {
 	Key string
@@ -128,20 +141,28 @@ func coverWorkerLoop() {
 	defer catchFatalPanic()
 	for job := range coverJobs {
 		found := false
+		attempted := 0
+		lastReason := "No candidates"
 		// Bound any single image request, not the whole set. A slow/broken
 		// primary URL must not exhaust the timeout of a valid Title-ID fallback.
 		for _, source := range job.Sources {
+			attempted++
 			ctx, cancel := context.WithTimeout(context.Background(), 18*time.Second)
 			result, err := core.DownloadCover(ctx, job.Root, source)
 			cancel()
 			if err == nil && result != "" && core.ValidCoverFile(result) {
 				found = true
+				lastReason = "Downloaded and decoded"
 				break
 			}
+			if err == nil { lastReason = "Downloaded file failed image validation" } else { lastReason = coverFailureClass(err) }
 		}
 		coverMu.Lock()
 		item := coverAttempts[job.Key]
 		item.InFlight = false
+		item.LastResult = lastReason
+		item.Attempted = attempted
+		item.LastChecked = time.Now()
 		if found {
 			item.Next = time.Time{}
 		} else {
@@ -215,4 +236,100 @@ func scheduleCoverCandidates(sources []string) string {
 
 func scheduleCover(source string) string {
 	return scheduleCoverCandidates([]string{source})
+}
+
+
+// Include only stable, privacy-safe error categories in copyable local
+// diagnostics; network libraries sometimes embed local paths in raw errors.
+func coverFailureClass(err error) string {
+	if err == nil { return "Unknown download failure" }
+	e := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(e, "404"): return "HTTP 404: image missing"
+	case strings.Contains(e, "403"): return "HTTP 403: website denied request"
+	case strings.Contains(e, "429"): return "HTTP 429: website rate limit"
+	case strings.Contains(e, "500"), strings.Contains(e, "502"), strings.Contains(e, "503"): return "Website HTTP 5xx"
+	case strings.Contains(e, "x509"), strings.Contains(e, "certificate"): return "TLS certificate verification failed"
+	case strings.Contains(e, "tls"): return "TLS handshake failed"
+	case strings.Contains(e, "timeout"), strings.Contains(e, "deadline exceeded"): return "Network timeout"
+	case strings.Contains(e, "connection refused"): return "Connection refused"
+	case strings.Contains(e, "no such host"), strings.Contains(e, "lookup"): return "DNS lookup failed"
+	case strings.Contains(e, "untrusted"): return "Untrusted URL or redirect"
+	case strings.Contains(e, "cover too large"), strings.Contains(e, "5 mib"): return "Image too large"
+	case strings.Contains(e, "image"), strings.Contains(e, "dimensions"), strings.Contains(e, "jpeg"): return "Image validation rejected"
+	default: return "Network or file error (unspecified)"
+	}
+}
+
+func coverStatus(g core.Game) string {
+	if g.Cover != "" && core.ValidCoverFile(g.Cover) {
+		if issue := artDrawFailures[g.Cover]; issue != "" { return issue }
+		return "Local cover cached"
+	}
+	candidates := core.CoverCandidates(g)
+	if len(candidates)==0 { return "No known image URL or Title ID" }
+	for _, u := range candidates {
+		p := core.CoverCachePath(app.root,u)
+		if core.ValidCoverFile(p) {
+			if issue := artDrawFailures[p]; issue != "" { return issue }
+			return "Valid image cached"
+		}
+	}
+	key := strings.Join(candidates,"\n")
+	coverMu.Lock()
+	state := coverAttempts[key]
+	coverMu.Unlock()
+	switch {
+	case state.InFlight: return "Downloading or queued"
+	case state.LastResult!="": return state.LastResult
+	default: return "Not downloaded yet"
+	}
+}
+
+func forceSelectedCoverRetry() {
+	if app.selectedGame<0 || app.selectedGame>=len(app.cat.Games) {return}
+	g:=app.cat.Games[app.selectedGame]
+	candidates:=core.CoverCandidates(g)
+	if len(candidates)==0 { notify("Cover check: no website URL or valid Xbox Title ID"); return }
+	key:=strings.Join(candidates,"\n")
+	coverMu.Lock()
+	item:=coverAttempts[key]
+	if !item.InFlight {
+		item.Next=time.Time{}
+		coverAttempts[key]=item
+	}
+	coverMu.Unlock()
+	// The next paint schedules a new job, without blocking the native UI.
+	redraw()
+	notify("Cover check: "+g.Title+" - "+coverStatus(g))
+}
+
+func selectedCoverDiagnosticText() string {
+	if app.selectedGame<0 || app.selectedGame>=len(app.cat.Games) { return "No game selected" }
+	g:=app.cat.Games[app.selectedGame]
+	candidates:=core.CoverCandidates(g)
+	ids:=map[string]bool{}
+	for _,p:=range g.Patches { if p.TitleID!="" { ids[p.TitleID]=true } }
+	for _,v:=range g.Versions { if v.TitleID!="" { ids[v.TitleID]=true } }
+	allIDs:=make([]string,0,len(ids))
+	for id:=range ids { allIDs=append(allIDs,id) }
+	sort.Strings(allIDs)
+	key:=strings.Join(candidates,"\n")
+	coverMu.Lock()
+	state:=coverAttempts[key]
+	coverMu.Unlock()
+	var b strings.Builder
+	fmt.Fprintf(&b,"Magic Patch Desk %s — cover diagnosis\n",core.AppVersion)
+	fmt.Fprintf(&b,"Game: %s\nXbox Title IDs: %s\nPatchHub folder: %s\n",g.Title,strings.Join(allIDs,", "),g.CoverFolder)
+	fmt.Fprintf(&b,"Cover state: %s\n",coverStatus(g))
+	if !state.LastChecked.IsZero() { fmt.Fprintf(&b,"Last attempt: %s UTC; %d URLs tried; result: %s\n",state.LastChecked.UTC().Format(time.RFC3339),state.Attempted,state.LastResult) }
+	if g.Cover!="" { fmt.Fprintf(&b,"Imported cover exists and decodes: %t\n",core.ValidCoverFile(g.Cover)) }
+	fmt.Fprintf(&b,"Website URL candidates: %d\n",len(candidates))
+	for i,u:=range candidates {
+		p:=core.CoverCachePath(app.root,u)
+		fmt.Fprintf(&b,"%d. %s\n   Cached valid: %t\n",i+1,u,core.ValidCoverFile(p))
+		if issue:=artDrawFailures[p];issue!=""{fmt.Fprintf(&b,"   Rendering: %s\n",issue)}
+	}
+	// Never include local directory/user names in a shareable report.
+	return b.String()
 }
