@@ -207,6 +207,7 @@ type appState struct {
 	selectedPatch int
     galleryOpen bool
     galleryPage int
+    coverOpen bool
 	expandedGroup int
 	parsed        *core.Patch
 	input         string
@@ -451,7 +452,7 @@ func hoverAt(hwnd uintptr, x, y int32) {
 		app.mouseTracked = true
 	}
 	cursor := uintptr(IDC_ARROW)
-	if found {
+	if found && h.Action!="gallery-disabled" {
 		cursor = IDC_HAND
 	}
 	sysCall(setCursor, sysCall(loadCursor, 0, cursor))
@@ -1171,6 +1172,7 @@ func handle(action string, index int) {
         app.outputPickerOpen=false
         app.notesOpen=false
         app.galleryOpen=false
+        app.coverOpen=false
 		app.tab = index
 		if index == 5 { refreshRecentFiles() }
         if index==1 {
@@ -1192,6 +1194,7 @@ func handle(action string, index int) {
         app.notesScroll=0
         app.galleryOpen=false
         app.galleryPage=0
+        app.coverOpen=false
 		app.selectedPatch = -1
 		app.parsed = nil
 		app.patchScroll = 0
@@ -1199,12 +1202,25 @@ func handle(action string, index int) {
 		app.expandedGroup = -1
 	case "patch":
         app.notesOpen=false
+        app.notesTargetGroup=-1
         app.notesScroll=0
         app.galleryOpen=false
         app.galleryPage=0
-		app.packSources = nil
-		app.directFile = ""
-		selectPatch(index)
+        app.coverOpen=false
+        app.packSources=nil
+        app.directFile=""
+        if app.selectedPatch==index {
+            // Clicking a selected patch a second time deselects it while
+            // leaving the loaded game source and output preferences intact.
+            app.selectedPatch=-1
+            app.parsed=nil
+            app.groupScroll=0
+            app.expandedGroup=-1
+            app.status="Patch unselected · Choose a patch to review its records"
+            refreshConversionHint()
+        }else{
+            selectPatch(index)
+        }
     case "output-open":
         if chosenGameSource()=="" {notify("Choose a game file or extracted game folder first.");return}
         app.outputPickerOpen=true
@@ -1264,23 +1280,21 @@ func handle(action string, index int) {
         // Drag handled directly by the mouse capture loop.
     case "gallery-discover":
         discoverSelectedPatchMedia(true)
-    case "gallery-explain":
-        app.mu.Lock()
-        var item core.CatalogPatch
-        if app.selectedGame>=0 && app.selectedGame<len(app.cat.Games) {
-            group:=app.cat.Games[app.selectedGame]
-            if app.selectedPatch>=0&&app.selectedPatch<len(group.Patches) {item=group.Patches[app.selectedPatch]}
+    case "cover-view":
+        if app.selectedGame>=0 && app.selectedGame<len(app.cat.Games) &&
+            visibleGameCover(app.cat.Games[app.selectedGame])!="" {
+            app.coverOpen=true
+            app.galleryOpen=false
         }
-        app.mu.Unlock()
-        reason:=mediaDiscoveryReason(item)
-        if reason==""{reason="No discovery result recorded yet."}
-        showPreviewMessage("PatchHub image lookup details:\n\n"+reason+"\n\nImages belong to the selected game's patch folder, regardless of region or image filename. The public PatchHub media index lists all JPG/PNG files in each patch folder. Retry from the selected patch after syncing the site index.",false)
-        // An explicit retry remains available by reselecting the patch.
+    case "cover-close":
+        app.coverOpen=false
     case "gallery-open":
         images,_:=selectedLibraryGallery()
         if len(images)>0{app.galleryOpen=true;app.galleryPage=0}
     case "gallery-close":
         app.galleryOpen=false
+    case "gallery-disabled":
+        // Intentionally inert edge control, so a click cannot close the modal.
     case "gallery-prev":
         if app.galleryPage>0{app.galleryPage--}
     case "gallery-next":
@@ -1316,10 +1330,6 @@ func handle(action string, index int) {
         }
 	case "sync":
 		go runProtectedBackgroundTask("library_sync",reloadAndSync)
-    case "cover-check":
-        forceSelectedCoverRetry()
-    case "cover-copy":
-        if e:=copyDiagnosticText(selectedCoverDiagnosticText());e!=nil{notify("Could not copy cover report: "+e.Error())}else{notify("Cover diagnostic copied to clipboard — paste it into ChatGPT")}
 	case "apply":
         if !libraryApplyReady(){
             notify("Choose a source game, a patch, and at least one supported output format before applying.")
@@ -1619,7 +1629,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
                 redraw()
                 return 0
             }
-            if app.galleryOpen{return 0}
+            if app.galleryOpen||app.coverOpen{return 0}
             var pos point
             sysCall(user32.NewProc("GetCursorPos"),uintptr(unsafe.Pointer(&pos)))
             sysCall(user32.NewProc("ScreenToClient"),hwnd,uintptr(unsafe.Pointer(&pos)))
@@ -1668,6 +1678,7 @@ func windowProcBody(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
             app.outputPickerOpen=false
             app.notesOpen=false
             app.galleryOpen=false
+            app.coverOpen=false
 			app.searchFocus = false
 			app.passFocus = false
 			redraw()

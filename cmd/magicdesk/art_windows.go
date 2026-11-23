@@ -7,7 +7,6 @@ import (
 	"magicpatchdesk/core"
 	"os"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -244,8 +243,8 @@ func scheduleCover(source string) string {
 }
 
 
-// Include only stable, privacy-safe error categories in copyable local
-// diagnostics; network libraries sometimes embed local paths in raw errors.
+// Classify cover fetch errors without retaining arbitrary filesystem paths.
+// This is internal retry state, not a visible Patch Library diagnostic.
 func coverFailureClass(err error) string {
 	if err == nil { return "Unknown download failure" }
 	e := strings.ToLower(err.Error())
@@ -266,78 +265,3 @@ func coverFailureClass(err error) string {
 	}
 }
 
-func coverStatus(g core.Game) string {
-	if g.Cover != "" && core.ValidCoverFile(g.Cover) {
-		if issue := artDrawFailures[g.Cover]; issue != "" { return issue }
-		return "Local cover cached"
-	}
-	candidates := core.CoverCandidates(g)
-	if len(candidates)==0 { return "No known image URL or Title ID" }
-	for _, u := range candidates {
-		p := core.CoverCachePath(app.root,u)
-		if core.ValidCoverFile(p) {
-			if issue := artDrawFailures[p]; issue != "" { return issue }
-			return "Valid image cached"
-		}
-	}
-	key := strings.Join(candidates,"\n")
-	coverMu.Lock()
-	state := coverAttempts[key]
-	coverMu.Unlock()
-	switch {
-	case state.InFlight: return "Downloading or queued"
-	case state.LastResult!="":
-		if state.Attempted>1 && state.LastResult!="Downloaded and decoded" {return "All candidate downloads failed"}
-		return state.LastResult
-	default: return "Not downloaded yet"
-	}
-}
-
-func forceSelectedCoverRetry() {
-	if app.selectedGame<0 || app.selectedGame>=len(app.cat.Games) {return}
-	g:=app.cat.Games[app.selectedGame]
-	candidates:=core.CoverCandidates(g)
-	if len(candidates)==0 { notify("Cover check: no website URL or valid Xbox Title ID"); return }
-	key:=strings.Join(candidates,"\n")
-	coverMu.Lock()
-	item:=coverAttempts[key]
-	if !item.InFlight {
-		item.Next=time.Time{}
-		coverAttempts[key]=item
-	}
-	coverMu.Unlock()
-	// The next paint schedules a new job, without blocking the native UI.
-	redraw()
-	notify("Cover check: "+g.Title+" - "+coverStatus(g))
-}
-
-func selectedCoverDiagnosticText() string {
-	if app.selectedGame<0 || app.selectedGame>=len(app.cat.Games) { return "No game selected" }
-	g:=app.cat.Games[app.selectedGame]
-	candidates:=core.CoverCandidates(g)
-	ids:=map[string]bool{}
-	for _,p:=range g.Patches { if p.TitleID!="" { ids[p.TitleID]=true } }
-	for _,v:=range g.Versions { if v.TitleID!="" { ids[v.TitleID]=true } }
-	allIDs:=make([]string,0,len(ids))
-	for id:=range ids { allIDs=append(allIDs,id) }
-	sort.Strings(allIDs)
-	key:=strings.Join(candidates,"\n")
-	coverMu.Lock()
-	state:=coverAttempts[key]
-	coverMu.Unlock()
-	var b strings.Builder
-	fmt.Fprintf(&b,"Magic Patch Desk %s — cover diagnosis\n",core.AppVersion)
-	fmt.Fprintf(&b,"Game: %s\nXbox Title IDs: %s\nPatchHub folder: %s\n",g.Title,strings.Join(allIDs,", "),g.CoverFolder)
-	fmt.Fprintf(&b,"Cover state: %s\n",coverStatus(g))
-	if !state.LastChecked.IsZero() { fmt.Fprintf(&b,"Last attempt: %s UTC; %d URLs tried; result: %s\n",state.LastChecked.UTC().Format(time.RFC3339),state.Attempted,state.LastResult) }
-	if g.Cover!="" { fmt.Fprintf(&b,"Imported cover exists and decodes: %t\n",core.ValidCoverFile(g.Cover)) }
-	fmt.Fprintf(&b,"Website URL candidates: %d\n",len(candidates))
-	for i,u:=range candidates {
-		p:=core.CoverCachePath(app.root,u)
-		fmt.Fprintf(&b,"%d. %s\n   Cached valid: %t\n",i+1,u,core.ValidCoverFile(p))
-		if i<len(state.CandidateResults) { fmt.Fprintf(&b,"   Last download: %s\n",state.CandidateResults[i]) }
-		if issue:=artDrawFailures[p];issue!=""{fmt.Fprintf(&b,"   Rendering: %s\n",issue)}
-	}
-	// Never include local directory/user names in a shareable report.
-	return b.String()
-}

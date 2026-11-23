@@ -38,3 +38,9 @@ Source: `core/patchhub_gallery.go`, `core/patchhub.go`, `cmd/magicdesk/gallery_w
 - Tests cover exact duplicates across both libraries, different filenames, no-overwrite for same-name new revisions, symlinks/invalid patches, safe PatchHub image URL extraction, multiple before/after pairs, image-to-patch ambiguity and offline local galleries.
 - The Windows GUI smoke checks the import/gallery controls and opening/paging/closing the native viewer at a 1024x720 outer window without using copyright assets or network.
 - **Manual QA still required:** confirm which comparison-image URLs the live PatchHub page currently publishes, download and render representative real images, and test click interaction on Windows 10/11. Automated parsing fixtures cannot certify live site coverage or retail Xbox patch compatibility.
+
+## v0.14.0-test.25 selected-cover and gallery UX
+
+The Patch Library header now includes a constant 101×100 px selected game cover surface; the image is aspect-fitted within it (not deformed or cropped), and larger via click in a bounded, aspect-fitted overlay. A magnifying-glass affordance appears when hovered. Normal list covers are also drawn fitted. The extra cover-specific debug buttons and copyable cover report were removed from the Patch Library by owner request; other privacy-preserving crash diagnostics continue separately in Settings. The comparison gallery retains two-up viewing, but Previous is disabled at first page and Next at last page, both disabled for one pair. Clicking the selected patch row again clears the JMP/PF selection without discarding source game or output-format choices, and renders the existing no-patch instruction.
+
+Windows native smoke validates no stale cover debug controls, enlarged cover close, 101×100 preview hit, gallery boundaries at 3 and 2 photos, no-op disabled navigation, deselect, and scrollbars at 1024×720. Manual owner click testing remains recommended after update.

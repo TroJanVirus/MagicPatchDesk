@@ -52,12 +52,12 @@ func cover(hdc uintptr, x, y int32, title, art string, artURLs []string) {
 	p := []uint32{0x244F66, 0x584273, 0x31555B, 0x5C4C37, 0x384D7A, 0x364F47}
 	color := p[h%uint32(len(p))]
 	panel(hdc, ir(x, y, 52, 52), color, 13)
-	if art != "" && drawArt(hdc, art, x+2, y+2, 48, 48) {
+	if art != "" && drawArtFitted(hdc, art, x+2, y+2, 48, 48) {
 		return
 	}
 	// A stale or corrupt locally imported cover must not hide valid artwork
 	// already known from PatchHub or a matching Xbox Title ID.
-	if len(artURLs) != 0 && drawArt(hdc, scheduleCoverCandidates(artURLs), x+2, y+2, 48, 48) {
+	if len(artURLs) != 0 && drawArtFitted(hdc, scheduleCoverCandidates(artURLs), x+2, y+2, 48, 48) {
 		return
 	}
 	initial := "?"
@@ -89,6 +89,7 @@ func paint(hdc uintptr) {
 	case 0:
 		drawLibrary(hdc, w, h)
         if app.galleryOpen{drawPatchGallery(hdc,w,h)}
+        if app.coverOpen{drawGameCoverZoom(hdc,w,h)}
         if app.notesOpen{drawFullPatchNotes(hdc,w,h)}
         if app.outputPickerOpen{drawLibraryOutputChooser(hdc,w,h)}
 	case 1:
@@ -393,14 +394,32 @@ func drawLibrary(hdc uintptr, w, h int32) {
     }
 }
 func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
-    textWrapped(hdc,g.Title,x+22,top+10,width-43,52,app.fonts.Title,white)
-    textAt(hdc,fmt.Sprintf("%d patches · Cover: %s",len(g.Patches),coverStatus(g)),x+23,top+63,width-253,23,app.fonts.Small,muted)
-    button(hdc,"Check cover",ir(x+width-224,top+58,108,28),"cover-check",0,false)
-    button(hdc,"Copy details",ir(x+width-110,top+58,99,28),"cover-copy",0,false)
-    listY:=top+91
+    // Keep a consistent cover area within the selected game's header.
+    // The actual image remains aspect-fitted, never cropped or stretched.
+    coverRect:=ir(x+width-119,top+9,101,100)
+    titleWidth:=width-156
+    if titleWidth<90{titleWidth=90}
+    textWrapped(hdc,g.Title,x+22,top+11,titleWidth,61,app.fonts.Title,white)
+    textAt(hdc,fmt.Sprintf("%d patches available",len(g.Patches)),x+23,top+76,titleWidth,21,app.fonts.Small,muted)
+    textAt(hdc,"Select a patch below",x+23,top+95,titleWidth,15,app.fonts.Micro,muted)
+    panel(hdc,coverRect,surface2,11)
+    if artwork:=visibleGameCover(g); artwork!="" &&
+        drawArtFitted(hdc,artwork,coverRect.L+5,coverRect.T+5,
+            coverRect.R-coverRect.L-10,coverRect.B-coverRect.T-10){
+        if app.hoverAction=="cover-view"{
+            // Magnifier badge plus hand cursor advertises enlargement.
+            panel(hdc,ir(coverRect.R-32,coverRect.B-34,27,29),0x192D48,7)
+            textAt(hdc,"🔍",coverRect.R-29,coverRect.B-33,23,26,app.fonts.Medium,white)
+        }
+        addHit(coverRect,"cover-view",0)
+    }else{
+        txt(hdc,"No cover",coverRect,app.fonts.Small,muted,DT_CENTER|DT_SINGLELINE|DT_VCENTER)
+    }
+    listY:=top+116
     listRows:=3
-    if bottom-top<485 {listRows=2} // reserve record space at 720p-height
-    rowH:=int32(71)
+    if bottom-top<485 {listRows=2}
+    if bottom-top<385 {listRows=1}
+    rowH:=int32(60)
     app.patchViewport=ir(x+16,listY,width-32,int32(listRows)*rowH)
 	if app.patchScroll > len(g.Patches)-listRows {
 		app.patchScroll = len(g.Patches) - listRows
@@ -445,7 +464,7 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
     app.patchBar=drawScrollBar(hdc,ir(x+width-29,listY,11,int32(listRows)*rowH-5),
         app.patchScroll,len(g.Patches),listRows,"patch")
 	p := app.parsed
-	groupY := listY + rowH*int32(listRows) + 14
+	groupY := listY + rowH*int32(listRows) + 8
 	fill(hdc, ir(x+18, groupY-5, width-36, 1), 0x354258)
 	if p == nil {
 		txt(hdc, "Choose a patch above to review and toggle its records.", ir(x+25, groupY+16, width-51, 55), app.fonts.Regular, muted, DT_WORDBREAK)
@@ -460,15 +479,12 @@ func drawGameDetails(hdc uintptr, x, width, top, bottom int32, g core.Game) {
         }else if mediaDiscoveryRunning(chosen){
             textAt(hdc,"Finding images…",x+width-164,groupY+2,145,24,app.fonts.Small,muted)
         }else{
-            if reason:=mediaDiscoveryReason(chosen);reason!="" {
-                button(hdc,"Why no images?",ir(x+width-168,groupY-1,150,30),"gallery-explain",0,false)
-            }else{
-                button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
-            }
+            // Show the useful user action, not the former debug report button.
+            button(hdc,"Find images",ir(x+width-168,groupY-1,150,30),"gallery-discover",0,false)
         }
     }
 	textAt(hdc, "Toggle a group · + expands records · Read shows full comments and links.", x+23, groupY+24, width-43, 20, app.fonts.Small, 0x91A3BD)
-	rowY := groupY + 56
+	rowY := groupY + 48
     rowHeight:=int32(60) // two-line group preview plus a separate full comment action
     visible:=int((bottom-rowY-82)/rowHeight)
 	if visible < 1 {visible=1}

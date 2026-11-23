@@ -74,7 +74,22 @@ func drawPatchGallery(hdc uintptr,w,h int32){
         }
     }
     footerY:=y+height-51
-    button(hdc,"← Previous",ir(x+19,footerY,150,35),"gallery-prev",0,false)
+    // At the first or last page draw disabled controls with NO hit target.
+    previous:=ir(x+19,footerY,150,35)
+    if app.galleryPage>0{
+        button(hdc,"← Previous",previous,"gallery-prev",0,false)
+    }else{
+        panel(hdc,previous,0x283245,9)
+        txt(hdc,"← Previous",previous,app.fonts.Small,muted,DT_SINGLELINE|DT_CENTER|DT_VCENTER)
+        addHit(previous,"gallery-disabled",0)
+    }
     textAt(hdc,fmt.Sprintf("Image pair %d / %d",app.galleryPage+1,pages),x+width/2-87,footerY,174,35,app.fonts.Medium,white)
-    button(hdc,"Next →",ir(x+width-166,footerY,147,35),"gallery-next",0,false)
+    next:=ir(x+width-166,footerY,147,35)
+    if app.galleryPage+1<pages{
+        button(hdc,"Next →",next,"gallery-next",0,false)
+    }else{
+        panel(hdc,next,0x283245,9)
+        txt(hdc,"Next →",next,app.fonts.Small,muted,DT_SINGLELINE|DT_CENTER|DT_VCENTER)
+        addHit(next,"gallery-disabled",0)
+    }
 }

@@ -9,7 +9,6 @@ import (
 	"magicpatchdesk/core"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 )
 
@@ -71,24 +70,48 @@ func smokeVerifiedCoverDrawing() {
 		panic("GDI+ did not render a verified cover JPEG")
 	}
     if artDrawFailures[path]!="" { panic("Cover rendering retained an error after a successful draw") }
-    if coverStatus(core.Game{Title:"American Idol (Prototype)",Patches: []core.CatalogPatch{{TitleID:"434D0027"}}})!="Valid image cached" { panic("Cover diagnostic failed to recognise validated cached file") }
-	// The copyable report is deliberately limited to public game metadata,
-	// cache validity and categorized failures, never machine/user directories.
-	oldCat,oldSelected,oldTab:=app.cat,app.selectedGame,app.tab
-	app.cat=core.Catalog{Games:[]core.Game{{Title:"American Idol (Prototype)",Patches:[]core.CatalogPatch{{TitleID:"434D0027"}}}}}
-	app.selectedGame=0
-	app.tab=0
-	redraw()
-	sysCall(updateWindow,app.hwnd)
-	hasCheck,hasCopy:=false,false
-	for _,hit:=range app.hits {
-		if hit.Action=="cover-check" {hasCheck=true}
-		if hit.Action=="cover-copy" {hasCopy=true}
-	}
-	if !hasCheck||!hasCopy { panic("Selected game missing visible cover troubleshooting actions") }
-	report:=selectedCoverDiagnosticText()
-	if !strings.Contains(report,"434D0027.jpg")||!strings.Contains(report,"Cached valid: true") { panic("Cover diagnosis omits validated cached art") }
-	app.cat,app.selectedGame,app.tab=oldCat,oldSelected,oldTab
+    // The interface no longer exposes cover troubleshooting buttons; the
+    // same validated cover must appear in a fixed rectangle and open a modal.
+    oldCat,oldSelected,oldSelectedPatch,oldParsed,oldTab,oldCoverOpen:=
+        app.cat,app.selectedGame,app.selectedPatch,app.parsed,app.tab,app.coverOpen
+    app.cat=core.Catalog{Games:[]core.Game{{Title:"American Idol (Prototype)",
+        CoverURL:url,
+        Patches:[]core.CatalogPatch{{TitleID:"434D0027"}}}}}
+    app.selectedGame=0
+    app.selectedPatch=-1
+    app.parsed=nil
+    app.tab=0
+    app.coverOpen=false
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    foundPreview,foundOldDiagnostic:=false,false
+    for _,hit:=range app.hits{
+        if hit.Action=="cover-view"{
+            foundPreview=true
+            if hit.R.R-hit.R.L!=101||hit.R.B-hit.R.T!=100{
+                panic("Selected game cover does not have a constant preview size")
+            }
+        }
+        if hit.Action=="cover-check"||hit.Action=="cover-copy"||hit.Action=="gallery-explain"{
+            foundOldDiagnostic=true
+        }
+    }
+    if !foundPreview||foundOldDiagnostic{
+        panic("Cover preview missing or obsolete debugging controls still visible")
+    }
+    handle("cover-view",0)
+    if !app.coverOpen{panic("Cover click did not enlarge the image")}
+    redraw()
+    sysCall(updateWindow,app.hwnd)
+    foundClose:=false
+    for _,hit:=range app.hits{
+        if hit.Action=="cover-close"{foundClose=true;break}
+    }
+    if !foundClose{panic("Enlarged game cover cannot be closed")}
+    handle("cover-close",0)
+    if app.coverOpen{panic("Enlarged game cover did not close")}
+    app.cat,app.selectedGame,app.selectedPatch,app.parsed,app.tab,app.coverOpen=
+        oldCat,oldSelected,oldSelectedPatch,oldParsed,oldTab,oldCoverOpen
 	redraw()
 	sysCall(updateWindow,app.hwnd)
 	// Verify no temporary input is retained and normal UI painting resumes.
