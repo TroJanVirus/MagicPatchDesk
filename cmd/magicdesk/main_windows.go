@@ -541,13 +541,17 @@ func initApp() {
 	if sysCall(regClass, uintptr(unsafe.Pointer(&class))) == 0 {
 		panic("RegisterClassEx failed")
 	}
-	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW|WS_VISIBLE, 100, 80, 1320, 840, 0, 0, instance, 0)
+	app.hwnd = sysCall(createWindow, 0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(ptr("Magic Patch Desk | Powered by Patch Hub"))), WS_OVERLAPPEDWINDOW, 100, 80, 1320, 840, 0, 0, instance, 0)
 	if app.hwnd == 0 {
 		panic("CreateWindowEx failed")
 	}
 	updateWindowsTitleBarTheme()
 	sysCall(dragAccept, app.hwnd, 1)
+    // Create hidden, theme the non-client frame, then show exactly once.
+    // Make Windows repaint the caption before any background sync/work begins.
 	sysCall(showWindow, app.hwnd, SW_SHOW)
+    refreshWindowsFrame()
+    sysCall(updateWindow, app.hwnd)
     if smokeWindowsUI {
         smokePaintAndExit()
         return
@@ -557,7 +561,8 @@ func initApp() {
     // still see the cached catalogue and can run either check manually.
     if maintenancePref.NoAutoCheck {go runProtectedBackgroundTask("library_sync",reloadCatalog)}else{checkForNewRelease(true)}
 	if maintenancePref.AutoReports && isGitHubConnected() {go runProtectedBackgroundTask("library_sync",syncStoredReports)}
-	sysCall(updateWindow, app.hwnd)
+    redraw()
+    sysCall(updateWindow, app.hwnd)
     markCrashStage("ui_callback")
 	var m msg
 	for {
@@ -1282,8 +1287,6 @@ func handle(action string, index int) {
         setScrollSection(section,valueFromScrollTrack(scrollSectionBar(section),app.mouseY))
     case "patch-scroll-thumb","records-scroll-thumb","notes-scroll-thumb":
         // Drag handled directly by the mouse capture loop.
-    case "gallery-discover":
-        discoverSelectedPatchMedia(true)
     case "cover-view":
         if app.selectedGame>=0 && app.selectedGame<len(app.cat.Games) &&
             visibleGameCover(app.cat.Games[app.selectedGame])!="" {
